@@ -1,0 +1,8 @@
+{application
+,director
+,[{description, "Felxible, fast and powerful supervisor library for Erlang processes"}
+ ,{vsn, "17.05.04"}
+ ,{applications, [kernel, stdlib]}
+ ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
+ ,{licenses, ["BSD 3-Clause"]}
+ ,{links, ["https://github.com/Pouriya-Jahanbakhsh/director"]}]}.
