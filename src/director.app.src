@@ -5,4 +5,4 @@
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}
- ,{links, ["https://github.com/Pouriya-Jahanbakhsh/director"]}]}.
+ ,{links, [{"github", "https://github.com/Pouriya-Jahanbakhsh/director"}]}]}.
