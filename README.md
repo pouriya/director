@@ -1,5 +1,5 @@
 # Director
-Felxible, fast and powerful supervisor library for Erlang processes.  
+Flexible, fast and powerful supervisor library for Erlang processes.  
 
 ## synopsis
 ##### What is process supervisor?
