@@ -17,7 +17,7 @@ For example:
 * You can have 5 restarts with 1000 mili-seconds interval between them for specific child(ren).  
 * You can tell `director` to delete specific child(ren) from supervision tree after 10th restart.  
 * You can tell `director` to stop and exit supervisor with crash reason of specific child(ren) process.  
-* You can you tell `director` to restart specific child if it crashed with reason `oops` and restart it after 5000 mili-second if it crashed with reason `damn` and finally delete from supervisor if it crashed with reason `bye`.  
+* You can tell `director` to restart specific child if it crashed with reason `oops` and restart it after 5000 mili-second if it crashed with reason `damn` and finally delete from supervisor if it crashed with reason `bye`.  
 
 You can make it like OTP/supervisor `simple_one_for_one` in efficient and flexible approach.
 ...
