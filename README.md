@@ -9,44 +9,48 @@ A child process can either be another supervisor or a worker process.
 Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.  
 
 
-##### Where to use Director instead of standard OTP/supervisor?
-Many places, for example:  
-Where you want just 3 restarts.  
-Where you want 5 restarts with 1000 mili-seconds interval between them.  
-Where you want to delete child from supervisor after 10th restart.  
-Where you want to stop supervisor with crash reason of child process.  
-Where you want to restart child if it crashed with reason `oops` and restart it after 5000 mili-second if it crashed with reason `damn` and finally delete from supervisor it if it crashed with reason `bye`.  
+##### Can we use Director instead of standard OTP/supervisor?
+Yes, you can also call OTP/supervisor API for your `director` process !
+
+##### What is advantage of using Director instead of OTP/supervisor?  
+For example:  
+* You can have 5 restarts with 1000 mili-seconds interval between them for specific child(ren).  
+* You can tell `director` to delete specific child(ren) from supervision tree after 10th restart.  
+* You can tell `director` to stop and exit supervisor with crash reason of specific child(ren) process.  
+* You can you tell `director` to restart specific child if it crashed with reason `oops` and restart it after 5000 mili-second if it crashed with reason `damn` and finally delete from supervisor if it crashed with reason `bye`.  
+
+You can make it like OTP/supervisor `simple_one_for_one` in efficient and flexible approach.
 ...
 
 ## Download
 ```sh
-Pouriya@Jahanbakhsh ~ $ git clone https://github.com/Pouriya-Jahanbakhsh/director.git
+~ $ git clone https://github.com/Pouriya-Jahanbakhsh/director.git
 ```
 
 ## Compile
 Note that **OTP>=19** required (if you want to upgrade it using `release_handler`).  
 Go to `director` and use `rebar` or `rebar3`.
 ```sh
-Pouriya@Jahanbakhsh ~ $ cd director
+~ $ cd director
 ```
 rebar
 ```sh
-Pouriya@Jahanbakhsh ~/director $ rebar compile
+~/director $ rebar compile
 ==> director_test (compile)
 Compiled src/director.erl
-Pouriya@Jahanbakhsh ~/director $
+~/director $
 ```
 rebar3
 ```sh
-Pouriya@Jahanbakhsh ~/director $ rebar3 compile
+~/director $ rebar3 compile
 ===> Verifying dependencies...
 ===> Compiling director
-Pouriya@Jahanbakhsh ~/director $
+~/director $
 ```
 
 
 ## How it works
-**director** needs a callback module (like OTP supervisor).  
+**director** needs a callback module (like OTP/supervisor).  
 In callback module you should export function `init/1`.  
 What `init/1` should return? wait, i'll explain step by step.
 ```erlang
@@ -77,7 +81,7 @@ undefined
 5> 
 ```
 Now we have a supervisor without children.  
-Good news is that **director** comes with full OTP/supervisor API and it has its advanced features and specific approach too.
+Good news is that **director** comes with full OTP/supervisor API and it has its advanced features and specific approachs too.
 ```erlang
 5> director:which_children(Pid). %% You can use supervisor:which_children(Pid) too :)
 []
@@ -98,7 +102,7 @@ OK, I'll make simple `gen_server` and give it to our **director**.
 
 
 start_link() ->
-    gen_server:start_link(?MODULE, null, []).
+    gen_server:start_link(?MODULE, undefined, []).
 
 init(_GenServerInitArg) ->
     {ok, state}.
@@ -119,7 +123,7 @@ bar.erl:2: Warning: undefined callback function handle_info/2 (behaviour 'gen_se
 9> Id = bar_id.
 bar_id
 
-%% You should tell diector about start module and function for your process.
+%% You should tell director about start module and function for your process.
 %% Should be tuple {Module, Function, Args}.
 %% If your start function doesn't need arguments (like our example)
 %% just use {Module, function}.
@@ -127,11 +131,11 @@ bar_id
 {bar,start_link}
 
 %% What is your plan for your process?
-%% I asked you some questions at the first of this README file.
 %% Plan should be an empty list or list with n elemenst.
 %% Every element can be one of
 %% 'restart'
 %% 'delete'
+%% 'wait'
 %% 'stop'
 %% {'stop', Reason::term()}
 %% {'restart', Time::pos_integer()}
@@ -183,7 +187,7 @@ true
 
 %% Check all running pids again
 19> director:get_pids(Pid).                       
-[{bar_id,<0.174.0>}] %% changed (restarted)
+[{bar_id,<0.174.0>}] %% pid was changed (restarted)
 
 %% I want to kill that process again
 %% and i will check children before spending time
@@ -225,14 +229,18 @@ Lets see other acceptable keys for `Childspec` map.
 -type  start() :: {module(), function()} % default Args is []
                 | mfa().
 
-%% I explained 'restart', 'delete' and {'restart', MiliSeconds}
-%% 'stop': director will crash with reason {stop, [info about process crash]}.
+%% I explained 'restart' and {'restart', MiliSeconds}
+%%
+%% 'stop': director will crash with crash reason of child process.
+%%
 %% {'stop', Reason}: director exactly will crash with reason Reason.
+%%
 %% 'wait': director will not restart process, 
 %%  but you can restart it using director:restart_child/2 and you can use supervisor:restart_child/2 too.
+%%
 %% fun/2: director will execute fun with 2 arguments.
 %%  First argument is crash reason for process and second argument is restart count for process.
-%%  Fun should return terms like other plan elements.
+%%  Fun should return one of previous terms.
 %% Default plan is:
 %% [fun
 %%      (normal, _RestartCount) ->
@@ -249,6 +257,7 @@ Lets see other acceptable keys for `Childspec` map.
                         | {'restart', pos_integer()}
                         | 'wait'
                         | 'stop'
+                        | 'delete'
                         | {'stop', Reason::term()}
                         | fun((Reason::term()
                               ,RestartCount::pos_integer()) ->
@@ -256,11 +265,12 @@ Lets see other acceptable keys for `Childspec` map.
                                 | {'restart', pos_integer()}
                                 | 'wait'
                                 | 'stop'
+                                | 'delete'
                                 | {'stop', Reason::term()}).
 
 %% How much time you want to run plan?
-%% Default value of 'count' is 1.
-%% Again, What if i want to restart my process 500 times?
+%% Default value is 1.
+%% What if i want to restart my process 500 times?
 %%  Do i need a list with 500 'restart's?
 %%  You just need plan ['restart'] and 'count' 500 :)
 -type  count() :: 'infinity' | non_neg_integer().
@@ -278,7 +288,7 @@ Lets see other acceptable keys for `Childspec` map.
 
 %% :)
 %% Default value is 'false'
-%% I'll explan it 
+%% I'll explan it later.
 -type  append() :: boolean().
 ```
 
@@ -290,7 +300,7 @@ Edit `foo` module:
         ,init/1]).
 
 start_link() ->
-    director:start_link({local, foo_sup}, ?MODULE, null).
+    director:start_link({local, foo_sup}, ?MODULE, undefined).
 
 init(_InitArg) ->
     Childspec = #{id => bar_id
@@ -361,7 +371,7 @@ true
 actually always we have one `DefaultChildspec`.
 ```erlang
 14> director:get_default_childspec(foo_sup).
-{ok,#{count => 0,modules => [],plan => [],terminate_timeout => 0}}
+#{count => 0,modules => [],plan => [],terminate_timeout => 0}
 
 15>
 ```
@@ -408,10 +418,10 @@ Restart the shell:
 [{bar_id,<0.112.0>}]
 
 4> director:get_default_childspec(foo_sup).
-{ok,#{count => 5,
-      plan => [restart],
-      start => {bar,start_link,[]},
-      terminate_timeout => 1000}}
+#{count => 5,
+ plan => [restart],
+ start => {bar,start_link,[]},
+ terminate_timeout => 1000}
 
 5> Childspec1 = #{id => 1, append => true},
 %% Default 'plan' is [Fun], so 'plan' will be [restart] ++ [Fun] or [restart, Fun].
@@ -499,6 +509,7 @@ ok
 
 7> erlang:exit(Pid, kill).
 *DBG* director "dname" got exit signal for pid "<0.107.0>" with reason "killed"
+*DBG* director "dname" is running plan "{restart, 5000}" for id "bar_id"
 true
 
 =SUPERVISOR REPORT==== 4-May-2017::12:37:41 ===
@@ -523,7 +534,7 @@ true
 8>
 
 %% After 5000 mili-seconds 
-*DBG* director "dname" got timer event for child-id "bar_id" with timer reference "#Ref<0.0.1.176>"
+*DBG* director "dname" got restart event for child-id "bar_id" with timer reference "#Ref<0.0.1.176>"
 
 =PROGRESS REPORT==== 4-May-2017::12:37:46 ===
           supervisor: dname
@@ -547,17 +558,6 @@ true
 
 
 ## Warnings
-* Do not use `'count'=>infinity` and element `restart` in your plan.  
-like:
-```erlang
-Childspec = #{id => foo
-             ,start => {bar, baz, [arg1, arg2]}
-             ,plan => [restart]
-             ,count => infinity}.
-```
-If your process did not start after crash, **director** will lock and retries to restart your process `infinity` times !
-If you are using `infinity` for `'count'`, always use `{restart, MiliSeconds}` in `'plan'` instead of `restart`.
-
 * If you have plans like:
 ```erlang
 Childspec1 = #{id => foo
@@ -598,23 +598,10 @@ foo
 ```
 
 
-### API documentation
-rebar:
-```sh
-Pouriya@Jahanbakhsh ~/director $ rebar doc
-```
-rebar3:
-```sh
-Pouriya@Jahanbakhsh ~/director $ rebar3 edoc
-```
-erl
-```sh
-Pouriya@Jahanbakhsh ~/director $ mkdir -p doc && 
-                                 erl -noshell\
-                                     -eval "edoc:file(\"./src/director.erl\", [{dir, \"./doc\"}]),init:stop()."
-```
-
-After running one of the above commands, HTML documentation should be in `doc` directory.
 
 ### License
 `BSD 3-Clause`
+
+### Links
+[**Github**](https://github.com/Pouriya-Jahanbakhsh/director)  
+This documentation is availible in [http://docs.codefather.org/director](http://docs.codefather.org/director) too.

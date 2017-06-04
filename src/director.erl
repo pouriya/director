@@ -34,7 +34,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% --------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.05.04
+%% @version  17.6.4
 %% @doc
 %%           Flexible, fast and powerful process supervisor.
 %% @end
@@ -43,7 +43,6 @@
 
 -module(director).
 -author("pouriya.jahanbakhsh@gmail.com").
--vsn("17.05.04").
 
 
 %% ---------------------------------------------------------------------
@@ -143,8 +142,6 @@
 %%                     delete;
 %%                 ({shutdown, _Reason}, _RestartCount) ->
 %%                     delete;
-%%                 (_Reason, 5) ->
-%%                     stop;
 %%                 (_Reason, _RestartCount) ->
 %%                     restart
 %%             end]
@@ -163,13 +160,15 @@
                       ,'modules' => modules()
                       ,'append' => append()}.
 -type  id() :: term().
--type  start() :: {module(), function()} % default Args is []
+-type  start() :: module() % default is {module(), start_link, []}
+                | {module(), function()} % default Args is []
                 | mfa().
 -type  plan() :: [plan_element()] | [].
 -type   plan_element() :: 'restart'
                         | {'restart', pos_integer()}
                         | 'wait'
                         | 'stop'
+                        | {'stop', 'reason'}
                         | {'stop', Reason::term()}
                         | fun((Reason::term()
                               ,RestartCount::pos_integer()) ->
@@ -177,6 +176,7 @@
                                 | {'restart', pos_integer()}
                                 | 'wait'
                                 | 'stop'
+                                | {'stop', 'reason'}
                                 | {'stop', Reason::term()}).
 -type  count() :: 'infinity' | non_neg_integer().
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
@@ -249,23 +249,17 @@ init(InitArg) ->
 
 
 
+%% Dependencies:
+%% all macros
+-include("internal/director_defaults.hrl").
 
--record(director_child_record, {id
-                               ,pid
-                               ,plan
-                               ,count
-                               ,count2
-                               ,restart_count
-                               ,start
-                               ,plan_element_index
-                               ,plan_length
-                               ,timer_reference
-                               ,terminate_timeout
-                               ,extra % for debug
-                               ,modules
-                               ,type
-                               ,append}).
--define(CHILD, director_child_record).
+
+
+
+
+%% Dependecies:
+%%  #?CHILD{}
+-include("internal/director_child.hrl").
 
 
 
@@ -277,65 +271,6 @@ init(InitArg) ->
                                ,table
                                ,default_childspec}).
 -define(STATE, director_state_record).
-
-
-
-
-
--define(DEFAULT_DEBUG, []).
--define(DEFAULT_PLAN_ELEMENT, fun director:default_plan_element_fun/2).
--define(DEFAULT_PLAN, [?DEFAULT_PLAN_ELEMENT]).
--define(DEFAULT_COUNT, 1).
--define(DEFAULT_TYPE, worker).
--define(DEFAULT_APPEND, false).
--define(DEFAULT_WORKER_TERMINATE_TIMEOUT, 1000).
--define(DEFAULT_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
-
-
-
-
-
-
--define(DEFAULT_DEFAULT_CHILDSPEC_PLAN, []).
--define(DEFAULT_DEFAULT_CHILDSPEC_COUNT, 0).
--define(DEFAULT_DEFAULT_CHILDSPEC_TERMINATE_TIMEOUT, 0).
--define(DEFAULT_DEFAULT_CHILDSPEC_MODULES, []).
--define(DEFAULT_DEFAULT_CHILDSPEC
-       ,#{plan => ?DEFAULT_DEFAULT_CHILDSPEC_PLAN
-         ,count => ?DEFAULT_DEFAULT_CHILDSPEC_COUNT
-         ,terminate_timeout =>
-          ?DEFAULT_DEFAULT_CHILDSPEC_TERMINATE_TIMEOUT
-         ,modules => ?DEFAULT_DEFAULT_CHILDSPEC_MODULES}).
-
-
-
-
-
--define(DEFAULT_START_OPTIONS, []).
--define(DEFAULT_STOP_TIMEOUT, 5000).
--define(DEFAULT_CALL_TIMEOUT, 5000).
--define(GEN_CALL_TAG, '$gen_call').
--define(COUNT_CHILDREN_TAG, 'count_children').
--define(DELETE_CHILD_TAG, 'delete_child').
--define(GET_CHILDSPEC_TAG, 'get_childspec').
--define(RESTART_CHILD_TAG, 'restart_child').
--define(START_CHILD_TAG, 'start_child').
--define(TERMINATE_CHILD_TAG, 'terminate_child').
--define(WHICH_CHILDREN_TAG, 'which_children').
--define(GET_PID_TAG, 'get_pid').
--define(GET_PIDS_TAG, 'get_pids').
--define(CHANGE_PLAN_TAG, 'change_plan').
--define(GET_PLAN_TAG, 'get_plan').
--define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
--define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
-
-
-
-
-
-
--define(ETS_TABLE_OPTIONS, [{keypos,2}]).
--define(trapping_exits, erlang:process_flag(trap_exit, true)).
 
 
 
@@ -518,8 +453,8 @@ check_childspec(childspec()) ->
 %%      Returns childspec of child.
 %% @end
 check_childspec(ChildSpec) ->
-    case check_and_fix_childspec(ChildSpec
-                                ,?DEFAULT_DEFAULT_CHILDSPEC) of
+    case director_check:check_childspec(ChildSpec
+                                       ,?DEFAULT_DEFAULT_CHILDSPEC) of
         {ok, _FixedChildSpec} ->
             ok;
         {error, _Reason}=Error ->
@@ -602,7 +537,7 @@ get_pids(Director) ->
 
 -spec
 get_default_childspec(director()) ->
-    {'ok', default_childspec()}.
+    default_childspec().
 %% @doc
 %%      Returns director default childspec.
 %% @end
@@ -617,7 +552,7 @@ get_default_childspec(Director) ->
 
 -spec
 change_default_childspec(director(), default_childspec()) ->
-    {'ok', default_childspec()}.
+    {'ok', default_childspec()} | {'error', Reason::term()}.
 %% @doc
 %%      Changes director default childspec.
 %%      Be careful about using this function.
@@ -760,21 +695,16 @@ stop(Director, Reason, Timeout) ->
 -spec
 default_plan_element_fun(Reason::term()
                         ,RestartCount::non_neg_integer()) ->
-    'restart'                      |
-    'stop'                         |
-    'wait'                         |
-    'delete'                       |
-    {'restart', MS::pos_integer()} |
-    {'stop', Reason2::term()}.
+    'delete' | 'restart'.
 %% @doc
 %%      Deletes child if it crashed with reasons 'normal', 'shutdown' or
-%%      {'shutdown', Any} and restart it if crashed other reasons.
+%%      {'shutdown', Any} and restart it if crashed with other reasons.
 %% @end
 default_plan_element_fun(normal, _RestartCount) ->
     delete;
 default_plan_element_fun(shutdown, _RestartCount) ->
     delete;
-default_plan_element_fun({shutdown, normal}, _RestartCount) ->
+default_plan_element_fun({shutdown, _Reason}, _RestartCount) ->
     delete;
 default_plan_element_fun(_Other, _Count) ->
     restart.
@@ -973,7 +903,7 @@ get_pids(Director, Timeout) ->
 
 -spec
 get_default_childspec(director(), timeout()) ->
-    {'ok', default_childspec()}.
+    default_childspec().
 %% @doc
 %%      Returns director default childspec.
 %% @end
@@ -988,7 +918,7 @@ get_default_childspec(Director, Timeout) ->
 
 -spec
 change_default_childspec(director(), default_childspec(), timeout()) ->
-    {'ok', default_childspec()}.
+    {'ok', default_childspec()} | {'error', Reason::term()}.
 %% @doc
 %%      Changes director default childspec.
 %%      Be careful about using this function.
@@ -1003,7 +933,7 @@ change_default_childspec(Director, ChildSpec, Timeout) ->
 
 
 %% ---------------------------------------------------------------------
-%% gen callback:
+%% 'gen' callback:
 
 
 
@@ -1014,14 +944,12 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
-    Dbg = debug_options(Name, Opts),
-    ?trapping_exits,
+    Dbg = director_debug:debug_options(Name, Opts),
+    erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
-            TableName =
-                erlang:list_to_atom(erlang:pid_to_list(erlang:self())),
-            Table = ets:new(TableName, ?ETS_TABLE_OPTIONS),
-            case start_children(Children, Table, Name) of
+            Table = director_table:create(),
+            case start_children(Name, Children, Table) of
                 ok ->
                     State = #?STATE{name = Name
                                    ,module = Mod
@@ -1029,12 +957,16 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                    ,table = Table
                                    ,default_childspec = DefChildSpec},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
+                    %exit(element(2, (catch loop(Parent, Dbg, State))));
                     loop(Parent, Dbg, State);
                 {error, Reason}=Error ->
                     unregister_name(Name0),
                     proc_lib:init_ack(Starter, Error),
                     erlang:exit(Reason)
             end;
+        ignore ->
+            proc_lib:init_ack(Starter, ignore),
+            erlang:exit(normal);
         {error, Reason}=Error ->
             unregister_name(Name0),
             proc_lib:init_ack(Starter, Error),
@@ -1045,7 +977,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
 
 
 %% ---------------------------------------------------------------------
-%% sys callbacks:
+%% 'sys' callbacks:
 
 
 
@@ -1082,9 +1014,9 @@ system_get_state([State|_]) ->
 
 
 %% @hidden
-system_replace_state(ReplaceStateFun, [State|_]) ->
+system_replace_state(ReplaceStateFun, [State|Rest]) ->
     NewState = ReplaceStateFun(State),
-    {ok, NewState, [NewState]}.
+    {ok, NewState, [NewState|Rest]}.
 
 
 
@@ -1096,7 +1028,7 @@ system_replace_state(ReplaceStateFun, [State|_]) ->
 %% @hidden
 system_code_change([#?STATE{module = Mod
                            ,init_argument = InitArg
-                           ,table = Table}=State|_]
+                           ,table = Table}=State|Rest]
                   ,_Module
                   ,_OldVsn
                   ,_Extra) ->
@@ -1107,21 +1039,22 @@ system_code_change([#?STATE{module = Mod
                     UpdateTable =
                         fun(#?CHILD{pid = Pid, extra = Extra}=LastChild
                            ,CurrentChild) ->
-                            ok = do_delete_child(LastChild, Table),
+                            director_table:delete(Table, LastChild),
                             NewChild =
                                 CurrentChild#?CHILD{pid = Pid
                                                    ,extra = Extra},
-                            ok = insert_or_update_child(NewChild, Table)
+                            director_table:insert(Table, NewChild)
                         end,
                     [UpdateTable(LastChild, CurrentChild)
                     || {LastChild, CurrentChild} <- ChildrenR2],
                     {ok
-                    ,[State#?STATE{default_childspec = DefChildSpec}]};
+                    ,[State#?STATE{default_childspec = DefChildSpec}
+                     |Rest]};
                 {error, _Reason}=Error ->
                     Error
             end;
         ignore ->
-            {ok, [State]};
+            {ok, [State|Rest]};
         {error, _Reason}=Error ->
             Error
     end.
@@ -1140,12 +1073,13 @@ system_code_change([#?STATE{module = Mod
 
 
 loop(Parent, Dbg, State) ->
-    Msg =
-        receive
-            Msg0 ->
-                Msg0
-        end,
-    process_message(Parent, Dbg, State, Msg).
+    process_message(Parent
+                   ,Dbg
+                   ,State
+                   ,receive
+                        Msg ->
+                            Msg
+                    end).
 
 
 
@@ -1155,32 +1089,53 @@ loop(Parent, Dbg, State) ->
 process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
-               ,{?GEN_CALL_TAG, From, Request}) ->
-    Dbg2 = debug(Dbg, Name, {in, {call, From, Request}}),
-    {Dbg3, State2} = process_request(Dbg2, State, From, Request),
+               ,{?GEN_CALL_TAG, From, Request}=Msg) ->
+    {Dbg3, State2} = process_request(director_debug:debug(Dbg
+                                                         ,Name
+                                                         ,Msg)
+                                    ,State
+                                    ,From
+                                    ,Request),
     loop(Parent, Dbg3, State2);
 
 process_message(Parent
                ,Dbg
                ,#?STATE{name= Name}=State
-               ,{'EXIT', Pid, Reason}) ->
-    Dbg2 = debug(Dbg, Name, {in, {exit, Pid, Reason}}),
-    process_exit(Parent, Dbg2, State, Pid, Reason);
+               ,{'EXIT', Pid, Reason}=Msg) ->
+    process_exit(Parent
+                ,director_debug:debug(Dbg, Name, Msg)
+                ,State
+                ,Pid
+                ,Reason);
 
 process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
-               ,{timeout, TimerRef, Id}) ->
-    Dbg2 = debug(Dbg, Name, {timeout, TimerRef, Id}),
-    {Dbg3, State2} = process_timeout(Dbg2, State, TimerRef, Id),
-    loop(Parent, Dbg3, State2);
+               ,{timeout, TimerRef, Id}=Msg) ->
+    {Dbg2, State2} = process_timeout(director_debug:debug(Dbg
+                                                         ,Name
+                                                         ,Msg)
+                                    ,State
+                                    ,TimerRef
+                                    ,Id),
+    loop(Parent, Dbg2, State2);
+
+process_message(Parent
+               ,Dbg
+               ,State
+               ,{cancel_timer, _TimerRef, _Result}) ->
+    loop(Parent, Dbg, State);
 
 process_message(Parent
                ,Dbg
                ,#?STATE{module = Mod}=State
                ,{system, From, Msg}) ->
-    NewState = [State,{supervisor, [{"Callback", Mod}]}],
-    sys:handle_system_msg(Msg, From, Parent, ?MODULE, Dbg, NewState);
+    sys:handle_system_msg(Msg
+                         ,From
+                         ,Parent
+                         ,?MODULE
+                         ,Dbg
+                         ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{name = Name}=State, Msg) ->
     error_logger:error_msg("Director \"~p\" received unexpected message"
@@ -1198,7 +1153,7 @@ process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,?COUNT_CHILDREN_TAG) ->
-    Specs = ets:info(Table, size),
+    Specs = director_table:count(Table),
     Fun =
         fun(#?CHILD{pid = Pid, type = Type}
            ,{Actives, Sups, Workers}) ->
@@ -1223,69 +1178,52 @@ process_request(Dbg
              ,{active, Actives}
              ,{supervisors, Sups}
              ,{workers, Workers}],
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?DELETE_CHILD_TAG, Id}) ->
     Result =
-        case lookup_child_using_its_id(Id, Table) of
+        case director_table:lookup(Table, Id) of
             not_found ->
                 {error, not_found};
             #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
                 {error, running};
-            Child ->
-                ok = do_delete_child(Child, Table)
+            _Child ->
+                ok = director_table:delete(Table, Id)
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?GET_CHILDSPEC_TAG, Term}) ->
     Result =
-        case lookup_child_using_its_id(Term, Table) of
+        case director_table:lookup(Table, Term) of
             not_found ->
                 if
                     erlang:is_pid(Term) ->
-                        case lookup_child_using_its_pid(Term, Table) of
+                        case director_table:lookup_by_pid(Table
+                                                         ,Term) of
                             not_found ->
                                 {error, not_found};
                             Child ->
-                                {ok, child_record_to_childspec(Child)}
+                                {ok, director_wrapper:c2cs(Child)}
                         end;
                     true ->
                         {error, not_found}
                 end;
             Child ->
-                {ok, child_record_to_childspec(Child)}
+                {ok, director_wrapper:c2cs(Child)}
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
-    Result =
-        case lookup_child_using_its_id(Id, Table) of
-            not_found ->
-                {error, not_found};
-            #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
-                {error, running};
-            Child ->
-                case do_start_child(Child, Table, Name, normal) of
-                    {ok, restarting} ->
-                        {error, restarting};
-                    Other ->
-                        Other
-                end
-        end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, do_restart_child(Name, Id, Table)), State};
 
 process_request(Dbg
                ,#?STATE{table = Table
@@ -1294,47 +1232,26 @@ process_request(Dbg
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
     Result =
-        case check_and_fix_childspec(ChildSpec, DefChildSpec) of
-            {ok, #?CHILD{id = Id}=Child} ->
-                case lookup_child_using_its_id(Id, Table) of
-                    not_found ->
-                        do_start_child(Child, Table, Name, normal);
-                    #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
-                        {error, {already_started, Pid}};
-                    _Child ->
-                        {error, already_present}
-                end;
+        case director_check:check_childspec(ChildSpec, DefChildSpec) of
+            {ok, Child} ->
+                do_start_child(Name, Child, Table);
             {error, _Reason}=Error ->
                 Error
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
     Result =
-        case lookup_child_using_its_id(Term, Table) of
+        case do_terminate_child(Name, Term, Table) of
+            ok ->
+                ok;
             not_found ->
-                if
-                    erlang:is_pid(Term) ->
-                        case lookup_child_using_its_pid(Term, Table) of
-                            not_found ->
-                                {error, not_found};
-                            Child ->
-                                ok = do_terminate_child(Table
-                                                       ,Name
-                                                       ,Child)
-                        end;
-                    true ->
-                        {error, not_found}
-                end;
-            Child ->
-                ok = do_terminate_child(Table, Name, Child)
+                {error, not_found}
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{name = Name, table = Table}=State
@@ -1344,35 +1261,33 @@ process_request(Dbg
                                               ,pid = Pid
                                               ,type = Type
                                               ,modules = Mods}
-             <- ets:tab2list(Table)],
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+             <- director_table:tab2list(Table)],
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?GET_PLAN_TAG, Id}) ->
     Result =
-        case lookup_child_using_its_id(Id, Table) of
+        case director_table:lookup(Table, Id) of
             not_found ->
                 {error, not_found};
             #?CHILD{plan = Plan} ->
                 {ok, Plan}
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?CHANGE_PLAN_TAG, Id, Plan}) ->
     Result =
-        case filter_plan(Plan) of
+        case director_check:filter_plan(Plan) of
             {ok, Plan2} ->
-                case lookup_child_using_its_id(Id, Table) of
+                case director_table:lookup(Table, Id) of
                     not_found ->
                         {error, not_found};
-                    Child1 ->
+                    Child ->
                         PlanElemIndex =
                             if
                                 Plan =:= [] ->
@@ -1381,25 +1296,24 @@ process_request(Dbg
                                     1
                             end,
                         PlanLen = erlang:length(Plan2),
-                        Child2 = Child1#?CHILD{plan = Plan2
-                                              ,plan_element_index =
+                        Child2 = Child#?CHILD{plan = Plan2
+                                             ,plan_element_index =
                                                      PlanElemIndex
-                                              ,plan_length = PlanLen
-                                              ,count2 = 0},
-                        ok = insert_or_update_child(Child2, Table)
+                                             ,plan_length = PlanLen
+                                             ,count2 = 0},
+                        ok = director_table:insert(Table, Child2)
                 end;
             {error, _Reason}=Error ->
                 Error
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,{?GET_PID_TAG, Id}) ->
     Result =
-        case lookup_child_using_its_id(Id, Table) of
+        case director_table:lookup(Table, Id) of
             not_found ->
                 {error, not_found};
             #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
@@ -1407,25 +1321,22 @@ process_request(Dbg
             #?CHILD{pid = Other} ->
                 {error, Other}
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
                ,?GET_PIDS_TAG) ->
     Pids = [{Id, Pid} || #?CHILD{pid = Pid, id = Id}
-           <- ets:tab2list(Table), erlang:is_pid(Pid)],
-    Dbg2 = reply(Dbg, Name, From, Pids),
-    {Dbg2, State};
+           <- director_table:tab2list(Table), erlang:is_pid(Pid)],
+    {reply(Dbg, Name, From, Pids), State};
 
 process_request(Dbg
                ,#?STATE{name = Name
                        ,default_childspec = DefChildSpec}=State
                ,From
                ,?GET_DEFAULT_CHILDSPEC) ->
-    Dbg2 = reply(Dbg, Name, From, {ok, DefChildSpec}),
-    {Dbg2, State};
+    {reply(Dbg, Name, From, DefChildSpec), State};
 
 process_request(Dbg
                ,#?STATE{table = Table
@@ -1434,37 +1345,22 @@ process_request(Dbg
                ,From
                ,{?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}) ->
     {State2, Result} =
-        case check_and_fix_default_childspec(ChildSpec) of
+        case director_check:check_default_childspec(ChildSpec) of
             {ok, DefChildSpec2} ->
-                AppendTrueChildren2 =
-                    [seprate_children(child_record_to_childspec(Child)
-                                     ,DefChildSpec)
-                    || Child <- lookup_append_true_children(Table)],
-                Combine =
-                    fun
-                        (Child) ->
-                            Child2 = combine_children(Child
-                                                     ,DefChildSpec2
-                                                     ,true),
-                            Child3 = childspec_to_child(Child2),
-                            ok = insert_or_update_child(Child3, Table)
-                    end,
-                [Combine(Child) || Child <- AppendTrueChildren2],
+                director_table:separate_children(DefChildSpec, Table),
+                director_table:combine_children(DefChildSpec2, Table),
                 {State#?STATE{default_childspec = DefChildSpec2}, ok};
             {error, _Reason}=Error ->
                 {State, Error}
         end,
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State2};
+    {reply(Dbg, Name, From, Result), State2};
 
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
     error_logger:error_msg("Director \"~p\" received unexpected call: \"
                            ""~p\"~n"
                           ,[Name, Other]),
-    Result = {error, {unknown_call, Other}},
-    Dbg2 = reply(Dbg, Name, From, Result),
-    {Dbg2, State}.
+    {reply(Dbg, Name, From, {error, {unknown_call, Other}}), State}.
 
 
 
@@ -1479,17 +1375,17 @@ process_exit(Parent
             ,#?STATE{table = Table, name = Name}=State
             ,Pid
             ,Reason) ->
-    case lookup_child_using_its_pid(Pid, Table) of
+    case director_table:lookup_by_pid(Table, Pid) of
         not_found ->
             loop(Parent, Dbg, State);
-        Child1 ->
-            error_report(Name
-                        ,child_terminated
-                        ,Reason
-                        ,child_record_to_proplist(Child1)),
-            Child2 = Child1#?CHILD{pid = undefined, extra = undefined},
-            ok = insert_or_update_child(Child2, Table),
-            {Dbg2, State2} = handle_exit(Dbg, State, Reason, Child2),
+        Child ->
+            director_debug:error_report(Name
+                                       ,child_terminated
+                                       ,Reason
+                                       ,Child),
+            Child2 = Child#?CHILD{pid = undefined, extra = undefined},
+            ok = director_table:insert(Table, Child2),
+            {Dbg2, State2} = handle_exit(Dbg, State, Child2, Reason),
             loop(Parent, Dbg2, State2)
     end.
 
@@ -1498,125 +1394,124 @@ process_exit(Parent
 
 
 
+handle_exit(Dbg
+           ,#?STATE{name = Name}=State
+           ,#?CHILD{plan = []}=Child
+           ,Reason) ->
+    director_debug:error_report(Name
+                               ,empty_plan_child_terminated
+                               ,Reason
+                               ,Child),
+    terminate(Dbg
+             ,State
+             ,{empty_plan_child_terminated
+              ,[{child, director_wrapper:c_r2p(Child)}
+               ,{child_last_error_reason, Reason}]});
 
 handle_exit(Dbg
            ,#?STATE{name = Name}=State
-           ,Reason
-           ,#?CHILD{plan = Plan
-                   ,count = Count
-                   ,count2 = Count2}=ChildR) ->
-    if
-        Count =:= Count2 -> % Count =/= infinity
-            error_report(Name
-                        ,reached_max_restart_plan
-                        ,Reason
-                        ,child_record_to_proplist(ChildR)),
-            terminate(Dbg
-                     ,State
-                     ,{reached_max_restart_plan
-                      ,[{child, child_record_to_proplist(ChildR)}
-                       ,{child_last_error_reason, Reason}]});
-        Plan =:= [] ->
-            terminate(Dbg
-                     ,State
-                     ,{empty_plan_child_terminated
-                      ,[{child, child_record_to_proplist(ChildR)}
-                       ,{child_last_error_reason, Reason}]});
-        true -> % and (Count =:= infinity or Count < Count2)
-            run_plan_element(Dbg, State, Reason, ChildR)
-    end.
+           ,#?CHILD{count = Count
+                   ,count2 = _Count2 = Count}=Child
+           ,Reason) ->
+    director_debug:error_report(Name
+                               ,reached_max_restart_plan
+                               ,Reason
+                               ,Child),
+    terminate(Dbg
+             ,State
+             ,{reached_max_restart_plan
+              ,[{child, director_wrapper:c_r2p(Child)}
+               ,{child_last_error_reason, Reason}]});
 
-
-
-
-
-
-
-run_plan_element(Dbg
-                ,#?STATE{name = Name, table = Table}=State
-                ,Reason
-                ,#?CHILD{plan = Plan
-                        ,count2 = Count2
-                        ,restart_count = ResCount
-                        ,plan_element_index = PlanElemIndex
-                        ,plan_length = PlanLen}=Child1) ->
+handle_exit(Dbg
+           ,#?STATE{name = Name, table = Table}=State
+           ,#?CHILD{id = Id
+                   ,plan = Plan
+                   ,count2 = Count2
+                   ,restart_count = ResCount
+                   ,plan_element_index = PlanElemIndex
+                   ,plan_length = PlanLen}=Child
+           ,Reason) ->
     PlanElem = lists:nth(PlanElemIndex, Plan),
-    {PlanElemIndex2, Count2_2} =
+    {PlanElemIndex2, Count2_2, ResCount2} =
         if
             PlanElemIndex =:= PlanLen ->
-                      {1, Count2+1};
+                {1, Count2+1, ResCount + 1};
             true ->
-                {PlanElemIndex+1, Count2}
+                {PlanElemIndex+1, Count2, ResCount + 1}
         end,
-    ResCount2 = ResCount + 1,
-    Child2 = Child1#?CHILD{plan_element_index = PlanElemIndex2
-                          ,count2 = Count2_2
-                          ,restart_count = ResCount2},
+    Child2 = Child#?CHILD{plan_element_index = PlanElemIndex2
+                         ,count2 = Count2_2
+                         ,restart_count = ResCount2},
+    ok = director_table:insert(Table, Child2),
     Strategy =
         case PlanElem of
             Fun when erlang:is_function(Fun) ->
                 case catch Fun(Reason, ResCount2) of
                     Term when erlang:is_function(Term) ->
                         {error
-                        ,{fun_bad_return_value
-                         ,[{'fun', Fun}
-                          ,{arguments, [Reason, ResCount2]}
-                          ,{return_value, Term}]}};
+                            ,{fun_bad_return_value
+                            ,[{'fun', Fun}
+                             ,{arguments, [Reason, ResCount2]}
+                             ,{returned_value, Term}]}};
                     {'EXIT', Reason2} ->
                         {error
-                        ,{fun_run_crash
-                         ,[{'fun', Fun}
-                          ,{arguments, [Reason, ResCount2]}
-                          ,{reason, Reason2}]}};
+                            ,{fun_run_crash
+                            ,[{'fun', Fun}
+                             ,{arguments, [Reason, ResCount2]}
+                             ,{reason, Reason2}]}};
                     Term ->
-                        case filter_plan_element(Term) of
+                        case director_check:filter_plan_element(Term) of
                             {ok, Term2} ->
                                 Term2;
                             {error, Reason2} ->
                                 {error
-                                ,{fun_bad_return_value
-                                 ,[{'fun', Fun}
-                                  ,{arguments, [Reason, ResCount2]}
-                                  ,{return_value, Term}
-                                  ,{reason, Reason2}]}}
+                                    ,{fun_bad_return_value
+                                    ,[{'fun', Fun}
+                                     ,{arguments, [Reason, ResCount2]}
+                                     ,{return_value, Term}
+                                     ,{reason, Reason2}]}}
                         end
                 end;
             _Other ->
                 PlanElem
         end,
+    director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
     case Strategy of
         restart ->
-            case do_start_child(Child2, Table, Name, normal) of
-                {error, Reason3} ->
-                    run_plan_element(Dbg, State, Reason3, Child2);
+            case do_restart_child(Name, Id, Table) of
+                {error, _Reason3} ->
+                    TimeRef = restart_timer(0, Id),
+                    ok = director_table:
+                         insert(Table
+                               ,Child2#?CHILD{pid = restarting
+                                             ,timer_reference =
+                                                  TimeRef});
                 _Other2 ->
-                    {Dbg, State}
-            end;
+                    ok
+            end,
+            {Dbg, State};
         stop ->
-            terminate(Dbg
-                     ,State
-                     ,{stop, [{child, child_record_to_proplist(Child2)}
-                             ,{child_last_error_reason, Reason}]});
+            terminate(Dbg, State, Reason);
         {stop, Reason3} ->
             terminate(Dbg, State, Reason3);
         delete ->
-            ok = do_delete_child(Child1, Table),
+            ok = director_table:delete(Table, Id),
             {Dbg, State};
         wait ->
-            ok = insert_or_update_child(Child2, Table),
             {Dbg, State};
         {restart, PosInt} ->
-            TimeRef = restart_timer(PosInt, Child2#?CHILD.id),
-            ok = insert_or_update_child(Child2#?CHILD{pid = restarting
+            TimeRef = restart_timer(PosInt, Id),
+            ok = director_table:insert(Table
+                                      ,Child2#?CHILD{pid = restarting
                                                      ,timer_reference =
-                                                           TimeRef}
-                                       ,Table),
+                                                          TimeRef}),
             {Dbg, State};
         {error, Reason3} ->
             terminate(Dbg
                      ,State
                      ,{run_plan_element
-                      ,[{child, child_record_to_proplist(Child2)}
+                      ,[{child, director_wrapper:c_r2p(Child2)}
                        ,{child_last_error_reason, Reason}
                        ,{run_plan_error_reason, Reason3}]})
     end.
@@ -1631,14 +1526,19 @@ process_timeout(Dbg
                ,#?STATE{name = Name, table = Table}=State
                ,TimerRef
                ,Id) ->
-    case lookup_child_using_its_id(Id, Table) of
+    case director_table:lookup(Table, Id) of
         not_found ->
             {Dbg, State};
-        #?CHILD{timer_reference = TimerRef}=Child ->
-            case do_start_child(Child, Table, Name, normal) of
+        #?CHILD{timer_reference = TimerRef} ->
+            case do_restart_child(Name, Id, Table) of
+%%                {error, not_found} ->
+%%                    {Dbg, State};
                 {error, Reason} ->
-                    handle_exit(Dbg, State, Reason, Child);
-                _Other ->
+                    handle_exit(Dbg
+                               ,State
+                               ,director_table:lookup(Table, Id)
+                               ,Reason);
+                {ok, _Pid} ->
                     {Dbg, State}
             end;
         _Child ->
@@ -1653,101 +1553,6 @@ process_timeout(Dbg
 
 %% ---------------------------------------------------------------------
 %% Other internal functions:
-
-
-
-
-
-name({local,Name}) -> Name;
-name({global,Name}) -> Name;
-name({via,_, Name}) -> Name;
-name(Pid) when is_pid(Pid) -> Pid.
-
-
-
-
-
-
-
-debug_options(Name, Opts) ->
-    case proplists:lookup(debug, Opts) of
-        {_,Options} ->
-            try sys:debug_options(Options)
-            catch _:_ ->
-                error_logger:format(
-                    "~p: ignoring erroneous debug options - ~p~n",
-                    [Name,Options]),
-                ?DEFAULT_DEBUG
-            end;
-        none ->
-            ?DEFAULT_DEBUG
-    end.
-
-
-
-
-
-
-
-unregister_name({local,Name}) ->
-    try unregister(Name) of
-        _ -> ok
-    catch
-        _:_ -> ok
-    end;
-unregister_name({global,Name}) ->
-    _ = global:unregister_name(Name),
-    ok;
-unregister_name({via, Mod, Name}) ->
-    _ = Mod:unregister_name(Name),
-    ok;
-unregister_name(Pid) when is_pid(Pid) ->
-    ok.
-
-
-
-
-
-
-
-init_module(Mod, InitArg) ->
-    case catch Mod:init(InitArg) of
-        {ok, Childspecs} ->
-            case check_and_fix_childspecs(Childspecs
-                                         ,?DEFAULT_DEFAULT_CHILDSPEC) of
-                {ok, ChildSpecs2} ->
-                    {ok, ChildSpecs2, ?DEFAULT_DEFAULT_CHILDSPEC};
-                {error, _Reason}=Error ->
-                    Error
-            end;
-        {ok, ChildSpecs, DefChildSpec} ->
-            case check_and_fix_default_childspec(DefChildSpec) of
-                {ok, DefChildSpec2} ->
-                    case check_and_fix_childspecs(ChildSpecs
-                                                 ,DefChildSpec2) of
-                        {ok, ChildSpecs2} ->
-                            {ok, ChildSpecs2, DefChildSpec2};
-                        {error, _Reason}=Error ->
-                            Error
-                    end;
-                {error, _Reason}=Error ->
-                    Error
-            end;
-        ignore ->
-            ignore;
-        {stop, Reason} ->
-            {error, Reason};
-        {'EXIT', Reason} ->
-            {error, Reason};
-        Other ->
-            {error
-            ,{bad_return, [{module, Mod}
-                          ,{function, init}
-                          ,{arguments, [InitArg]}
-                          ,{returne_value, Other}]}}
-    end.
-
-
 
 
 
@@ -1768,9 +1573,9 @@ do_call(Name, Request, Timeout) ->
                     _Other ->
                         Request
                 end,
-            erlang:exit({call_crash, [{remote_process, Name}
-                                     ,{request, Request2}
-                                     ,{reason, Reason}]})
+            erlang:exit({call_crash, [{reason, Reason}
+                                     ,{remote_process, Name}
+                                     ,{request, Request2}]})
     end.
 
 
@@ -1779,22 +1584,14 @@ do_call(Name, Request, Timeout) ->
 
 
 
-child_record_to_childspec(#?CHILD{id = Id
-                                 ,start = Start
-                                 ,plan = Plan
-                                 ,count = Count
-                                 ,terminate_timeout = TerminateTimeout
-                                 ,modules = Modules
-                                 ,type = Type
-                                 ,append = Append}) ->
-    #{id => Id
-    ,start => Start
-    ,plan => Plan
-    ,count => Count
-    ,terminate_timeout => TerminateTimeout
-    ,modules => Modules
-    ,type => Type
-    ,append => Append}.
+name({local, Name}) ->
+    Name;
+name({global, Name}) ->
+    Name;
+name({via, _Mod, Name}) ->
+    Name;
+name(Other) ->
+    Other.
 
 
 
@@ -1802,112 +1599,23 @@ child_record_to_childspec(#?CHILD{id = Id
 
 
 
-child_record_to_proplist(#?CHILD{pid = Pid
-                                ,id = Id
-                                ,plan = Plan
-                                ,count = Count
-                                ,count2 = Count2
-                                ,restart_count = ResCount
-                                ,start = Start
-                                ,plan_element_index = PlanElemIndex
-                                ,plan_length = PlanLen
-                                ,timer_reference = TimerRef
-                                ,terminate_timeout = TerminateTimeout
-                                ,extra = Extra
-                                ,modules = Mods
-                                ,type = Type
-                                ,append = Append}) ->
-    [{id, Id}
-    ,{pid, Pid}
-    ,{plan, Plan}
-    ,{count, Count}
-    ,{count2, Count2}
-    ,{restart_count, ResCount}
-    ,{mfargs, Start} % mfargs for lager : )
-    ,{plan_element_index, PlanElemIndex}
-    ,{plan_length, PlanLen}
-    ,{timer_reference, TimerRef}
-    ,{terminate_timeout, TerminateTimeout}
-    ,{extra, Extra}
-    ,{modules, Mods}
-    ,{type, Type}
-    ,{append, Append}].
 
 
 
 
-
-
-
-lookup_child_using_its_id(Id, Table) ->
-    case ets:lookup(Table, Id) of
-        [Child] ->
-            Child;
-        [] ->
-            not_found
-    end.
-
-
-
-
-
-
-
-lookup_child_using_its_pid(Pid, Table) ->
-    case ets:match_object(Table
-                         ,#?CHILD{id = '_'
-                                 ,pid = Pid
-                                 ,plan = '_'
-                                 ,count = '_'
-                                 ,count2 = '_'
-                                 ,restart_count = '_'
-                                 ,start = '_'
-                                 ,plan_element_index = '_'
-                                 ,plan_length = '_'
-                                 ,timer_reference = '_'
-                                 ,terminate_timeout = '_'
-                                 ,extra = '_'
-                                 ,modules = '_'
-                                 ,type = '_'
-                                 ,append = '_'}) of
-        [Child] ->
-            Child;
-        [] ->
-            not_found
-    end.
-
-
-
-
-
-
-
-lookup_append_true_children(Table) ->
-    ets:match_object(Table
-                    ,#?CHILD{id = '_'
-                            ,pid = '_'
-                            ,plan = '_'
-                            ,count = '_'
-                            ,count2 = '_'
-                            ,restart_count = '_'
-                            ,start = '_'
-                            ,plan_element_index = '_'
-                            ,plan_length = '_'
-                            ,timer_reference = '_'
-                            ,terminate_timeout = '_'
-                            ,extra = '_'
-                            ,modules = '_'
-                            ,type = '_'
-                            ,append = true}).
-
-
-
-
-
-
-
-insert_or_update_child(Child, Table) ->
-    true = ets:insert(Table, Child),
+unregister_name({local,Name}) ->
+    try unregister(Name) of
+        _Result -> ok
+    catch
+        _ErrorType:_Reason -> ok
+    end;
+unregister_name({global,Name}) ->
+    catch global:unregister_name(Name),
+    ok;
+unregister_name({via, Mod, Name}) ->
+    catch Mod:unregister_name(Name),
+    ok;
+unregister_name(_Other) ->
     ok.
 
 
@@ -1916,9 +1624,128 @@ insert_or_update_child(Child, Table) ->
 
 
 
-do_delete_child(Child, Table) ->
-    true = ets:delete_object(Table, Child),
+init_module(Mod, InitArg) ->
+    case catch Mod:init(InitArg) of
+        {ok, ChildSpecs} ->
+            case director_check:check_childspecs(ChildSpecs) of
+                {ok, ChildSpecs2} ->
+                    {ok, ChildSpecs2, ?DEFAULT_DEFAULT_CHILDSPEC};
+                {error, _Reason}=Error ->
+                    Error
+            end;
+        {ok, ChildSpecs, DefChildSpec} ->
+            case director_check:check_default_childspec(DefChildSpec) of
+                {ok, DefChildSpec2} ->
+                    case director_check:
+                         check_childspecs(ChildSpecs, DefChildSpec2) of
+                        {ok, ChildSpecs2} ->
+                            {ok, ChildSpecs2, DefChildSpec2};
+                        {error, _Reason}=Error ->
+                            Error
+                    end;
+                {error, _Reason}=Error ->
+                    Error
+            end;
+        ignore ->
+            ignore;
+        {stop, Reason} ->
+            {error, Reason};
+        {'EXIT', Reason} ->
+            {error, Reason};
+        Other ->
+            {error
+            ,{init_bad_return, [{returned_value, Other}
+                               ,{module, Mod}
+                               ,{function, init}
+                               ,{argument, InitArg}]}}
+    end.
+
+
+
+
+
+
+
+start_children(Name, [#?CHILD{id=Id}=Child|Children], Table) ->
+    case do_start_child(Name, Child, Table) of
+        {ok, _Pid} ->
+            start_children(Name, Children, Table);
+        {error, already_present} ->
+            {error, {repeated_id, [{id, Id}]}};
+        {error, _Reason}=Error ->
+            _ = terminate_children(Name, Table),
+            Error
+    end;
+start_children(_Name, [], _Table) ->
     ok.
+
+
+
+
+
+
+
+
+do_start_child(Name, #?CHILD{id = Id}=Child ,Table) ->
+    case director_table:lookup(Table, Id) of
+        not_found ->
+            start_mfa(Name, Child, Table);
+        #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
+            {error, {already_started, Pid}};
+        _Child ->
+            {error, already_present}
+    end.
+
+
+
+
+do_restart_child(Name, Id, Table) ->
+    case director_table:lookup(Table, Id) of
+        not_found ->
+            {error, not_found};
+        #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
+            {error, running};
+        #?CHILD{pid = restarting, timer_reference = Ref}=Child ->
+            erlang:cancel_timer(Ref, [{async, true}]),
+            start_mfa(Name
+                     ,Child#?CHILD{pid = undefined
+                                  ,timer_reference = undefined}
+                     ,Table);
+        Child ->
+            start_mfa(Name, Child, Table)
+    end.
+
+
+
+
+start_mfa(Name
+         ,#?CHILD{start = {Mod, Func, Args}}=Child
+         ,Table) ->
+    case catch erlang:apply(Mod, Func, Args) of
+        {ok, Pid} when erlang:is_pid(Pid) ->
+            Child2 = Child#?CHILD{pid = Pid, extra = undefined},
+            ok = director_table:insert(Table, Child2),
+            director_debug:progress_report(Name, Child2),
+            {ok, Pid};
+        {ok, Pid, Extra} when erlang:is_pid(Pid) ->
+            Child2 = Child#?CHILD{pid = Pid
+                                 ,extra = {extra, Extra}},
+            ok = director_table:insert(Table, Child2),
+            director_debug:progress_report(Name, Child2),
+            {ok, Pid, Extra};
+        ignore ->
+            {ok, undefined};
+        {error, _Reason}=Error ->
+            Error;
+        {'EXIT', Reason} ->
+            {error, Reason};
+        Other ->
+            {error
+            ,{bad_start_return_value, [{returned_value, Other}
+                                      ,{module, Mod}
+                                      ,{function, Func}
+                                      ,{arguments, Args}]}}
+    end.
 
 
 
@@ -1927,16 +1754,14 @@ do_delete_child(Child, Table) ->
 
 
 terminate(Dbg, #?STATE{table = Table, name = Name}=State, Reason) ->
-    Children = ets:tab2list(Table),
-    terminate_children(Table, Name),
-    true = ets:delete_all_objects(Table),
-    true = ets:delete(Table),
+    Children = director_table:tab2list(Table),
+    terminate_children(Name, Table),
     error_logger:format("** Director \"~p\" terminating \n** Reason for"
                         " termination == \"~p\"~n** Children == \"~p\"~"
                         "n** State == \"~p\"~n"
                        ,[Name
                         ,Reason
-                        ,[child_record_to_proplist(Child)
+                        ,[director_wrapper:c_r2p(Child)
                          || Child <- Children]
                         ,State]),
     sys:print_log(Dbg),
@@ -1948,9 +1773,9 @@ terminate(Dbg, #?STATE{table = Table, name = Name}=State, Reason) ->
 
 
 
-terminate_children(Table, Name) ->
-    [do_terminate_child(Table, Name, Child)
-        || Child <- ets:tab2list(Table)],
+terminate_children(Name, Table) ->
+    [do_terminate_child(Name, Child#?CHILD.id, Table)
+    || Child <- director_table:tab2list(Table)],
     ok.
 
 
@@ -1958,15 +1783,45 @@ terminate_children(Table, Name) ->
 
 
 
-do_terminate_child(Table
-                  ,Name
+
+do_terminate_child(Name, Id_or_Pid, Table) ->
+    Search =
+        case director_table:lookup(Table, Id_or_Pid) of
+            not_found ->
+                director_table:lookup_by_pid(Table, Id_or_Pid);
+            Child ->
+                Child
+        end,
+    case Search of
+        #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
+            ok = do_terminate_child(Name, Child2);
+        #?CHILD{pid = restarting, timer_reference = Ref} ->
+            erlang:cancel_timer(Ref, [{async, true}]),
+            ok;
+        Other ->
+            Other
+    end,
+    case Search of
+        not_found ->
+            not_found;
+        Child3 ->
+            ok = director_table:insert(Table
+                                      ,Child3#?CHILD{pid = undefined
+                                                    ,extra = undefined
+                                                    ,timer_reference =
+                                                         undefined})
+    end.
+
+
+
+
+
+
+
+do_terminate_child(Name
                   ,#?CHILD{pid=Pid
-                          ,terminate_timeout = TerminateTimeout}=ChildR)
+                          ,terminate_timeout = TerminateTimeout}=Child)
     when erlang:is_pid(Pid) ->
-    ok = insert_or_update_child(ChildR#?CHILD{pid = undefined
-                                             ,extra = undefined}
-                               ,Table),
-    ChildPL = child_record_to_proplist(ChildR),
     BrutalKill =
         fun() ->
             erlang:exit(Pid, kill),
@@ -1974,10 +1829,10 @@ do_terminate_child(Table
                 {'DOWN', _Ref, process, Pid, killed} ->
                     ok;
                 {'DOWN', _Ref, process, Pid, Reason} ->
-                    error_report(Name
-                                ,shutdown_error
-                                ,Reason
-                                ,ChildPL),
+                    director_debug:error_report(Name
+                                               ,shutdown_error
+                                               ,Reason
+                                               ,Child),
                     ok
             end
         end,
@@ -1992,32 +1847,22 @@ do_terminate_child(Table
                         {'DOWN', _Ref, process, Pid, shutdown} ->
                             ok;
                         {'DOWN', _Ref, process, Pid, Reason2} ->
-                            error_report(Name
-                                        ,shutdown_error
-                                        ,Reason2
-                                        ,ChildPL),
+                            director_debug:error_report(Name
+                                                       ,shutdown_error
+                                                       ,Reason2
+                                                       ,Child),
                             ok
                     after TerminateTimeout ->
                         BrutalKill()
                     end
             end;
         {error, Reason3} ->
-            error_report(Name
-                        ,shutdown_error
-                        ,Reason3
-                        ,ChildPL),
+            director_debug:error_report(Name
+                                       ,shutdown_error
+                                       ,Reason3
+                                       ,Child),
             ok
-    end;
-do_terminate_child(Table
-                  ,_Name
-                  ,#?CHILD{pid = restarting
-                          ,timer_reference = TimerRef}=Child) ->
-    erlang:cancel_timer(TimerRef),
-    ok = insert_or_update_child(Child#?CHILD{pid = undefined
-                                            ,extra = undefined}
-                               ,Table);
-do_terminate_child(_Table, _Name, _Child) ->
-    ok.
+    end.
 
 
 
@@ -2027,7 +1872,7 @@ do_terminate_child(_Table, _Name, _Child) ->
 
 monitor_child(Pid) ->
     erlang:monitor(process, Pid),
-    catch erlang:unlink(Pid),
+        catch erlang:unlink(Pid),
     receive
         {'EXIT', Pid, Reason} ->
             receive
@@ -2053,78 +1898,9 @@ restart_timer(PosInt, Id) ->
 
 
 
-check_and_fix_childspecs([], _DefChildSpec) ->
-    {ok, []};
-check_and_fix_childspecs(Term, DefChildSpec) ->
-    check_and_fix_childspecs(Term, DefChildSpec, []).
-
-
-
-
-
-
-
-check_and_fix_childspecs([Elem|Elems], DefChildSpec, Children) ->
-    case check_and_fix_childspec(Elem, DefChildSpec) of
-        {ok, ChildSpec} ->
-            check_and_fix_childspecs(Elems
-                                    ,DefChildSpec
-                                    ,[ChildSpec|Children]);
-        {error, _Reason}=Error ->
-            Error
-    end;
-check_and_fix_childspecs([], _DefChildSpec, Children) ->
-    {ok, lists:reverse(Children)};
-check_and_fix_childspecs(Other, _DefChildSpec, _Children) ->
-    {error, {childspecs_type, [{childspecs, Other}]}}.
-
-
-
-
-
-
-childspec_to_child(#{id := Id
-                   ,plan := Plan
-                   ,count := Count
-                   ,start := Start
-                   ,terminate_timeout := TerminateTimeout
-                   ,modules := Mods
-                   ,type := Type
-                   ,append := Append}) ->
-    PlanLen = erlang:length(Plan),
-    PlanElemIndex =
-        if
-            PlanLen =:= 0 ->
-                0;
-            true ->
-                1
-        end,
-    #?CHILD{id = Id
-           ,pid = undefined
-           ,plan = Plan
-           ,count = Count
-           ,count2 = 0
-           ,restart_count = 0
-           ,start = Start
-           ,plan_element_index = PlanElemIndex
-           ,plan_length = PlanLen
-           ,timer_reference = undefined
-           ,terminate_timeout = TerminateTimeout
-           ,extra = undeined
-           ,modules = Mods
-           ,type = Type
-           ,append = Append}.
-
-
-
-
-
-
-
-
 reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
     Pid ! {Tag, Result},
-    debug(Dbg, Name, {out, Pid, Result}).
+    director_debug:debug(Dbg, Name, {out, Pid, Result}).
 
 
 
@@ -2142,10 +1918,10 @@ get_children(Children, Table) ->
 
 
 get_children([ChildR|Children], Table, Children2) ->
-    case lookup_child_using_its_id(ChildR#?CHILD.id, Table) of
+    case director_table:lookup(Table, ChildR#?CHILD.id) of
         not_found ->
             {error
-            ,{child_not_found, child_record_to_proplist(ChildR)}};
+            ,{child_not_found, director_wrapper:c_r2p(ChildR)}};
         LastChildR ->
             get_children(Children
                         ,Table
@@ -2153,635 +1929,3 @@ get_children([ChildR|Children], Table, Children2) ->
     end;
 get_children([], _Table, Children2) ->
     {ok, Children2}.
-
-
-
-
-
-
-
-check_and_fix_childspec(ChildSpec
-                       ,DefChildSpec) when erlang:is_map(ChildSpec) ->
-    Keys = [{append, fun filter_append/1, ?DEFAULT_APPEND}],
-    {ok, #{append := Append}} = {ok, ChildSpec2} = check_map(ChildSpec
-                                                            ,Keys
-                                                            ,#{}),
-    StartKey =
-        if
-            Append ->
-                case DefChildSpec of
-                    #{start := {Mod, Func, _Args}} ->
-                        {start, fun filter_start/1, {Mod, Func, []}};
-                    _Other ->
-                        {start, fun filter_start/1}
-                end;
-            true ->
-                {start, fun filter_start/1}
-        end,
-    Keys2 = [id
-            ,StartKey
-            ,{plan, fun filter_plan/1, ?DEFAULT_PLAN}
-            ,{count, fun filter_count/1, ?DEFAULT_COUNT}
-            ,{type, fun filter_type/1, ?DEFAULT_TYPE}],
-    case check_map(ChildSpec, Keys2, ChildSpec2) of
-        {ok, ChildSpec3} ->
-            DefTerminateTimeout =
-                case maps:get(type, ChildSpec3) of
-                    worker ->
-                        ?DEFAULT_WORKER_TERMINATE_TIMEOUT;
-                    supervisor ->
-                        ?DEFAULT_SUPERVISOR_TERMINATE_TIMEOUT
-                end,
-            DefMods = [erlang:element(1, maps:get(start, ChildSpec3))],
-            Keys3 = [{terminate_timeout
-                     ,fun filter_terminate_timeout/1
-                     ,DefTerminateTimeout}
-                    ,{modules, fun filter_modules/1, DefMods}],
-            case check_map(ChildSpec
-                                        ,Keys3
-                                        ,ChildSpec3) of
-                {ok, ChildSpec4} ->
-                    {ok
-                    ,childspec_to_child(combine_children(ChildSpec4
-                                                        ,DefChildSpec
-                                                        ,Append))};
-                {error, _Reason}=Error ->
-                    Error
-            end;
-        {error, _Reason}=Error ->
-            Error
-    end;
-check_and_fix_childspec(Other, _DefChildSpec) ->
-    {error, {childspec_type, [{childspec, Other}]}}.
-
-
-
-
-
-
-
-check_and_fix_default_childspec(ChildSpec)
-when erlang:is_map(ChildSpec) ->
-    Keys = [{start, fun filter_start/1}
-           ,{plan, fun filter_plan/1}
-           ,{count, fun filter_count/1}
-           ,{type, fun filter_type/1}
-           ,{terminate_timeout, fun filter_terminate_timeout/1}
-           ,{modules, fun filter_modules/1}],
-    check_map2(ChildSpec, Keys, #{});
-check_and_fix_default_childspec(Other) ->
-    {error, {default_childspec_type, [{childspec, Other}]}}.
-
-
-
-
-
-check_map(ChildSpec, [{Key, Filter, Default}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map(ChildSpec
-                             ,Keys
-                             ,maps:put(Key
-                                      ,Value2
-                                      ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_ ->
-            check_map(ChildSpec
-                     ,Keys
-                     ,maps:put(Key
-                              ,Default
-                              ,ChildSpec2))
-
-    end;
-check_map(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map(ChildSpec
-                             ,Keys
-                             ,maps:put(Key
-                                      ,Value2
-                                      ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_->
-            {error, {key_not_found, [{key, Key}
-                                    ,{childspec, ChildSpec}]}}
-    end;
-check_map(ChildSpec, [Key|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            check_map(ChildSpec
-                     ,Keys
-                     ,maps:put(Key, Value, ChildSpec2))
-    catch
-        _:_ ->
-            {error, {key_not_found, [{key, Key}
-                                    ,{childspec, ChildSpec}]}}
-    end;
-check_map(_ChidlSpec, [], ChildSpec2) ->
-    {ok, ChildSpec2}.
-
-
-
-
-
-
-
-
-
-
-check_map2(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map2(ChildSpec
-                              ,Keys
-                              ,maps:put(Key
-                                       ,Value2
-                                       ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_ ->
-            check_map2(ChildSpec, Keys, ChildSpec2)
-    end;
-check_map2(_ChidlSpec, [], ChildSpec2) ->
-    {ok, ChildSpec2}.
-
-
-
-
-
-
-
-filter_start({_Mod, _Func, _Args}=Start) ->
-    {ok, Start};
-filter_start({Mod, Func}) ->
-    {ok, {Mod, Func, []}};
-filter_start(Other) ->
-    {error, {format, [{start, Other}]}}.
-
-
-
-
-
-
-
-filter_plan(Plan) when erlang:is_list(Plan) ->
-    filter_plan(Plan, []);
-filter_plan(Other) ->
-    {error, {plan_type, [{plan, Other}]}}.
-
-
-
-
-
-
-
-filter_plan([PlanElem|Plan], Plan2) ->
-    case filter_plan_element(PlanElem) of
-        {ok, PlanElem2} ->
-            filter_plan(Plan, [PlanElem2|Plan2]);
-        {error, _Reason}=Error ->
-            Error
-    end;
-filter_plan([], Plan2) ->
-    {ok, lists:reverse(Plan2)}.
-
-
-
-
-
-
-
-filter_plan_element(restart) ->
-    {ok, restart};
-filter_plan_element({restart, WholeInt}=PlanElem) ->
-    case is_whole_integer(WholeInt) of
-        true ->
-            {ok, PlanElem};
-        false ->
-            {error
-            ,{plan_restart_time_integer, [{plan_element, PlanElem}]}}
-    end;
-filter_plan_element(delete) ->
-    {ok, delete};
-filter_plan_element({stop, _Reason}=PlanElem) ->
-    {ok, PlanElem};
-filter_plan_element(stop) ->
-    {ok, stop};
-filter_plan_element(wait) ->
-    {ok, wait};
-filter_plan_element(Fun) when erlang:is_function(Fun) ->
-    case erlang:fun_info(Fun, arity) of
-        {arity, 2} ->
-            {ok, Fun};
-        {arity, Other} ->
-            {error, {plan_fun_arity, [{'fun', Fun}, {arity, Other}]}}
-    end;
-filter_plan_element(Other) ->
-    {error, {plan_element_type, [{plan_element, Other}]}}.
-
-
-
-
-
-
-
-is_whole_integer(Int) when erlang:is_integer(Int) ->
-    if
-        Int >= 0 ->
-            true;
-        true ->
-            false
-    end;
-is_whole_integer(_Other) ->
-    false.
-
-
-
-
-
-
-
-filter_count(infinity) ->
-    {ok, infinity};
-filter_count(Count) ->
-    case is_whole_integer(Count) of
-        true ->
-            {ok, Count};
-        false ->
-            {error, {count_range_or_type, [{count, Count}]}}
-    end.
-
-
-
-
-
-
-
-filter_terminate_timeout(infinity) ->
-    {ok, infinity};
-filter_terminate_timeout(TerminateTimeout) ->
-    case is_whole_integer(TerminateTimeout) of
-        true ->
-            {ok, TerminateTimeout};
-        false ->
-            {error
-            ,{terminate_timeout_range_or_type
-             ,[{terminate_timeout, TerminateTimeout}]}}
-    end.
-
-
-
-
-
-
-
-filter_type(worker) ->
-    {ok, worker};
-filter_type(supervisor) ->
-    {ok, supervisor};
-filter_type(Other) ->
-    {error, {type_type, [{type, Other}]}}.
-
-
-
-
-
-
-
-filter_modules(dynamic) ->
-    {ok, dynamic};
-filter_modules(Mod) when erlang:is_atom(Mod) ->
-    {ok, [Mod]};
-filter_modules(Mods) when erlang:is_list(Mods) ->
-    {ok, Mods};
-filter_modules(Other) ->
-    {error, {modules_type, [{modules, Other}]}}.
-
-
-
-
-
-
-
-filter_append(Bool) when erlang:is_boolean(Bool) ->
-    {ok, Bool};
-filter_append(Other) ->
-    {error, {append_type, [{append, Other}]}}.
-
-
-
-
-
-
-
-start_children([Child|Children], Table, Name) ->
-    case do_start_child(Child, Table, Name) of
-        ok ->
-            start_children(Children, Table, Name);
-        {error, _Reason}=Error ->
-            _ = terminate_children(Table, Name),
-            Error
-    end;
-start_children([], _Table, _Name) ->
-    ok.
-
-
-
-
-
-
-
-do_start_child(Child, Table, Name) ->
-    do_start_child(Child, Table, Name, no_pid).
-
-
-
-
-
-
-
-do_start_child(#?CHILD{pid = Pid, extra = Extra}
-              ,_Table
-              ,_Name
-              ,RetType) when erlang:is_pid(Pid) ->
-    start_child_fix_return(RetType, Pid, Extra);
-do_start_child(#?CHILD{timer_reference = TimerRef}=Child
-           ,Table
-           ,Name
-           ,RetType) ->
-    ok = do_delete_child(Child, Table),
-    if
-        erlang:is_reference(TimerRef) ->
-            erlang:cancel_timer(TimerRef);
-        true ->
-            pass
-    end,
-    case start_mfa(Child#?CHILD.start) of
-        {ok, Pid} when erlang:is_pid(Pid) ->
-            Child3 = Child#?CHILD{pid = Pid, extra = undefined},
-            ok = progress_report(Child3, Name),
-            ok = insert_or_update_child(Child3, Table),
-            start_child_fix_return(RetType, Pid, undefined);
-        {ok, Pid, Extra} when erlang:is_pid(Pid) ->
-            Extra2 = {extra, Extra},
-            Child2 = Child#?CHILD{pid = Pid, extra = Extra2},
-            ok = progress_report(Child2, Name),
-            ok = insert_or_update_child(Child2, Table),
-            start_child_fix_return(RetType, Pid, Extra2);
-        {ok, Pid} -> % ignored: {ok, undefined}
-            ok = insert_or_update_child(Child#?CHILD{pid = Pid
-                                                    ,extra = undefined}
-                                       ,Table),
-            start_child_fix_return(RetType, Pid, undefined);
-        {restart, PosInt}=Reason ->
-            error_report(Name
-                        ,start_child
-                        ,Reason
-                        ,child_record_to_proplist(Child)),
-            TimerRef2 = restart_timer(PosInt, Child#?CHILD.id),
-            ok = insert_or_update_child(Child#?CHILD{pid = restarting
-                                                    ,extra = undefined
-                                                    ,timer_reference =
-                                                         TimerRef2}
-                                       ,Table),
-            start_child_fix_return(RetType, restarting, undefined);
-        {error, Reason}=Error ->
-            error_report(Name
-                        ,start_child
-                        ,Reason
-                        ,child_record_to_proplist(Child)),
-            Error
-    end.
-
-
-
-
-
-
-
-start_child_fix_return(no_pid, _Pid, _Extra) ->
-    ok;
-start_child_fix_return(no_extra, Pid, _Extra) ->
-    {ok, Pid};
-start_child_fix_return(normal, Pid, undefined) ->
-    {ok, Pid};
-start_child_fix_return(normal, Pid, {extra, Extra}) ->
-    {ok, Pid, Extra}.
-
-
-
-
-
-
-
-combine_children(ChildSpec, DefChildSpec, true) ->
-    Fun =
-        fun
-            (start
-            ,{Mod, Func, Args}
-            ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-                Map#{start => {Mod, Func, Args2 ++ Args}};
-            (count, infinity, Map) ->
-                Map#{count => infinity};
-            (count, Count, #{count := Count2}=Map) ->
-                if
-                    Count2 =:= infinity ->
-                        Map#{count => Count};
-                    true ->
-                        Map#{count => Count + Count2}
-                end;
-            (terminate_timeout, infinity, Map) ->
-                Map#{terminate_timeout => infinity};
-            (terminate_timeout
-            ,TerminateTimeout
-            ,#{terminate_timeout := TerminateTimeout2}=Map) ->
-                if
-                    TerminateTimeout2 =:= infinity ->
-                        Map#{terminate_timeout => TerminateTimeout};
-                    true ->
-                        Map#{terminate_timeout => TerminateTimeout
-                                                + TerminateTimeout2}
-                end;
-            (modules, dynamic, Map) ->
-                Map#{modules => dynamic};
-            (modules, Mods, #{modules := Mods2}=Map) ->
-                if
-                    Mods2 =:= dynamic ->
-                        Map#{modules => Mods};
-                    true ->
-                        Map#{modules => Mods2 ++ Mods}
-                end;
-            (plan, Plan, #{plan := Plan2}=Map) ->
-                Map#{plan => Plan2 ++ Plan};
-            (Key, Value, Map) ->
-                Map#{Key => Value}
-        end,
-    maps:fold(Fun, DefChildSpec, ChildSpec);
-combine_children(ChildSpec, _DefChildSpec, false) ->
-    ChildSpec.
-
-
-
-
-
-
-
-seprate_children(ChildSpec, DefChildSpec) ->
-    Fun =
-        fun
-            (start
-            ,{Mod, Func, Args}
-            ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-                Map#{start => {Mod, Func, Args -- Args2}};
-            (count, infinity, Map) ->
-                Map#{count => infinity};
-            (count, Count, #{count := Count2}=Map) ->
-                if
-                    Count2 =:= infinity ->
-                        Map#{count => Count};
-                    true ->
-                        Map#{count => Count - Count2}
-                end;
-            (terminate_timeout, infinity, Map) ->
-                Map#{terminate_timeout => infinity};
-            (terminate_timeout
-            ,TerminateTimeout
-            ,#{terminate_timeout := TerminateTimeout2}=Map) ->
-                if
-                    TerminateTimeout2 =:= infinity ->
-                        Map#{terminate_timeout => TerminateTimeout};
-                    true ->
-                        Map#{terminate_timeout => TerminateTimeout
-                                                - TerminateTimeout2}
-                end;
-            (modules, dynamic, Map) ->
-                Map#{modules => dynamic};
-            (modules, Mods, #{modules := Mods2}=Map) ->
-                if
-                    Mods2 =:= dynamic ->
-                        Map#{modules => Mods};
-                    true ->
-                        Map#{modules => Mods -- Mods2}
-                end;
-            (plan, Plan, #{plan := Plan2}=Map) ->
-                Map#{plan => Plan -- Plan2};
-            (Key, Value, Map) ->
-                Map#{Key => Value}
-        end,
-    maps:fold(Fun, DefChildSpec, ChildSpec).
-
-
-
-
-
-
-
-start_mfa({Mod, Func, Args}) ->
-    Result =
-        case catch erlang:apply(Mod, Func, Args) of
-            {ok, Pid} when erlang:is_pid(Pid) ->
-                {ok, Pid};
-            {ok, Pid, Extra} when erlang:is_pid(Pid) ->
-                {ok, Pid, Extra};
-            ignore ->
-                {ok, undefined};
-            {restart, Int} ->
-                case is_whole_integer(Int) of
-                    true ->
-                        {restart, Int};
-                    false ->
-                        {error
-                        ,{director_restart_time_range_or_type
-                         ,[{director_restart, Int}]}}
-                end;
-            {error, _Reason}=Error ->
-                Error;
-            {'EXIT', Reason} ->
-                {error, Reason};
-            Other ->
-                {error, {bad_start_return_value, Other}}
-        end,
-    ?trapping_exits,
-    Result.
-
-
-
-
-
-
-
-progress_report(Child, Name) ->
-    error_logger:info_report(progress
-                            ,[{supervisor, Name}
-                             ,{started
-                              ,child_record_to_proplist(Child)}]).
-
-
-
-
-
-
-
-error_report(Name, ErrorContext, Reason, Params) ->
-    error_logger:error_report(supervisor_report
-                             ,[{supervisor, Name}
-                              ,{errorContext, ErrorContext}
-                              ,{reason, Reason}
-                              ,{offender, Params}]).
-
-
-
-
-
-
-
-debug([], _Name, _MsgInfo) ->
-    [];
-debug(Dbg, Name, MsgInfo) ->
-    sys:handle_debug(Dbg, fun print/3, Name, MsgInfo).
-
-
-
-
-
-
-
-print(IODev, {in, {call, {From, _Ref}, Request}}, Name) ->
-    io:format(IODev
-             ,"*DBG* director \"~p\" got request \"~p\" from \"~w\" ~n"
-             ,[Name, Request, From]);
-print(IODev, {out, To, Msg}, Name) ->
-    io:format(IODev
-             ,"*DBG* director \"~p\" sent \"~p\" to \"~w\"~n"
-             ,[Name, Msg, To]);
-print(IODev, {in, {exit, Pid, Reason}}, Name) ->
-    io:format(IODev
-             ,"*DBG* director \"~p\" got exit signal for pid \"~p\" wit"
-              "h reason \"~p\"~n"
-             ,[Name, Pid, Reason]);
-print(IODev, {timeout, TimerRef, Id}, Name) ->
-    io:format(IODev
-             ,"*DBG* director \"~p\" got timer event for child-id \"~p"
-              "\" with timer reference \"~p\"~n"
-             ,[Name, Id, TimerRef]);
-print(IODev, Other, Name) ->
-    io:format(IODev
-             ,"*DBG* director \"~p\" got debug \"~p\" ~n"
-             ,[Name, Other]).

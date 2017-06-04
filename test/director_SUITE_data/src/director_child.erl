@@ -10,18 +10,16 @@
 
 
 start_link(Arg) ->
-    gen_server:start_link(?MODULE, [Arg], []).
-
-start_link(Arg1, Arg2) ->
-    gen_server:start_link(?MODULE, [Arg1, Arg2], []).
+    gen_server:start_link(?MODULE, Arg, []).
 
 
+start_link(Name, Arg) ->
+    gen_server:start_link(Name, ?MODULE, Arg, []).
 
 
-init({exit, Reason}) ->
-    {stop, Reason};
+
 init(Arg) ->
-    {ok, Arg}.
+    Arg().
 
 
 

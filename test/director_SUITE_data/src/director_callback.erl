@@ -1,17 +1,19 @@
 -module(director_callback).
--export([start_link/0
+-export([start_link/1
+        ,start_link/2
         ,init/1]).
 
 
 
-
-start_link() ->
-    director:start({local, director}, ?MODULE, undefined, [{debug, [trace]}]).
-
+start_link(InitArg) ->
+    director:start(?MODULE, InitArg, [{debug, [trace]}]).
 
 
+start_link(Name, InitArg) ->
+    director:start(Name, ?MODULE, InitArg, [{debug, [trace]}]).
 
-init(undefined) ->
-    {ok, []};
-init(Arg) ->
-    {ok, [], Arg}.
+
+
+
+init(InitArg) ->
+    InitArg().
