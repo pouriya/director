@@ -558,7 +558,8 @@ true
 
 
 ## Warnings
-* If you have plans like:
+* If you have plans like:  
+
 ```erlang
 Childspec1 = #{id => foo
               ,start => {bar, baz}
