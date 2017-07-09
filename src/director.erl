@@ -1476,7 +1476,7 @@ handle_exit(Dbg
             _Other ->
                 PlanElem
         end,
-    director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
+    _ = director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
     case Strategy of
         restart ->
             case do_restart_child(Name, Id, Table) of
@@ -1566,16 +1566,9 @@ do_call(Name, Request, Timeout) ->
         {ok, Res} ->
             Res;
         {'EXIT', Reason} ->
-            Request2 =
-                case Request of
-                    {?GEN_CALL_TAG, Request3} ->
-                        Request3;
-                    _Other ->
-                        Request
-                end,
             erlang:exit({call_crash, [{reason, Reason}
                                      ,{remote_process, Name}
-                                     ,{request, Request2}]})
+                                     ,{request, Request}]})
     end.
 
 
@@ -1706,7 +1699,7 @@ do_restart_child(Name, Id, Table) ->
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
             {error, running};
         #?CHILD{pid = restarting, timer_reference = Ref}=Child ->
-            erlang:cancel_timer(Ref, [{async, true}]),
+            _ = erlang:cancel_timer(Ref, [{async, true}]),
             start_mfa(Name
                      ,Child#?CHILD{pid = undefined
                                   ,timer_reference = undefined}
@@ -1792,15 +1785,16 @@ do_terminate_child(Name, Id_or_Pid, Table) ->
             Child ->
                 Child
         end,
-    case Search of
-        #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
-            ok = do_terminate_child(Name, Child2);
-        #?CHILD{pid = restarting, timer_reference = Ref} ->
-            erlang:cancel_timer(Ref, [{async, true}]),
-            ok;
-        Other ->
-            Other
-    end,
+    _ =
+        case Search of
+            #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
+                ok = do_terminate_child(Name, Child2);
+            #?CHILD{pid = restarting, timer_reference = Ref} ->
+                _ = erlang:cancel_timer(Ref, [{async, true}]),
+                ok;
+            Other ->
+                Other
+        end,
     case Search of
         not_found ->
             not_found;
