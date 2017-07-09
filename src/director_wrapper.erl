@@ -87,48 +87,12 @@
 
 
 combine_child(ChildSpec, DefChildSpec) ->
-    Fun =
-        fun
-            (start
-            ,{Mod, Func, Args}
-            ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-                Map#{start => {Mod, Func, Args2 ++ Args}};
-            (count, infinity, Map) ->
-                Map#{count => infinity};
-            (count, Count, #{count := Count2}=Map) ->
-                if
-                    Count2 =:= infinity ->
-                        Map#{count => Count};
-                    true ->
-                        Map#{count => Count + Count2}
-                end;
-            (terminate_timeout, infinity, Map) ->
-                Map#{terminate_timeout => infinity};
-            (terminate_timeout
-            ,TerminateTimeout
-            ,#{terminate_timeout := TerminateTimeout2}=Map) ->
-                if
-                    TerminateTimeout2 =:= infinity ->
-                        Map#{terminate_timeout => TerminateTimeout};
-                    true ->
-                        Map#{terminate_timeout => TerminateTimeout
-                            + TerminateTimeout2}
-                end;
-            (modules, dynamic, Map) ->
-                Map#{modules => dynamic};
-            (modules, Mods, #{modules := Mods2}=Map) ->
-                if
-                    Mods2 =:= dynamic ->
-                        Map#{modules => Mods};
-                    true ->
-                        Map#{modules => Mods2 ++ Mods}
-                end;
-            (plan, Plan, #{plan := Plan2}=Map) ->
-                Map#{plan => Plan2 ++ Plan};
-            (Key, Value, Map) ->
-                Map#{Key => Value}
-        end,
-    maps:fold(Fun, DefChildSpec, ChildSpec).
+    case maps:get(append, ChildSpec) of
+        true ->
+            maps:fold(fun combine_child/3, DefChildSpec, ChildSpec);
+        false ->
+            ChildSpec
+    end.
 
 
 
@@ -137,48 +101,12 @@ combine_child(ChildSpec, DefChildSpec) ->
 
 
 separate_child(ChildSpec, DefChildSpec) ->
-    Fun =
-        fun
-            (start
-            ,{Mod, Func, Args}
-            ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-                Map#{start => {Mod, Func, Args -- Args2}};
-            (count, infinity, Map) ->
-                Map#{count => infinity};
-            (count, Count, #{count := Count2}=Map) ->
-                if
-                    Count2 =:= infinity ->
-                        Map#{count => Count};
-                    true ->
-                        Map#{count => Count - Count2}
-                end;
-            (terminate_timeout, infinity, Map) ->
-                Map#{terminate_timeout => infinity};
-            (terminate_timeout
-            ,TerminateTimeout
-            ,#{terminate_timeout := TerminateTimeout2}=Map) ->
-                if
-                    TerminateTimeout2 =:= infinity ->
-                        Map#{terminate_timeout => TerminateTimeout};
-                    true ->
-                        Map#{terminate_timeout => TerminateTimeout
-                            - TerminateTimeout2}
-                end;
-            (modules, dynamic, Map) ->
-                Map#{modules => dynamic};
-            (modules, Mods, #{modules := Mods2}=Map) ->
-                if
-                    Mods2 =:= dynamic ->
-                        Map#{modules => Mods};
-                    true ->
-                        Map#{modules => Mods -- Mods2}
-                end;
-            (plan, Plan, #{plan := Plan2}=Map) ->
-                Map#{plan => Plan -- Plan2};
-            (Key, Value, Map) ->
-                Map#{Key => Value}
-        end,
-    maps:fold(Fun, DefChildSpec, ChildSpec).
+    case maps:get(append, ChildSpec) of
+        true ->
+            maps:fold(fun separate_child/3, DefChildSpec, ChildSpec);
+        false ->
+            ChildSpec
+    end.
 
 
 
@@ -277,3 +205,97 @@ c_r2p(#?CHILD{pid = Pid
     ,{modules, Mods}
     ,{type, Type}
     ,{append, Append}].
+
+
+
+
+
+%% ---------------------------------------------------------------------
+%% Internal functions:
+
+
+
+
+
+combine_child(start
+             ,{Mod, Func, Args}
+             ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
+    Map#{start => {Mod, Func, Args2 ++ Args}};
+combine_child(count, infinity, Map) ->
+    Map#{count => infinity};
+combine_child(count, Count, #{count := Count2}=Map) ->
+    if
+        Count2 =:= infinity ->
+            Map#{count => Count};
+        true ->
+            Map#{count => Count + Count2}
+    end;
+combine_child(terminate_timeout, infinity, Map) ->
+    Map#{terminate_timeout => infinity};
+combine_child(terminate_timeout
+             ,TerminateTimeout
+             ,#{terminate_timeout := TerminateTimeout2}=Map) ->
+    if
+        TerminateTimeout2 =:= infinity ->
+            Map#{terminate_timeout => TerminateTimeout};
+        true ->
+            Map#{terminate_timeout => TerminateTimeout
+                        + TerminateTimeout2}
+    end;
+combine_child(modules, dynamic, Map) ->
+    Map#{modules => dynamic};
+combine_child(modules, Mods, #{modules := Mods2}=Map) ->
+    if
+        Mods2 =:= dynamic ->
+            Map#{modules => Mods};
+        true ->
+            Map#{modules => Mods2 ++ Mods}
+    end;
+combine_child(plan, Plan, #{plan := Plan2}=Map) ->
+    Map#{plan => Plan2 ++ Plan};
+combine_child(Key, Value, Map) ->
+    Map#{Key => Value}.
+
+
+
+
+
+
+separate_child(start
+              ,{Mod, Func, Args}
+              ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
+    Map#{start => {Mod, Func, Args -- Args2}};
+separate_child(count, infinity, Map) ->
+    Map#{count => infinity};
+separate_child(count, Count, #{count := Count2}=Map) ->
+    if
+        Count2 =:= infinity ->
+            Map#{count => Count};
+        true ->
+            Map#{count => Count - Count2}
+    end;
+separate_child(terminate_timeout, infinity, Map) ->
+            Map#{terminate_timeout => infinity};
+separate_child(terminate_timeout
+              ,TerminateTimeout
+              ,#{terminate_timeout := TerminateTimeout2}=Map) ->
+    if
+        TerminateTimeout2 =:= infinity ->
+            Map#{terminate_timeout => TerminateTimeout};
+        true ->
+            Map#{terminate_timeout => TerminateTimeout
+                - TerminateTimeout2}
+    end;
+separate_child(modules, dynamic, Map) ->
+    Map#{modules => dynamic};
+separate_child(modules, Mods, #{modules := Mods2}=Map) ->
+    if
+        Mods2 =:= dynamic ->
+            Map#{modules => Mods};
+        true ->
+            Map#{modules => Mods -- Mods2}
+    end;
+separate_child(plan, Plan, #{plan := Plan2}=Map) ->
+    Map#{plan => Plan -- Plan2};
+separate_child(Key, Value, Map) ->
+    Map#{Key => Value}.
