@@ -1,3 +1,5 @@
+![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)
+
 # Director
 Flexible, fast and powerful supervisor library for Erlang processes.  
 
