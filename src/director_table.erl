@@ -34,7 +34,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% --------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.6.4
+%% @version  17.7.10
 %% @doc
 %%           API functions for keeping, updating and fetching
 %%           childspecs data.
