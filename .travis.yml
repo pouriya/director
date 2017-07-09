@@ -1,0 +1,22 @@
+language: erlang
+otp_release:
+  - 18.3
+  - 19.0
+  - 19.3
+  - 20.0
+
+
+env:
+  - TEST=1
+before_script:
+    - kerl list installations
+    - curl -O -L https://s3.amazonaws.com/rebar3/rebar3
+    - chmod +x rebar3
+
+script:
+  - ./rebar3 ct
+  - ./rebar3 dialyzer
+
+cache:
+  directories:
+    - $HOME/.cache/rebar3
