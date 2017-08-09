@@ -1216,6 +1216,29 @@ process_message(Parent, Dbg, #?STATE{name = Name}=State, Msg) ->
 process_request(Dbg
                ,#?STATE{table = Table, name = Name}=State
                ,From
+               ,{?GET_PID_TAG, Id}) ->
+    Result =
+        case director_table:lookup(Table, Id) of
+            not_found ->
+                {error, not_found};
+            #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
+                {ok, Pid};
+            #?CHILD{pid = Other} ->
+                {error, Other}
+        end,
+    {reply(Dbg, Name, From, Result), State};
+
+process_request(Dbg
+               ,#?STATE{table = Table, name = Name}=State
+               ,From
+               ,?GET_PIDS_TAG) ->
+    Pids = [{Id, Pid} || #?CHILD{pid = Pid, id = Id}
+        <- director_table:tab2list(Table), erlang:is_pid(Pid)],
+    {reply(Dbg, Name, From, Pids), State};
+
+process_request(Dbg
+               ,#?STATE{table = Table, name = Name}=State
+               ,From
                ,?COUNT_CHILDREN_TAG) ->
     Specs = director_table:count(Table),
     Fun =
@@ -1412,29 +1435,6 @@ process_request(Dbg
                 {ok, Count}
         end,
     {reply(Dbg, Name, From, Result), State};
-
-process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
-               ,From
-               ,{?GET_PID_TAG, Id}) ->
-    Result =
-        case director_table:lookup(Table, Id) of
-            not_found ->
-                {error, not_found};
-            #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
-                {ok, Pid};
-            #?CHILD{pid = Other} ->
-                {error, Other}
-        end,
-    {reply(Dbg, Name, From, Result), State};
-
-process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
-               ,From
-               ,?GET_PIDS_TAG) ->
-    Pids = [{Id, Pid} || #?CHILD{pid = Pid, id = Id}
-           <- director_table:tab2list(Table), erlang:is_pid(Pid)],
-    {reply(Dbg, Name, From, Pids), State};
 
 process_request(Dbg
                ,#?STATE{name = Name
