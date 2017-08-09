@@ -110,7 +110,8 @@ debug_options(Name, Opts) ->
 
 
 
-
+progress_report(_Name, _Child, off) ->
+    ok;
 progress_report(Name, Child, DbgMode) ->
     error_logger:info_report(progress
                             ,[{supervisor, Name}
