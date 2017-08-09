@@ -73,6 +73,7 @@
         ,get_pids/1
         ,get_plan/2
         ,change_plan/3
+        ,change_count/3
         ,get_default_childspec/1
         ,change_default_childspec/2
         ,start_link/4
@@ -98,6 +99,7 @@
         ,get_childspec/3
         ,get_plan/3
         ,change_plan/4
+        ,change_count/4
         ,get_pid/3
         ,get_pids/2
         ,get_default_childspec/2
@@ -491,6 +493,21 @@ change_plan(Director, Id, Plan) ->
 
 
 -spec
+change_count(director(), id(), count()) ->
+    'ok' | {'error', 'not_found' | term()}.
+%% @doc
+%%      Changes the count of running or waited or terminated child.
+%% @end
+change_count(Director, Id, Count) ->
+    do_call(Director, {?CHANGE_COUNT_TAG, Id, Count}).
+
+
+
+
+
+
+
+-spec
 get_plan(director(), id()) ->
     'ok' | {'error', 'not_found' | term()}.
 %% @doc
@@ -849,6 +866,21 @@ change_plan(director(), id(), plan(), timeout()) ->
 %% @end
 change_plan(Director, Id, Plan, Timeout) ->
     do_call(Director, {?CHANGE_PLAN_TAG, Id, Plan}, Timeout).
+
+
+
+
+
+
+
+-spec
+change_count(director(), id(), count(), timeout()) ->
+    'ok' | {'error', 'not_found' | term()}.
+%% @doc
+%%      Changes the count of running or waited or terminated child.
+%% @end
+change_count(Director, Id, Count, Timeout) ->
+    do_call(Director, {?CHANGE_COUNT_TAG, Id, Count}, Timeout).
 
 
 
@@ -1299,12 +1331,40 @@ process_request(Dbg
                         Child2 = Child#?CHILD{plan = Plan2
                                              ,plan_element_index =
                                                      PlanElemIndex
-                                             ,plan_length = PlanLen
-                                             ,count2 = 0},
+                                             ,plan_length = PlanLen},
                         ok = director_table:insert(Table, Child2)
                 end;
             {error, _Reason}=Error ->
                 Error
+        end,
+    {reply(Dbg, Name, From, Result), State};
+
+process_request(Dbg
+               ,#?STATE{table = Table, name = Name}=State
+               ,From
+               ,{?CHANGE_COUNT_TAG, Id, Count0}) ->
+    CountCheck =
+        case director_check:is_whole_integer(Count0) of
+            true ->
+                {ok, Count0};
+            false when Count0 == infinity ->
+                {ok, Count0};
+            false ->
+                error
+        end,
+    Result =
+        case CountCheck of
+            {ok, Count} ->
+                case director_table:lookup(Table, Id) of
+                    not_found ->
+                        {error, not_found};
+                    Child ->
+                        ok = director_table:insert(Table
+                                                  ,Child#?CHILD{count
+                            = Count})
+                end;
+            error ->
+                {error, {count_format, [{count, Count0}]}}
         end,
     {reply(Dbg, Name, From, Result), State};
 

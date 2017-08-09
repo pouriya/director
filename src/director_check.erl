@@ -59,7 +59,8 @@
         ,check_childspec/2
         ,check_default_childspec/1
         ,filter_plan/1
-        ,filter_plan_element/1]).
+        ,filter_plan_element/1
+        ,is_whole_integer/1]).
 
 
 
