@@ -14,13 +14,13 @@ According to the Erlang's manual documentation:
 
 ## Features:  
 * Restart child if child crashed with any reason.  
-* Restart child if child crashed with some specific reason(s).
+* Restart child if child crashed with some specific reasons.
 * Ignore restarting child if child crashed with any reason.  
-* Ignore restarting child if child crashed with some specific reason(s).  
+* Ignore restarting child if child crashed with some specific reasons.  
 * Delete child from children if child crashed with any reason.  
-* Delete child from children if child crashed with some specific reason(s).
+* Delete child from children if child crashed with some specific reasons.
 * Restart child after spending time if child crashed with any reason.
-* Restart child after spending time if child crashed with some specific reason(s).  
+* Restart child after spending time if child crashed with some specific reasons.  
 * Get pid of child if child is running in separate and atomic request.  
 * Get pids of all running children.
 * Change plan of restarting child dynamically.  
