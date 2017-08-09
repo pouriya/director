@@ -56,8 +56,8 @@
 %% API:
 -export([debug/3
         ,debug_options/2
-        ,progress_report/2
-        ,error_report/4]).
+        ,progress_report/3
+        ,error_report/5]).
 
 
 
@@ -111,25 +111,27 @@ debug_options(Name, Opts) ->
 
 
 
-progress_report(Name, Child) ->
+progress_report(Name, Child, DbgMode) ->
     error_logger:info_report(progress
                             ,[{supervisor, Name}
                              ,{started
-                              ,director_wrapper:c_r2p(Child)}]).
+                              ,director_wrapper:c_r2p(Child
+                                                     ,DbgMode)}]).
 
 
 
 
 
 
-
-error_report(Name, ErrorContext, Reason, Child) ->
+error_report(_Name, _ErrorContext, _Reason, _Child, off) ->
+    ok;
+error_report(Name, ErrorContext, Reason, Child, Mode) ->
     error_logger:error_report(supervisor_report
                              ,[{supervisor, Name}
                               ,{errorContext, ErrorContext}
                               ,{reason, Reason}
                               ,{offender
-                               ,director_wrapper:c_r2p(Child)}]).
+                               ,director_wrapper:c_r2p(Child, Mode)}]).
 
 
 

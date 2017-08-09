@@ -60,7 +60,8 @@
         ,check_default_childspec/1
         ,filter_plan/1
         ,filter_plan_element/1
-        ,is_whole_integer/1]).
+        ,is_whole_integer/1
+        ,get_debug_mode/3]).
 
 
 
@@ -222,6 +223,34 @@ filter_plan_element(Fun) when erlang:is_function(Fun) ->
     end;
 filter_plan_element(Other) ->
     {error, {plan_element_type, [{plan_element, Other}]}}.
+
+
+
+
+
+
+
+get_debug_mode(Name, Opts, Def) ->
+    case lists:keyfind(debug_mode, 1, Opts) of
+        false ->
+            Def;
+        {_, long} ->
+            long;
+        {_, short} ->
+            short;
+        {_, off} ->
+            off;
+        {_, Mode} ->
+            error_logger:format(
+                "~p: ignoring erroneous debug mode - ~p~n",
+                [Name, Mode]),
+            Def;
+        Mode ->
+            error_logger:format(
+                "~p: ignoring erroneous debug mode - ~p~n",
+                [Name, Mode]),
+            Def
+    end.
 
 
 

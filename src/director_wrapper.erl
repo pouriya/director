@@ -57,7 +57,7 @@
 -export([combine_child/2
         ,separate_child/2
         ,c2cs/1
-        ,c_r2p/1
+        ,c_r2p/2
         ,cs2c/1]).
 
 
@@ -174,7 +174,50 @@ c2cs(#?CHILD{id = Id
 
 
 
-
+c_r2p(#?CHILD{pid = Pid
+             ,id = Id
+             ,start = Start
+             ,type = Type
+             ,terminate_timeout = TerminateTimeout}
+     ,off) ->
+    [{id, Id}
+    ,{pid, Pid}
+    ,{mfargs, Start}
+    ,{restart_type, temporary}
+    ,{shutdown, case TerminateTimeout of
+                    0 ->
+                        brutal_kill;
+                    Timeout ->
+                        Timeout
+                end}
+    ,{child_type, Type}];
+c_r2p(#?CHILD{pid = Pid
+             ,id = Id
+             ,plan = Plan
+             ,count = Count
+             ,restart_count = ResCount
+             ,start = Start
+             ,terminate_timeout = TerminateTimeout
+             ,modules = Mods
+             ,type = Type
+             ,append = Append}
+     ,short) ->
+    [{id, Id}
+    ,{pid, Pid}
+    ,{plan, Plan}
+    ,{count, Count}
+    ,{restart_count, ResCount}
+    ,{mfargs, Start}
+    ,{restart_type, temporary}
+    ,{shutdown, case TerminateTimeout of
+                    0 ->
+                        brutal_kill;
+                    Timeout ->
+                        Timeout
+                end}
+    ,{child_type, Type}
+    ,{modules, Mods}
+    ,{append, Append}];
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
              ,plan = Plan
@@ -189,21 +232,28 @@ c_r2p(#?CHILD{pid = Pid
              ,extra = Extra
              ,modules = Mods
              ,type = Type
-             ,append = Append}) ->
+             ,append = Append}
+     ,long) ->
     [{id, Id}
     ,{pid, Pid}
     ,{plan, Plan}
     ,{count, Count}
     ,{count2, Count2}
     ,{restart_count, ResCount}
-    ,{mfargs, Start} % mfargs for lager : )
+    ,{mfargs, Start}
     ,{plan_element_index, PlanElemIndex}
     ,{plan_length, PlanLen}
     ,{timer_reference, TimerRef}
-    ,{terminate_timeout, TerminateTimeout}
+    ,{restart_type, temporary}
+    ,{shutdown, case TerminateTimeout of
+                    0 ->
+                        brutal_kill;
+                    Timeout ->
+                        Timeout
+                end}
+    ,{child_type, Type}
     ,{extra, Extra}
     ,{modules, Mods}
-    ,{type, Type}
     ,{append, Append}].
 
 

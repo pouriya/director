@@ -58,6 +58,7 @@
 -define(GET_COUNT_TAG, 'get_count').
 -define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
+-define(DEFAULT_DEBUG_MODE, 'short').
 
 
 

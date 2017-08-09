@@ -205,11 +205,15 @@
 -type director() :: pid() | atom().
 
 -type start_options() :: [start_option()] | [].
--type  start_option() :: debug() | spawn_options() | timeout_option().
+-type  start_option() :: debug()
+                       | spawn_options()
+                       | timeout_option()
+                       | debug_mode().
 -type   debug() :: {'debug'
                    ,['trace' | 'log' | 'statistics' | 'debug'] | []}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
+-type   debug_mode() :: 'long' | 'short' | 'off'.
 
 
 
@@ -273,7 +277,8 @@ init(InitArg) ->
                                ,module
                                ,init_argument
                                ,table
-                               ,default_childspec}).
+                               ,default_childspec
+                               ,debug_mode}).
 -define(STATE, director_state_record).
 
 
@@ -1008,18 +1013,22 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
+    DbgMode = director_check:get_debug_mode(Name
+                                           ,Opts
+                                           ,?DEFAULT_DEBUG_MODE),
     Dbg = director_debug:debug_options(Name, Opts),
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
             Table = director_table:create(),
-            case start_children(Name, Children, Table) of
+            case start_children(Name, Children, Table, DbgMode) of
                 ok ->
                     State = #?STATE{name = Name
                                    ,module = Mod
                                    ,init_argument = InitArg
                                    ,table = Table
-                                   ,default_childspec = DefChildSpec},
+                                   ,default_childspec = DefChildSpec
+                                   ,debug_mode = DbgMode},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
                     %exit(element(2, (catch loop(Parent, Dbg, State))));
                     loop(Parent, Dbg, State);
@@ -1307,32 +1316,41 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,debug_mode = DbgMode}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
-    {reply(Dbg, Name, From, do_restart_child(Name, Id, Table)), State};
+    {reply(Dbg
+          ,Name
+          ,From
+          ,do_restart_child(Name, Id, Table, DbgMode))
+    ,State};
 
 process_request(Dbg
                ,#?STATE{table = Table
                        ,name = Name
-                       ,default_childspec = DefChildSpec}=State
+                       ,default_childspec = DefChildSpec
+                       ,debug_mode = DbgMode}=State
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
     Result =
         case director_check:check_childspec(ChildSpec, DefChildSpec) of
             {ok, Child} ->
-                do_start_child(Name, Child, Table);
+                do_start_child(Name, Child, Table, DbgMode);
             {error, _Reason}=Error ->
                 Error
         end,
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,debug_mode = DbgMode}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
     Result =
-        case do_terminate_child(Name, Term, Table) of
+        case do_terminate_child(Name, Term, Table, DbgMode) of
             ok ->
                 ok;
             not_found ->
@@ -1477,7 +1495,9 @@ process_exit(Parent, Dbg, State, Parent, Reason) ->
     terminate(Dbg, State, Reason);
 process_exit(Parent
             ,Dbg
-            ,#?STATE{table = Table, name = Name}=State
+            ,#?STATE{table = Table
+                    ,name = Name
+                    ,debug_mode = DbgMode}=State
             ,Pid
             ,Reason) ->
     case director_table:lookup_by_pid(Table, Pid) of
@@ -1487,7 +1507,8 @@ process_exit(Parent
             director_debug:error_report(Name
                                        ,child_terminated
                                        ,Reason
-                                       ,Child),
+                                       ,Child
+                                       ,DbgMode),
             Child2 = Child#?CHILD{pid = undefined, extra = undefined},
             ok = director_table:insert(Table, Child2),
             {Dbg2, State2} = handle_exit(Dbg, State, Child2, Reason),
@@ -1500,36 +1521,40 @@ process_exit(Parent
 
 
 handle_exit(Dbg
-           ,#?STATE{name = Name}=State
+           ,#?STATE{name = Name, debug_mode = DbgMode}=State
            ,#?CHILD{plan = []}=Child
            ,Reason) ->
     director_debug:error_report(Name
                                ,empty_plan_child_terminated
                                ,Reason
-                               ,Child),
+                               ,Child
+                               ,DbgMode),
     terminate(Dbg
              ,State
              ,{empty_plan_child_terminated
-              ,[{child, director_wrapper:c_r2p(Child)}
+              ,[{child, director_wrapper:c_r2p(Child, long)}
                ,{child_last_error_reason, Reason}]});
 
 handle_exit(Dbg
-           ,#?STATE{name = Name}=State
+           ,#?STATE{name = Name, debug_mode = DbgMode}=State
            ,#?CHILD{count = Count
                    ,count2 = _Count2 = Count}=Child
            ,Reason) ->
     director_debug:error_report(Name
                                ,reached_max_restart_plan
                                ,Reason
-                               ,Child),
+                               ,Child
+                               ,DbgMode),
     terminate(Dbg
              ,State
              ,{reached_max_restart_plan
-              ,[{child, director_wrapper:c_r2p(Child)}
+              ,[{child, director_wrapper:c_r2p(Child, long)}
                ,{child_last_error_reason, Reason}]});
 
 handle_exit(Dbg
-           ,#?STATE{name = Name, table = Table}=State
+           ,#?STATE{name = Name
+                   ,table = Table
+                   ,debug_mode = DbgMode}=State
            ,#?CHILD{id = Id
                    ,plan = Plan
                    ,count2 = Count2
@@ -1584,7 +1609,7 @@ handle_exit(Dbg
     _ = director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
     case Strategy of
         restart ->
-            case do_restart_child(Name, Id, Table) of
+            case do_restart_child(Name, Id, Table, DbgMode) of
                 {error, _Reason3} ->
                     TimeRef = restart_timer(0, Id),
                     ok = director_table:
@@ -1616,7 +1641,7 @@ handle_exit(Dbg
             terminate(Dbg
                      ,State
                      ,{run_plan_element
-                      ,[{child, director_wrapper:c_r2p(Child2)}
+                      ,[{child, director_wrapper:c_r2p(Child2, long)}
                        ,{child_last_error_reason, Reason}
                        ,{run_plan_error_reason, Reason3}]})
     end.
@@ -1628,14 +1653,16 @@ handle_exit(Dbg
 
 
 process_timeout(Dbg
-               ,#?STATE{name = Name, table = Table}=State
+               ,#?STATE{name = Name
+                       ,table = Table
+                       ,debug_mode = DbgMode}=State
                ,TimerRef
                ,Id) ->
     case director_table:lookup(Table, Id) of
         not_found ->
             {Dbg, State};
         #?CHILD{timer_reference = TimerRef} ->
-            case do_restart_child(Name, Id, Table) of
+            case do_restart_child(Name, Id, Table, DbgMode) of
 %%                {error, not_found} ->
 %%                    {Dbg, State};
                 {error, Reason} ->
@@ -1764,17 +1791,17 @@ init_module(Mod, InitArg) ->
 
 
 
-start_children(Name, [#?CHILD{id=Id}=Child|Children], Table) ->
-    case do_start_child(Name, Child, Table) of
+start_children(Name, [#?CHILD{id=Id}=Child|Children], Table, DbgMode) ->
+    case do_start_child(Name, Child, Table, DbgMode) of
         {ok, _Pid} ->
-            start_children(Name, Children, Table);
+            start_children(Name, Children, Table, DbgMode);
         {error, already_present} ->
             {error, {repeated_id, [{id, Id}]}};
         {error, _Reason}=Error ->
-            _ = terminate_children(Name, Table),
+            _ = terminate_children(Name, Table, DbgMode),
             Error
     end;
-start_children(_Name, [], _Table) ->
+start_children(_Name, [], _Table, _DbgMode) ->
     ok.
 
 
@@ -1784,10 +1811,10 @@ start_children(_Name, [], _Table) ->
 
 
 
-do_start_child(Name, #?CHILD{id = Id}=Child ,Table) ->
+do_start_child(Name, #?CHILD{id = Id}=Child ,Table, DbgMode) ->
     case director_table:lookup(Table, Id) of
         not_found ->
-            start_mfa(Name, Child, Table);
+            start_mfa(Name, Child, Table, DbgMode);
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
             {error, {already_started, Pid}};
         _Child ->
@@ -1797,7 +1824,7 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,Table) ->
 
 
 
-do_restart_child(Name, Id, Table) ->
+do_restart_child(Name, Id, Table, DbgMode) ->
     case director_table:lookup(Table, Id) of
         not_found ->
             {error, not_found};
@@ -1808,9 +1835,10 @@ do_restart_child(Name, Id, Table) ->
             start_mfa(Name
                      ,Child#?CHILD{pid = undefined
                                   ,timer_reference = undefined}
-                     ,Table);
+                     ,Table
+                     ,DbgMode);
         Child ->
-            start_mfa(Name, Child, Table)
+            start_mfa(Name, Child, Table, DbgMode)
     end.
 
 
@@ -1818,18 +1846,19 @@ do_restart_child(Name, Id, Table) ->
 
 start_mfa(Name
          ,#?CHILD{start = {Mod, Func, Args}}=Child
-         ,Table) ->
+         ,Table
+         ,DbgMode) ->
     case catch erlang:apply(Mod, Func, Args) of
         {ok, Pid} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid, extra = undefined},
             ok = director_table:insert(Table, Child2),
-            director_debug:progress_report(Name, Child2),
+            director_debug:progress_report(Name, Child2, DbgMode),
             {ok, Pid};
         {ok, Pid, Extra} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid
                                  ,extra = {extra, Extra}},
             ok = director_table:insert(Table, Child2),
-            director_debug:progress_report(Name, Child2),
+            director_debug:progress_report(Name, Child2, DbgMode),
             {ok, Pid, Extra};
         ignore ->
             {ok, undefined};
@@ -1851,15 +1880,19 @@ start_mfa(Name
 
 
 
-terminate(Dbg, #?STATE{table = Table, name = Name}=State, Reason) ->
+terminate(Dbg
+         ,#?STATE{table = Table
+                 ,name = Name
+                 ,debug_mode = DbgMode}=State
+         ,Reason) ->
     Children = director_table:tab2list(Table),
-    terminate_children(Name, Table),
+    terminate_children(Name, Table, DbgMode),
     error_logger:format("** Director \"~p\" terminating \n** Reason for"
                         " termination == \"~p\"~n** Children == \"~p\"~"
                         "n** State == \"~p\"~n"
                        ,[Name
                         ,Reason
-                        ,[director_wrapper:c_r2p(Child)
+                        ,[director_wrapper:c_r2p(Child, DbgMode)
                          || Child <- Children]
                         ,State]),
     sys:print_log(Dbg),
@@ -1871,8 +1904,8 @@ terminate(Dbg, #?STATE{table = Table, name = Name}=State, Reason) ->
 
 
 
-terminate_children(Name, Table) ->
-    [do_terminate_child(Name, Child#?CHILD.id, Table)
+terminate_children(Name, Table, DbgMode) ->
+    [do_terminate_child(Name, Child#?CHILD.id, Table, DbgMode)
     || Child <- director_table:tab2list(Table)],
     ok.
 
@@ -1882,7 +1915,7 @@ terminate_children(Name, Table) ->
 
 
 
-do_terminate_child(Name, Id_or_Pid, Table) ->
+do_terminate_child(Name, Id_or_Pid, Table, DbgMode) ->
     Search =
         case director_table:lookup(Table, Id_or_Pid) of
             not_found ->
@@ -1893,7 +1926,7 @@ do_terminate_child(Name, Id_or_Pid, Table) ->
     _ =
         case Search of
             #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
-                ok = do_terminate_child(Name, Child2);
+                ok = do_terminate_child(Name, Child2, DbgMode);
             #?CHILD{pid = restarting, timer_reference = Ref} ->
                 _ = erlang:cancel_timer(Ref, [{async, true}]),
                 ok;
@@ -1919,7 +1952,8 @@ do_terminate_child(Name, Id_or_Pid, Table) ->
 
 do_terminate_child(Name
                   ,#?CHILD{pid=Pid
-                          ,terminate_timeout = TerminateTimeout}=Child)
+                          ,terminate_timeout = TerminateTimeout}=Child
+                  ,DbgMode)
     when erlang:is_pid(Pid) ->
     BrutalKill =
         fun() ->
@@ -1931,7 +1965,8 @@ do_terminate_child(Name
                     director_debug:error_report(Name
                                                ,shutdown_error
                                                ,Reason
-                                               ,Child),
+                                               ,Child
+                                               ,DbgMode),
                     ok
             end
         end,
@@ -1949,7 +1984,8 @@ do_terminate_child(Name
                             director_debug:error_report(Name
                                                        ,shutdown_error
                                                        ,Reason2
-                                                       ,Child),
+                                                       ,Child
+                                                       ,DbgMode),
                             ok
                     after TerminateTimeout ->
                         BrutalKill()
@@ -1959,7 +1995,8 @@ do_terminate_child(Name
             director_debug:error_report(Name
                                        ,shutdown_error
                                        ,Reason3
-                                       ,Child),
+                                       ,Child
+                                       ,DbgMode),
             ok
     end.
 
@@ -2020,7 +2057,7 @@ get_children([ChildR|Children], Table, Children2) ->
     case director_table:lookup(Table, ChildR#?CHILD.id) of
         not_found ->
             {error
-            ,{child_not_found, director_wrapper:c_r2p(ChildR)}};
+            ,{child_not_found, director_wrapper:c_r2p(ChildR, long)}};
         LastChildR ->
             get_children(Children
                         ,Table
