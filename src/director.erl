@@ -34,7 +34,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% --------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.7.10
+%% @version  17.8.9
 %% @doc
 %%           Flexible, fast and powerful process supervisor.
 %% @end

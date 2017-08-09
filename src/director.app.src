@@ -1,8 +1,9 @@
 {application
 ,director
 ,[{description, "Flexible, fast and powerful supervisor library for Erlang/Elixir processes"}
- ,{vsn, "17.7.10"}
+ ,{vsn, "17.8.9"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}
- ,{links, [{"GitHub", "https://github.com/Pouriya-Jahanbakhsh/director"}]}]}.
+ ,{links, [{"GitHub", "https://github.com/Pouriya-Jahanbakhsh/director"}
+          ,{"Wiki", "https://github.com/Pouriya-Jahanbakhsh/director/wiki"}]}]}.
