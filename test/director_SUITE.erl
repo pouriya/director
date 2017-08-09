@@ -81,7 +81,7 @@
 -define(CHILD, child_name).
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
--define(START_OPTIONS, [{debug, [trace]}]).
+-define(START_OPTIONS, [{debug, [trace]}, {debug_mode, long}]).
 
 
 -include_lib("common_test/include/ct.hrl").
