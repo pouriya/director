@@ -59,6 +59,7 @@
 -define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
 -define(GET_DEBUG_MODE_TAG, 'get_debug_mode').
+-define(CHANGE_DEBUG_MODE_TAG, 'change_debug_mode').
 -define(DEFAULT_DEBUG_MODE, 'short').
 
 

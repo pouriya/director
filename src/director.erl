@@ -78,6 +78,7 @@
         ,get_default_childspec/1
         ,change_default_childspec/2
         ,get_debug_mode/1
+        ,change_debug_mode/2
         ,start_link/4
         ,start/2
         ,start/3
@@ -107,7 +108,8 @@
         ,get_pids/2
         ,get_default_childspec/2
         ,change_default_childspec/3
-        ,get_debug_mode/2]).
+        ,get_debug_mode/2
+        ,change_debug_mode/3]).
 
 
 
@@ -625,6 +627,21 @@ get_debug_mode(Director) ->
 
 
 -spec
+change_debug_mode(director(), debug_mode()) ->
+    'ok' | {'error', term()}.
+%% @doc
+%%      Changes debug_mode of director.
+%% @end
+change_debug_mode(Director, DbgMode) ->
+    do_call(Director, {?CHANGE_DEBUG_MODE_TAG, DbgMode}).
+
+
+
+
+
+
+
+-spec
 start_link(register_name()
           ,module()
           ,InitArg::term()
@@ -1028,6 +1045,21 @@ get_debug_mode(director(), timeout()) ->
 %% @end
 get_debug_mode(Director, Timeout) ->
     do_call(Director, ?GET_DEBUG_MODE_TAG, Timeout).
+
+
+
+
+
+
+
+-spec
+change_debug_mode(director(), debug_mode(), timeout()) ->
+    'ok' | {'error', term()}.
+%% @doc
+%%      Changes debug_mode of director.
+%% @end
+change_debug_mode(Director, DbgMode, Timeout) ->
+    do_call(Director, {?CHANGE_DEBUG_MODE_TAG, DbgMode}, Timeout).
 
 
 
@@ -1516,6 +1548,33 @@ process_request(Dbg
                ,From
                ,?GET_DEBUG_MODE_TAG) ->
     {reply(Dbg, Name, From, DbgMode), State};
+
+process_request(Dbg
+               ,#?STATE{name = Name}=State
+               ,From
+               ,{?CHANGE_DEBUG_MODE_TAG, DbgMode}) ->
+    {State2, Result} =
+        if
+            erlang:is_atom(DbgMode) ->
+                if
+                    DbgMode == off orelse
+                    DbgMode == short orelse
+                    DbgMode == long ->
+                        {State#?STATE{debug_mode = DbgMode}, ok};
+                    true ->
+                        {State
+                        ,{error
+                         ,{debug_mode_value
+                          ,[{debug_mode, DbgMode}]}}}
+                end ;
+            true ->
+                {State
+                    ,{error
+                    ,{debug_mode_type
+                     ,[{debug_mode, DbgMode}]}}}
+        end,
+    {reply(Dbg, Name, From, Result), State2};
+
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
     error_logger:error_msg("Director \"~p\" received unexpected call: \"
