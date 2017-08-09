@@ -77,6 +77,7 @@
         ,change_count/3
         ,get_default_childspec/1
         ,change_default_childspec/2
+        ,get_debug_mode/1
         ,start_link/4
         ,start/2
         ,start/3
@@ -105,7 +106,8 @@
         ,get_pid/3
         ,get_pids/2
         ,get_default_childspec/2
-        ,change_default_childspec/3]).
+        ,change_default_childspec/3
+        ,get_debug_mode/2]).
 
 
 
@@ -608,6 +610,21 @@ change_default_childspec(Director, DefChildSpec) ->
 
 
 -spec
+get_debug_mode(director()) ->
+    debug_mode().
+%% @doc
+%%      Gets mode of debug for director.
+%% @end
+get_debug_mode(Director) ->
+    do_call(Director, ?GET_DEBUG_MODE_TAG).
+
+
+
+
+
+
+
+-spec
 start_link(register_name()
           ,module()
           ,InitArg::term()
@@ -996,6 +1013,21 @@ change_default_childspec(director(), default_childspec(), timeout()) ->
 %% @end
 change_default_childspec(Director, ChildSpec, Timeout) ->
     do_call(Director, {?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}, Timeout).
+
+
+
+
+
+
+
+-spec
+get_debug_mode(director(), timeout()) ->
+    debug_mode().
+%% @doc
+%%      Gets mode of debug for director.
+%% @end
+get_debug_mode(Director, Timeout) ->
+    do_call(Director, ?GET_DEBUG_MODE_TAG, Timeout).
 
 
 
@@ -1478,6 +1510,12 @@ process_request(Dbg
         end,
     {reply(Dbg, Name, From, Result), State2};
 
+process_request(Dbg
+               ,#?STATE{name = Name
+                       ,debug_mode = DbgMode}=State
+               ,From
+               ,?GET_DEBUG_MODE_TAG) ->
+    {reply(Dbg, Name, From, DbgMode), State};
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
     error_logger:error_msg("Director \"~p\" received unexpected call: \"
