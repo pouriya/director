@@ -213,8 +213,12 @@
                        | spawn_options()
                        | timeout_option()
                        | debug_mode_option().
--type   debug() :: {'debug'
-                   ,['trace' | 'log' | 'statistics' | 'debug'] | []}.
+-type   debug_option() :: {'debug'
+                          ,['trace'
+                           |'log'
+                           |'statistics'
+                           |'debug']
+                          |[]}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
 -type   debug_mode_option() :: {'debug_mode', debug_mode()}.
