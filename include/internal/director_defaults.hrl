@@ -55,6 +55,7 @@
 -define(CHANGE_PLAN_TAG, 'change_plan').
 -define(CHANGE_COUNT_TAG, 'change_count').
 -define(GET_PLAN_TAG, 'get_plan').
+-define(GET_COUNT_TAG, 'get_count').
 -define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
 

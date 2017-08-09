@@ -72,6 +72,7 @@
 -export([get_pid/2
         ,get_pids/1
         ,get_plan/2
+        ,get_count/2
         ,change_plan/3
         ,change_count/3
         ,get_default_childspec/1
@@ -98,6 +99,7 @@
         ,which_children/2
         ,get_childspec/3
         ,get_plan/3
+        ,get_count/3
         ,change_plan/4
         ,change_count/4
         ,get_pid/3
@@ -523,6 +525,21 @@ get_plan(Director, Id) ->
 
 
 -spec
+get_count(director(), id()) ->
+    'ok' | {'error', 'not_found' | term()}.
+%% @doc
+%%      Returns count of a childspec for child.
+%% @end
+get_count(Director, Id) ->
+    do_call(Director, {?GET_COUNT_TAG, Id}).
+
+
+
+
+
+
+
+-spec
 get_pid(director(), id()) ->
     {'ok', pid()} | {'error', 'not_found' | 'restarting' | 'undefined'}.
 %% @doc
@@ -848,6 +865,21 @@ get_childspec(director(), id() | pid(), timeout()) ->
 %% @end
 get_childspec(Director, Name, Timeout) ->
     do_call(Director, {?GET_CHILDSPEC_TAG, Name}, Timeout).
+
+
+
+
+
+
+
+-spec
+get_count(director(), id(), timeout()) ->
+    'ok' | {'error', 'not_found' | term()}.
+%% @doc
+%%      Returns count of a childspec for child.
+%% @end
+get_count(Director, Id, Timeout) ->
+    do_call(Director, {?GET_COUNT_TAG, Id}, Timeout).
 
 
 
@@ -1365,6 +1397,19 @@ process_request(Dbg
                 end;
             error ->
                 {error, {count_format, [{count, Count0}]}}
+        end,
+    {reply(Dbg, Name, From, Result), State};
+
+process_request(Dbg
+               ,#?STATE{table = Table, name = Name}=State
+               ,From
+               ,{?GET_COUNT_TAG, Id}) ->
+    Result =
+        case director_table:lookup(Table, Id) of
+            not_found ->
+                {error, not_found};
+            #?CHILD{count = Count} ->
+                {ok, Count}
         end,
     {reply(Dbg, Name, From, Result), State};
 
