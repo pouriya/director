@@ -209,15 +209,16 @@
 -type director() :: pid() | atom().
 
 -type start_options() :: [start_option()] | [].
--type  start_option() :: debug()
+-type  start_option() :: debug_option()
                        | spawn_options()
                        | timeout_option()
-                       | debug_mode().
+                       | debug_mode_option().
 -type   debug() :: {'debug'
                    ,['trace' | 'log' | 'statistics' | 'debug'] | []}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
--type   debug_mode() :: 'long' | 'short' | 'off'.
+-type   debug_mode_option() :: {'debug_mode', debug_mode()}.
+-type    debug_mode() :: 'short' | 'long' | 'off'.
 
 
 
@@ -226,7 +227,8 @@
 -export_type([childspec/0
              ,default_childspec/0
              ,start_options/0
-             ,start_return/0]).
+             ,start_return/0
+             ,debug_mode/0]).
 
 
 
