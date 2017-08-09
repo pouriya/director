@@ -53,6 +53,7 @@
 -define(GET_PID_TAG, 'get_pid').
 -define(GET_PIDS_TAG, 'get_pids').
 -define(CHANGE_PLAN_TAG, 'change_plan').
+-define(CHANGE_COUNT_TAG, 'change_count').
 -define(GET_PLAN_TAG, 'get_plan').
 -define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
