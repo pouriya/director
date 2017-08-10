@@ -61,7 +61,8 @@
         ,filter_plan/1
         ,filter_plan_element/1
         ,is_whole_integer/1
-        ,get_debug_mode/3]).
+        ,get_debug_mode/3
+        ,get_table_type/3]).
 
 
 
@@ -248,6 +249,32 @@ get_debug_mode(Name, Opts, Def) ->
         Mode ->
             error_logger:format(
                 "~p: ignoring erroneous debug mode - ~p~n",
+                [Name, Mode]),
+            Def
+    end.
+
+
+
+
+
+
+
+get_table_type(Name, Opts, Def) ->
+    case lists:keyfind(table_type, 1, Opts) of
+        false ->
+            Def;
+        {_, list} ->
+            list;
+        {_, ets} ->
+            ets;
+        {_, Mode} ->
+            error_logger:format(
+                "~p: ignoring erroneous table type - ~p~n",
+                [Name, Mode]),
+            Def;
+        Mode ->
+            error_logger:format(
+                "~p: ignoring erroneous table type - ~p~n",
                 [Name, Mode]),
             Def
     end.
