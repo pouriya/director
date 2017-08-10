@@ -55,17 +55,17 @@
 
 
 %% API:
--export([create/0
-        ,insert/2
-        ,delete/2
-        ,lookup/2
-        ,lookup_by_pid/2
-        ,lookup_appended/1
-        ,combine_children/2
-        ,separate_children/2
-        ,count/1
-        ,delete_table/1
-        ,tab2list/1]).
+-export([create/1
+        ,insert/3
+        ,delete/3
+        ,lookup/3
+        ,lookup_by_pid/3
+        ,lookup_appended/2
+        ,combine_children/3
+        ,separate_children/3
+        ,count/2
+        ,delete_table/2
+        ,tab2list/2]).
 
 
 
@@ -99,9 +99,10 @@
 
 
 
-create() ->
-    Name = erlang:list_to_atom(erlang:pid_to_list(erlang:self())),
-    ets:new(Name, ?ETS_TABLE_OPTIONS).
+create(list) ->
+    director_table_list:create();
+create(ets) ->
+    director_table_ets:create().
 
 
 
@@ -109,8 +110,10 @@ create() ->
 
 
 
-delete_table(Table) ->
-    ets:delete(Table).
+delete_table(Tab, list) ->
+    director_table_list:delete_table(Tab);
+delete_table(Tab, ets) ->
+    director_table_ets:delete_table(Tab).
 
 
 
@@ -118,13 +121,10 @@ delete_table(Table) ->
 
 
 
-lookup(Table, Id) ->
-    case ets:lookup(Table, Id) of
-        [Child] ->
-            Child;
-        [] ->
-            not_found
-    end.
+lookup(Tab, Id, list) ->
+    director_table_list:lookup(Tab, Id);
+lookup(Tab, Id, ets) ->
+    director_table_ets:lookup(Tab, Id).
 
 
 
@@ -132,115 +132,87 @@ lookup(Table, Id) ->
 
 
 
-count(Table) ->
-    ets:info(Table, size).
 
+count(Tab, list) ->
+    director_table_list:count(Tab);
+count(Tab, ets) ->
+    director_table_ets:count(Tab).
 
 
 
 
 
 
-lookup_by_pid(Table, Pid) ->
-    case ets:match_object(Table
-                         ,#?CHILD{id = '_'
-                                 ,pid = Pid
-                                 ,plan = '_'
-                                 ,count = '_'
-                                 ,count2 = '_'
-                                 ,restart_count = '_'
-                                 ,start = '_'
-                                 ,plan_element_index = '_'
-                                 ,plan_length = '_'
-                                 ,timer_reference = '_'
-                                 ,terminate_timeout = '_'
-                                 ,extra = '_'
-                                 ,modules = '_'
-                                 ,type = '_'
-                                 ,append = '_'}) of
-        [Child] ->
-            Child;
-        [] ->
-            not_found
-    end.
 
 
+lookup_by_pid(Tab, Pid, list) ->
+    director_table_list:lookup_by_pid(Tab, Pid);
+lookup_by_pid(Tab, Pid, ets) ->
+    director_table_ets:lookup_by_pid(Tab, Pid).
 
 
 
 
 
-lookup_appended(Table) ->
-    ets:match_object(Table
-                    ,#?CHILD{id = '_'
-                            ,pid = '_'
-                            ,plan = '_'
-                            ,count = '_'
-                            ,count2 = '_'
-                            ,restart_count = '_'
-                            ,start = '_'
-                            ,plan_element_index = '_'
-                            ,plan_length = '_'
-                            ,timer_reference = '_'
-                            ,terminate_timeout = '_'
-                            ,extra = '_'
-                            ,modules = '_'
-                            ,type = '_'
-                            ,append = true}).
 
 
+lookup_appended(Tab, list) ->
+    director_table_list:lookup_appended(Tab);
+lookup_appended(Tab, ets) ->
+    director_table_ets:lookup_appended(Tab).
 
 
 
 
 
-insert(Table, Child) ->
-    true = ets:insert(Table, Child),
-    ok.
 
 
 
+insert(Tab, Child, list) ->
+    director_table_list:insert(Tab, Child);
+insert(Tab, Child, ets) ->
+    director_table_ets:insert(Tab, Child).
 
 
 
 
-delete(Table, Id) ->
-    true = ets:delete(Table, Id),
-    ok.
 
 
 
+delete(Tab, Id, list) ->
+    director_table_list:delete(Tab, Id);
+delete(Tab, Id, ets) ->
+    director_table_ets:delete(Tab, Id).
 
 
 
 
-tab2list(Table) ->
-    ets:tab2list(Table).
 
 
 
+tab2list(Tab, list) ->
+    director_table_list:tab2list(Tab);
+tab2list(Tab, ets) ->
+    director_table_ets:tab2list(Tab).
 
 
 
 
-combine_children(DefChildSpec, Table) ->
-    AppendedChildren =
-        [director_wrapper:combine_child(director_wrapper:c2cs(Child)
-                                       ,DefChildSpec)
-        || Child <- lookup_appended(Table)],
-    [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
-    ok.
 
 
 
+combine_children(DefChildSpec, Tab, list) ->
+    director_table_list:combine_children(DefChildSpec, Tab);
+combine_children(DefChildSpec, Tab, ets) ->
+    director_table_ets:combine_children(DefChildSpec, Tab).
 
 
 
 
-separate_children(DefChildSpec, Table) ->
-    AppendedChildren =
-        [director_wrapper:separate_child(director_wrapper:c2cs(Child)
-                                        ,DefChildSpec)
-        || Child <- lookup_appended(Table)],
-    [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
-    ok.
+
+
+
+separate_children(DefChildSpec, Tab, list) ->
+    director_table_list:separate_children(DefChildSpec, Tab);
+separate_children(DefChildSpec, Tab, ets) ->
+    director_table_ets:separate_children(DefChildSpec, Tab).
