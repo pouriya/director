@@ -34,19 +34,19 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% --------------------------------------------------------------------
 
--record(director_child_record, {id
-                               ,pid
-                               ,plan
-                               ,count
-                               ,count2
-                               ,restart_count
-                               ,start
-                               ,plan_element_index
-                               ,plan_length
-                               ,timer_reference
-                               ,terminate_timeout
-                               ,extra
-                               ,modules
-                               ,type
-                               ,append}).
+-record(?CHILD, {id
+                ,pid
+                ,append
+                ,plan
+                ,count
+                ,count2
+                ,restart_count
+                ,start
+                ,plan_element_index
+                ,plan_length
+                ,timer_reference
+                ,terminate_timeout
+                ,extra
+                ,modules
+                ,type}).
 -define(CHILD, director_child_record).
