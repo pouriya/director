@@ -67,8 +67,8 @@
         ,'6'/1
         ,'7'/1
         ,'8'/1
-        ,'9'/1
-        ,'10'/1]).
+        ,'9'/1]).
+%%        ,'10'/1]).
 
 
 
@@ -81,7 +81,7 @@
 -define(CHILD, child_name).
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
--define(START_OPTIONS, [{debug, [trace]}, {debug_mode, long}]).
+-define(START_OPTIONS, [{debug, [trace]}, {debug_mode, long}, {table_type, list}]).
 
 
 -include_lib("common_test/include/ct.hrl").
@@ -99,7 +99,8 @@
 
 all() ->
     [erlang:list_to_atom(erlang:integer_to_list(Int))
-    || Int <- lists:seq(1, 10)].
+    || Int <- lists:seq(1
+                       ,erlang:length(?MODULE:module_info(exports))-8)].
 
 
 
@@ -575,28 +576,28 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-'10'(_Config) ->
-    ChildSpec = #{id => foo
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
-                ,plan => []
-                ,count => 0
-                ,terminate_timeout => 0
-                ,modules => [?CHILD_MODULE]
-                ,default_arguments => []
-                ,type => worker},
-    F = fun() -> {ok, [ChildSpec]} end,
-    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-                                                ,?CALLBACK
-                                                ,F
-                                                ,?START_OPTIONS)),
-    State = sys:get_state(?DIRECTOR),
-    State = sys:replace_state(?DIRECTOR, fun(State2) -> State2 end),
-    State = sys:get_state(?DIRECTOR),
-
-    ?CALLBACK = supervisor:get_callback_module(?DIRECTOR),
-    ok = sys:suspend(?DIRECTOR),
-    ok = sys:change_code(?DIRECTOR, ?CALLBACK, old, extra),
-    ok = sys:resume(?DIRECTOR).
+%%'10'(_Config) ->
+%%    ChildSpec = #{id => foo
+%%                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
+%%                ,plan => []
+%%                ,count => 0
+%%                ,terminate_timeout => 0
+%%                ,modules => [?CHILD_MODULE]
+%%                ,default_arguments => []
+%%                ,type => worker},
+%%    F = fun() -> {ok, [ChildSpec]} end,
+%%    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+%%                                                ,?CALLBACK
+%%                                                ,F
+%%                                                ,?START_OPTIONS)),
+%%    State = sys:get_state(?DIRECTOR),
+%%    State = sys:replace_state(?DIRECTOR, fun(State2) -> State2 end),
+%%    State = sys:get_state(?DIRECTOR),
+%%
+%%    ?CALLBACK = supervisor:get_callback_module(?DIRECTOR),
+%%    ok = sys:suspend(?DIRECTOR),
+%%    ok = sys:change_code(?DIRECTOR, ?CALLBACK, old, extra),
+%%    ok = sys:resume(?DIRECTOR).
 
 
 
