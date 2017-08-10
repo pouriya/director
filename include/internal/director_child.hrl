@@ -34,6 +34,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% --------------------------------------------------------------------
 
+-define(CHILD, director_child_record).
 -record(?CHILD, {id
                 ,pid
                 ,append
@@ -49,4 +50,3 @@
                 ,extra
                 ,modules
                 ,type}).
--define(CHILD, director_child_record).
