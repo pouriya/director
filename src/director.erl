@@ -288,7 +288,8 @@ init(InitArg) ->
                                ,init_argument
                                ,table
                                ,default_childspec
-                               ,debug_mode}).
+                               ,debug_mode
+                               ,table_type}).
 -define(STATE, director_state_record).
 
 
@@ -1086,22 +1087,30 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     DbgMode = director_check:get_debug_mode(Name
                                            ,Opts
                                            ,?DEFAULT_DEBUG_MODE),
+    TabType = director_check:get_table_type(Name
+                                           ,Opts
+                                           ,?DEFAULT_TABLE_TYPE),
     Dbg = director_debug:debug_options(Name, Opts),
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
-            Table = director_table:create(),
-            case start_children(Name, Children, Table, DbgMode) of
-                ok ->
+            Tab = director_table:create(TabType),
+            case start_children(Name
+                               ,Children
+                               ,Tab
+                               ,TabType
+                               ,DbgMode) of
+                {ok, Tab2} ->
                     State = #?STATE{name = Name
                                    ,module = Mod
                                    ,init_argument = InitArg
-                                   ,table = Table
+                                   ,table = Tab2
                                    ,default_childspec = DefChildSpec
-                                   ,debug_mode = DbgMode},
+                                   ,debug_mode = DbgMode
+                                   ,table_type = TabType},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
-                    %exit(element(2, (catch loop(Parent, Dbg, State))));
-                    loop(Parent, Dbg, State);
+                    exit(element(2, (catch loop(Parent, Dbg, State))));
+%%                    loop(Parent, Dbg, State);
                 {error, Reason}=Error ->
                     unregister_name(Name0),
                     proc_lib:init_ack(Starter, Error),
@@ -1293,11 +1302,13 @@ process_message(Parent, Dbg, #?STATE{name = Name}=State, Msg) ->
 
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?GET_PID_TAG, Id}) ->
     Result =
-        case director_table:lookup(Table, Id) of
+        case director_table:lookup(Table, Id, TabType) of
             not_found ->
                 {error, not_found};
             #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
@@ -1308,18 +1319,22 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Tab
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,?GET_PIDS_TAG) ->
     Pids = [{Id, Pid} || #?CHILD{pid = Pid, id = Id}
-        <- director_table:tab2list(Table), erlang:is_pid(Pid)],
+        <- director_table:tab2list(Tab, TabType), erlang:is_pid(Pid)],
     {reply(Dbg, Name, From, Pids), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Tab
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,?COUNT_CHILDREN_TAG) ->
-    Specs = director_table:count(Table),
+    Specs = director_table:count(Tab, TabType),
     Fun =
         fun(#?CHILD{pid = Pid, type = Type}
            ,{Actives, Sups, Workers}) ->
@@ -1339,7 +1354,7 @@ process_request(Dbg
                 end,
             {Actives2, Sups2, Workers2}
         end,
-    {Actives, Sups, Workers} = ets:foldl(Fun, {0, 0, 0}, Table),
+    {Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0}, director_table:tab2list(Tab, TabType)),
     Result = [{specs, Specs}
              ,{active, Actives}
              ,{supervisors, Sups}
@@ -1347,31 +1362,37 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Tab
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?DELETE_CHILD_TAG, Id}) ->
-    Result =
-        case director_table:lookup(Table, Id) of
+    {Result, State2} =
+        case director_table:lookup(Tab, Id, TabType) of
             not_found ->
-                {error, not_found};
+                {{error, not_found}, State};
             #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
-                {error, running};
+                {{error, running}, State};
             _Child ->
-                ok = director_table:delete(Table, Id)
+                Tab2 = director_table:delete(Tab, Id, TabType),
+                {ok, State#?STATE{table = Tab2}}
         end,
-    {reply(Dbg, Name, From, Result), State};
+    {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?GET_CHILDSPEC_TAG, Term}) ->
     Result =
-        case director_table:lookup(Table, Term) of
+        case director_table:lookup(Table, Term, TabType) of
             not_found ->
                 if
                     erlang:is_pid(Term) ->
                         case director_table:lookup_by_pid(Table
-                                                         ,Term) of
+                                                         ,Term
+                                                         ,TabType) of
                             not_found ->
                                 {error, not_found};
                             Child ->
@@ -1386,65 +1407,88 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table
+               ,#?STATE{table = Tab
                        ,name = Name
-                       ,debug_mode = DbgMode}=State
+                       ,debug_mode = DbgMode
+                       ,table_type = TabType}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
-    {reply(Dbg
-          ,Name
-          ,From
-          ,do_restart_child(Name, Id, Table, DbgMode))
-    ,State};
+    {Result, State2} =
+        case do_restart_child(Name, Id, Tab, TabType, DbgMode) of
+            {ok, Pid, Tab2} ->
+                {{ok, Pid}, State#?STATE{table = Tab2}};
+            {ok, Pid, Extra, Tab2} ->
+                {{ok, Pid, Extra}, State#?STATE{table = Tab2}};
+            {error, _}=Error ->
+                {Error, State}
+        end,
+    {reply(Dbg ,Name ,From ,Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table
+               ,#?STATE{table = Tab
                        ,name = Name
                        ,default_childspec = DefChildSpec
-                       ,debug_mode = DbgMode}=State
+                       ,debug_mode = DbgMode
+                       ,table_type = TabType}=State
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
-    Result =
+    {Result, State2} =
         case director_check:check_childspec(ChildSpec, DefChildSpec) of
             {ok, Child} ->
-                do_start_child(Name, Child, Table, DbgMode);
-            {error, _Reason}=Error ->
-                Error
+                case do_start_child(Name
+                                   ,Child
+                                   ,Tab
+                                   ,TabType
+                                   ,DbgMode) of
+                    {ok, Pid, Tab2} ->
+                        {{ok, Pid}, State#?STATE{table = Tab2}};
+                    {ok, Pid, Extra, Tab2} ->
+                        {{ok, Pid, Extra}, State#?STATE{table = Tab2}};
+                    {error, _}=Error ->
+                        {Error, State}
+                end;
+            {error, _}=Error ->
+                {Error, State}
         end,
-    {reply(Dbg, Name, From, Result), State};
+    {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table
+               ,#?STATE{table = Tab
                        ,name = Name
-                       ,debug_mode = DbgMode}=State
+                       ,debug_mode = DbgMode
+                       ,table_type = TabType}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
-    Result =
-        case do_terminate_child(Name, Term, Table, DbgMode) of
-            ok ->
-                ok;
+    {Result, State2} =
+        case do_terminate_child(Name, Term, Tab, TabType, DbgMode) of
             not_found ->
-                {error, not_found}
+                {{error, not_found}, State};
+            Tab2 ->
+                {ok, State#?STATE{table = Tab2}}
         end,
-    {reply(Dbg, Name, From, Result), State};
+    {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{name = Name, table = Table}=State
+               ,#?STATE{name = Name
+                       ,table = Tab
+                       ,table_type = TabType}=State
                ,From
                ,?WHICH_CHILDREN_TAG) ->
     Result = [{Id, Pid, Type, Mods} || #?CHILD{id = Id
                                               ,pid = Pid
                                               ,type = Type
                                               ,modules = Mods}
-             <- director_table:tab2list(Table)],
+             <- director_table:tab2list(Tab, TabType)],
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?GET_PLAN_TAG, Id}) ->
     Result =
-        case director_table:lookup(Table, Id) of
+        case director_table:lookup(Table, Id, TabType) of
             not_found ->
                 {error, not_found};
             #?CHILD{plan = Plan} ->
@@ -1453,15 +1497,17 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?CHANGE_PLAN_TAG, Id, Plan}) ->
-    Result =
+    {Result, State2} =
         case director_check:filter_plan(Plan) of
             {ok, Plan2} ->
-                case director_table:lookup(Table, Id) of
+                case director_table:lookup(Table, Id, TabType) of
                     not_found ->
-                        {error, not_found};
+                        {{error, not_found}, State};
                     Child ->
                         PlanElemIndex =
                             if
@@ -1475,15 +1521,18 @@ process_request(Dbg
                                              ,plan_element_index =
                                                      PlanElemIndex
                                              ,plan_length = PlanLen},
-                        ok = director_table:insert(Table, Child2)
+                        Tab2 = director_table:insert(Table, Child2),
+                        {ok, State#?STATE{table = Tab2}}
                 end;
             {error, _Reason}=Error ->
-                Error
+                {Error, State}
         end,
-    {reply(Dbg, Name, From, Result), State};
+    {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?CHANGE_COUNT_TAG, Id, Count0}) ->
     CountCheck =
@@ -1495,28 +1544,31 @@ process_request(Dbg
             false ->
                 error
         end,
-    Result =
+    {Result, State2} =
         case CountCheck of
             {ok, Count} ->
-                case director_table:lookup(Table, Id) of
+                case director_table:lookup(Table, Id, TabType) of
                     not_found ->
-                        {error, not_found};
+                        {{error, not_found}, State};
                     Child ->
-                        ok = director_table:insert(Table
+                        Tab2 = director_table:insert(Table
                                                   ,Child#?CHILD{count
-                            = Count})
+                            = Count}),
+                        {ok, State#?STATE{table = Tab2}}
                 end;
             error ->
-                {error, {count_format, [{count, Count0}]}}
+                {{error, {count_format, [{count, Count0}]}}, State}
         end,
-    {reply(Dbg, Name, From, Result), State};
+    {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table, name = Name}=State
+               ,#?STATE{table = Table
+                       ,name = Name
+                       ,table_type = TabType}=State
                ,From
                ,{?GET_COUNT_TAG, Id}) ->
     Result =
-        case director_table:lookup(Table, Id) of
+        case director_table:lookup(Table, Id, TabType) of
             not_found ->
                 {error, not_found};
             #?CHILD{count = Count} ->
@@ -1532,17 +1584,22 @@ process_request(Dbg
     {reply(Dbg, Name, From, DefChildSpec), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table
+               ,#?STATE{table = Tab
                        ,name = Name
-                       ,default_childspec = DefChildSpec}=State
+                       ,default_childspec = DefChildSpec
+                       ,table_type = TabType}=State
                ,From
                ,{?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}) ->
     {State2, Result} =
         case director_check:check_default_childspec(ChildSpec) of
             {ok, DefChildSpec2} ->
-                director_table:separate_children(DefChildSpec, Table),
-                director_table:combine_children(DefChildSpec2, Table),
-                {State#?STATE{default_childspec = DefChildSpec2}, ok};
+                Tab2 = director_table:separate_children(DefChildSpec
+                                                       ,Tab
+                                                       ,TabType),
+                Tab3 = director_table:combine_children(DefChildSpec2
+                                                      ,Tab2
+                                                      ,TabType),
+                {State#?STATE{default_childspec = DefChildSpec2, table = Tab3}, ok};
             {error, _Reason}=Error ->
                 {State, Error}
         end,
@@ -1598,12 +1655,13 @@ process_exit(Parent, Dbg, State, Parent, Reason) ->
     terminate(Dbg, State, Reason);
 process_exit(Parent
             ,Dbg
-            ,#?STATE{table = Table
+            ,#?STATE{table = Tab
                     ,name = Name
-                    ,debug_mode = DbgMode}=State
+                    ,debug_mode = DbgMode
+                    ,table_type = TabType}=State
             ,Pid
             ,Reason) ->
-    case director_table:lookup_by_pid(Table, Pid) of
+    case director_table:lookup_by_pid(Tab, Pid, TabType) of
         not_found ->
             loop(Parent, Dbg, State);
         Child ->
@@ -1613,8 +1671,8 @@ process_exit(Parent
                                        ,Child
                                        ,DbgMode),
             Child2 = Child#?CHILD{pid = undefined, extra = undefined},
-            ok = director_table:insert(Table, Child2),
-            {Dbg2, State2} = handle_exit(Dbg, State, Child2, Reason),
+            Tab2 = director_table:insert(Tab, Child2, TabType),
+            {Dbg2, State2} = handle_exit(Dbg, State#?STATE{table = Tab2}, Child2, Reason),
             loop(Parent, Dbg2, State2)
     end.
 
@@ -1657,7 +1715,8 @@ handle_exit(Dbg
 handle_exit(Dbg
            ,#?STATE{name = Name
                    ,table = Table
-                   ,debug_mode = DbgMode}=State
+                   ,debug_mode = DbgMode
+                   ,table_type = TabType}=State
            ,#?CHILD{id = Id
                    ,plan = Plan
                    ,count2 = Count2
@@ -1676,7 +1735,7 @@ handle_exit(Dbg
     Child2 = Child#?CHILD{plan_element_index = PlanElemIndex2
                          ,count2 = Count2_2
                          ,restart_count = ResCount2},
-    ok = director_table:insert(Table, Child2),
+    Tab2 = director_table:insert(Table, Child2, TabType),
     Strategy =
         case PlanElem of
             Fun when erlang:is_function(Fun) ->
@@ -1712,37 +1771,40 @@ handle_exit(Dbg
     _ = director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
     case Strategy of
         restart ->
-            case do_restart_child(Name, Id, Table, DbgMode) of
-                {error, _Reason3} ->
-                    TimeRef = restart_timer(0, Id),
-                    ok = director_table:
-                         insert(Table
-                               ,Child2#?CHILD{pid = restarting
-                                             ,timer_reference =
-                                                  TimeRef});
-                _Other2 ->
-                    ok
+            Tab3 =
+                case do_restart_child(Name, Id, Tab2, TabType, DbgMode) of
+                    {error, _Reason3} ->
+                        TimeRef = restart_timer(0, Id),
+                        director_table:insert(Tab2
+                                             ,Child2#?CHILD{pid = restarting
+                                                           ,timer_reference = TimeRef}
+                                             ,TabType);
+                    {ok, _Pid, Tab4} ->
+                        Tab4;
+                    {ok, _Pid, _Extra, Tab4} ->
+                        Tab4
             end,
-            {Dbg, State};
+            {Dbg, State#?STATE{table = Tab3}};
         stop ->
-            terminate(Dbg, State, Reason);
+            terminate(Dbg, State#?STATE{table = Tab2}, Reason);
         {stop, Reason3} ->
             terminate(Dbg, State, Reason3);
         delete ->
-            ok = director_table:delete(Table, Id),
-            {Dbg, State};
+            Tab3 = director_table:delete(Tab2, Id, TabType),
+            {Dbg, State#?STATE{table = Tab3}};
         wait ->
-            {Dbg, State};
+            {Dbg, State#?STATE{table = Tab2}};
         {restart, PosInt} ->
             TimeRef = restart_timer(PosInt, Id),
-            ok = director_table:insert(Table
+            Tab3 = director_table:insert(Tab2
                                       ,Child2#?CHILD{pid = restarting
                                                      ,timer_reference =
-                                                          TimeRef}),
-            {Dbg, State};
+                                                          TimeRef}
+                                        ,TabType),
+            {Dbg, State#?STATE{table = Tab3}};
         {error, Reason3} ->
             terminate(Dbg
-                     ,State
+                     ,State#?STATE{table = Tab2}
                      ,{run_plan_element
                       ,[{child, director_wrapper:c_r2p(Child2, long)}
                        ,{child_last_error_reason, Reason}
@@ -1757,24 +1819,27 @@ handle_exit(Dbg
 
 process_timeout(Dbg
                ,#?STATE{name = Name
-                       ,table = Table
-                       ,debug_mode = DbgMode}=State
+                       ,table = Tab
+                       ,debug_mode = DbgMode
+                       ,table_type = TabType}=State
                ,TimerRef
                ,Id) ->
-    case director_table:lookup(Table, Id) of
+    case director_table:lookup(Tab, Id, TabType) of
         not_found ->
             {Dbg, State};
         #?CHILD{timer_reference = TimerRef} ->
-            case do_restart_child(Name, Id, Table, DbgMode) of
+            case do_restart_child(Name, Id, Tab, TabType, DbgMode) of
 %%                {error, not_found} ->
 %%                    {Dbg, State};
                 {error, Reason} ->
                     handle_exit(Dbg
                                ,State
-                               ,director_table:lookup(Table, Id)
+                               ,director_table:lookup(Tab, Id, TabType)
                                ,Reason);
-                {ok, _Pid} ->
-                    {Dbg, State}
+                {ok, _Pid, Tab2} ->
+                    {Dbg, State#?STATE{table = Tab2}};
+                {ok, _Pid, _Extra, Tab2} ->
+                    {Dbg, State#?STATE{table = Tab2}}
             end;
         _Child ->
             {Dbg, State}
@@ -1894,18 +1959,22 @@ init_module(Mod, InitArg) ->
 
 
 
-start_children(Name, [#?CHILD{id=Id}=Child|Children], Table, DbgMode) ->
-    case do_start_child(Name, Child, Table, DbgMode) of
-        {ok, _Pid} ->
-            start_children(Name, Children, Table, DbgMode);
+start_children(Name
+              ,[#?CHILD{id=Id}=Child|Children]
+              ,Tab
+              ,TabType
+              ,DbgMode) ->
+    case do_start_child(Name, Child, Tab, TabType, DbgMode) of
+        {ok, _Pid, Tab2} ->
+            start_children(Name, Children, Tab2, TabType, DbgMode);
         {error, already_present} ->
             {error, {repeated_id, [{id, Id}]}};
         {error, _Reason}=Error ->
-            _ = terminate_children(Name, Table, DbgMode),
+            _ = terminate_children(Name, Tab, TabType, DbgMode),
             Error
     end;
-start_children(_Name, [], _Table, _DbgMode) ->
-    ok.
+start_children(_Name, [], Tab, _TabType, _DbgMode) ->
+    {ok, Tab}.
 
 
 
@@ -1914,10 +1983,10 @@ start_children(_Name, [], _Table, _DbgMode) ->
 
 
 
-do_start_child(Name, #?CHILD{id = Id}=Child ,Table, DbgMode) ->
-    case director_table:lookup(Table, Id) of
+do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, DbgMode) ->
+    case director_table:lookup(Tab, Id, TabType) of
         not_found ->
-            start_mfa(Name, Child, Table, DbgMode);
+            start_mfa(Name, Child, Tab, TabType, DbgMode);
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
             {error, {already_started, Pid}};
         _Child ->
@@ -1927,8 +1996,8 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,Table, DbgMode) ->
 
 
 
-do_restart_child(Name, Id, Table, DbgMode) ->
-    case director_table:lookup(Table, Id) of
+do_restart_child(Name, Id, Tab, TabType, DbgMode) ->
+    case director_table:lookup(Tab, Id, TabType) of
         not_found ->
             {error, not_found};
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
@@ -1938,10 +2007,11 @@ do_restart_child(Name, Id, Table, DbgMode) ->
             start_mfa(Name
                      ,Child#?CHILD{pid = undefined
                                   ,timer_reference = undefined}
-                     ,Table
+                     ,Tab
+                     ,TabType
                      ,DbgMode);
         Child ->
-            start_mfa(Name, Child, Table, DbgMode)
+            start_mfa(Name, Child, Tab, TabType, DbgMode)
     end.
 
 
@@ -1949,20 +2019,21 @@ do_restart_child(Name, Id, Table, DbgMode) ->
 
 start_mfa(Name
          ,#?CHILD{start = {Mod, Func, Args}}=Child
-         ,Table
+         ,Tab
+         ,TabType
          ,DbgMode) ->
     case catch erlang:apply(Mod, Func, Args) of
         {ok, Pid} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid, extra = undefined},
-            ok = director_table:insert(Table, Child2),
+            Tab2 = director_table:insert(Tab, Child2, TabType),
             director_debug:progress_report(Name, Child2, DbgMode),
-            {ok, Pid};
+            {ok, Pid, Tab2};
         {ok, Pid, Extra} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid
                                  ,extra = {extra, Extra}},
-            ok = director_table:insert(Table, Child2),
+            Tab2 = director_table:insert(Tab, Child2, TabType),
             director_debug:progress_report(Name, Child2, DbgMode),
-            {ok, Pid, Extra};
+            {ok, Pid, Extra, Tab2};
         ignore ->
             {ok, undefined};
         {error, _Reason}=Error ->
@@ -1984,12 +2055,13 @@ start_mfa(Name
 
 
 terminate(Dbg
-         ,#?STATE{table = Table
+         ,#?STATE{table = Tab
                  ,name = Name
-                 ,debug_mode = DbgMode}=State
+                 ,debug_mode = DbgMode
+                 ,table_type = TabType}=State
          ,Reason) ->
-    Children = director_table:tab2list(Table),
-    terminate_children(Name, Table, DbgMode),
+    Children = director_table:tab2list(Tab, TabType),
+    _Tab2 = terminate_children(Name, Tab, TabType, DbgMode),
     error_logger:format("** Director \"~p\" terminating \n** Reason for"
                         " termination == \"~p\"~n** Children == \"~p\"~"
                         "n** State == \"~p\"~n"
@@ -2007,10 +2079,19 @@ terminate(Dbg
 
 
 
-terminate_children(Name, Table, DbgMode) ->
-    [do_terminate_child(Name, Child#?CHILD.id, Table, DbgMode)
-    || Child <- director_table:tab2list(Table)],
-    ok.
+terminate_children(Name, Tab, TabType, DbgMode) ->
+    Terminate =
+        fun(Id, Tab2) ->
+            case do_terminate_child(Name, Id, Tab2, TabType, DbgMode) of
+                not_found ->
+                    Tab2;
+                Tab3 ->
+                    Tab3
+            end
+        end,
+    _Tab3 = lists:foldl(Terminate
+                       ,Tab
+                       ,director_table:tab2list(Tab, TabType)).
 
 
 
@@ -2018,11 +2099,11 @@ terminate_children(Name, Table, DbgMode) ->
 
 
 
-do_terminate_child(Name, Id_or_Pid, Table, DbgMode) ->
+do_terminate_child(Name, Id_or_Pid, Tab, TabType, DbgMode) ->
     Search =
-        case director_table:lookup(Table, Id_or_Pid) of
+        case director_table:lookup(Tab, Id_or_Pid, TabType) of
             not_found ->
-                director_table:lookup_by_pid(Table, Id_or_Pid);
+                director_table:lookup_by_pid(Tab, Id_or_Pid, TabType);
             Child ->
                 Child
         end,
@@ -2040,11 +2121,12 @@ do_terminate_child(Name, Id_or_Pid, Table, DbgMode) ->
         not_found ->
             not_found;
         Child3 ->
-            ok = director_table:insert(Table
+            _Tab2 = director_table:insert(Tab
                                       ,Child3#?CHILD{pid = undefined
                                                     ,extra = undefined
                                                     ,timer_reference =
-                                                         undefined})
+                                                         undefined}
+                                         ,TabType)
     end.
 
 
