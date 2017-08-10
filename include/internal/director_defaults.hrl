@@ -61,6 +61,7 @@
 -define(GET_DEBUG_MODE_TAG, 'get_debug_mode').
 -define(CHANGE_DEBUG_MODE_TAG, 'change_debug_mode').
 -define(DEFAULT_DEBUG_MODE, 'short').
+-define(DEFAULT_TABLE_TYPE, 'list').
 
 
 
