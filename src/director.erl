@@ -1554,7 +1554,8 @@ process_request(Dbg
                     Child ->
                         Tab2 = director_table:insert(Table
                                                   ,Child#?CHILD{count
-                            = Count}),
+                            = Count}
+                                                    ,TabType),
                         {ok, State#?STATE{table = Tab2}}
                 end;
             error ->
