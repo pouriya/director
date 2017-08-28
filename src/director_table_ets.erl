@@ -229,7 +229,7 @@ combine_children(DefChildSpec, Table) ->
         [director_wrapper:combine_child(director_wrapper:c2cs(Child)
                                        ,DefChildSpec)
             || Child <- lookup_appended(Table)],
-    [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
+    _ = [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
     Table.
 
 
@@ -243,5 +243,5 @@ separate_children(DefChildSpec, Table) ->
         [director_wrapper:separate_child(director_wrapper:c2cs(Child)
                                         ,DefChildSpec)
             || Child <- lookup_appended(Table)],
-    [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
+    _ = [insert(Table, director_wrapper:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
     Table.
