@@ -144,13 +144,13 @@
 %% If you don't set 'start' for default childspec, 'start' is mandatory.
 %% Default values for other keys:
 %%  #{plan => [fun
-%%                 (normal, _RestartCount) ->
+%%                 (_Id, normal, _RestartCount) ->
 %%                     delete;
-%%                 (shutdown, _RestartCount) ->
+%%                 (_Id, shutdown, _RestartCount) ->
 %%                     delete;
-%%                 ({shutdown, _Reason}, _RestartCount) ->
+%%                 (_Id, {shutdown, _Reason}, _RestartCount) ->
 %%                     delete;
-%%                 (_Reason, _RestartCount) ->
+%%                 (_Id, _Reason, _RestartCount) ->
 %%                     restart
 %%             end]
 %%   ,count => 1
@@ -178,7 +178,8 @@
                         | 'stop'
                         | {'stop', 'reason'}
                         | {'stop', Reason::term()}
-                        | fun((Reason::term()
+                        | fun((Id::term()
+                              ,Reason::term()
                               ,RestartCount::pos_integer()) ->
                                   'restart'
                                 | {'restart', pos_integer()}
