@@ -217,7 +217,7 @@ filter_plan_element(wait) ->
     {ok, wait};
 filter_plan_element(Fun) when erlang:is_function(Fun) ->
     case erlang:fun_info(Fun, arity) of
-        {arity, 2} ->
+        {arity, 3} ->
             {ok, Fun};
         {arity, Other} ->
             {error, {plan_fun_arity, [{'fun', Fun}, {arity, Other}]}}

@@ -68,7 +68,7 @@
 
 
 
--define(DEFAULT_PLAN_ELEMENT, fun director:default_plan_element_fun/2).
+-define(DEFAULT_PLAN_ELEMENT, fun director:default_plan_element_fun/3).
 -define(DEFAULT_PLAN, [?DEFAULT_PLAN_ELEMENT]).
 -define(DEFAULT_COUNT, 1).
 -define(DEFAULT_TYPE, worker).

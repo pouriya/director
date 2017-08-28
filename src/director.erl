@@ -86,7 +86,7 @@
         ,stop/1
         ,stop/2
         ,stop/3
-        ,default_plan_element_fun/2]).
+        ,default_plan_element_fun/3]).
 
 
 
@@ -773,20 +773,21 @@ stop(Director, Reason, Timeout) ->
 
 
 -spec
-default_plan_element_fun(Reason::term()
+default_plan_element_fun(Id::term()
+                        ,Reason::term()
                         ,RestartCount::non_neg_integer()) ->
     'delete' | 'restart'.
 %% @doc
 %%      Deletes child if it crashed with reasons 'normal', 'shutdown' or
 %%      {'shutdown', Any} and restart it if crashed with other reasons.
 %% @end
-default_plan_element_fun(normal, _RestartCount) ->
+default_plan_element_fun(_Id, normal, _RestartCount) ->
     delete;
-default_plan_element_fun(shutdown, _RestartCount) ->
+default_plan_element_fun(_Id, shutdown, _RestartCount) ->
     delete;
-default_plan_element_fun({shutdown, _Reason}, _RestartCount) ->
+default_plan_element_fun(_Id, {shutdown, _Reason}, _RestartCount) ->
     delete;
-default_plan_element_fun(_Other, _Count) ->
+default_plan_element_fun(_Id, _Other, _Count) ->
     restart.
 
 
@@ -1739,7 +1740,7 @@ handle_exit(Dbg
     Strategy =
         case PlanElem of
             Fun when erlang:is_function(Fun) ->
-                case catch Fun(Reason, ResCount2) of
+                case catch Fun(Id, Reason, ResCount2) of
                     Term when erlang:is_function(Term) ->
                         {error
                             ,{fun_bad_return_value
@@ -1760,7 +1761,9 @@ handle_exit(Dbg
                                 {error
                                     ,{fun_bad_return_value
                                     ,[{'fun', Fun}
-                                     ,{arguments, [Reason, ResCount2]}
+                                     ,{arguments, [Id
+                                                  ,Reason
+                                                  ,ResCount2]}
                                      ,{return_value, Term}
                                      ,{reason, Reason2}]}}
                         end

@@ -364,18 +364,18 @@ end_per_testcase(_TestCase, _Config) ->
 
 '6'(_Config) ->
     RestartTimeout = 100,
+    Id = foo,
     Fun =
         fun
-            (killed, 1) ->
+            (foo, killed, 1) ->
                 restart;
-            (killed, 2) ->
+            (foo, killed, 2) ->
                 {restart, RestartTimeout};
-            (killed, 3) ->
+            (foo, killed, 3) ->
                 wait;
-            (killed, 4) ->
+            (foo, killed, 4) ->
                 delete
         end,
-    Id = foo,
     RestartTimeout = 100,
     Plan = [Fun],
     Mods = [?CHILD_MODULE],
@@ -548,7 +548,7 @@ end_per_testcase(_TestCase, _Config) ->
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
     ChildSpec2 = #{id => Id
                  ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}
-                 ,plan => [fun director:default_plan_element_fun/2]
+                 ,plan => [fun director:default_plan_element_fun/3]
                  ,count => 1
                  ,terminate_timeout => 1000
                  ,modules => [?CHILD_MODULE]
