@@ -1,51 +1,48 @@
-%%% --------------------------------------------------------------------
-%%% BSD 3-Clause License
+%%% ------------------------------------------------------------------------------------------------
+%%% Director is available for use under the following license, commonly known as the 3-clause (or
+%%% "modified") BSD license:
 %%%
-%%% Copyright (c) 2017-2018, Pouriya Jahanbakhsh
+%%% Copyright (c) 2016-2017, Pouriya Jahanbakhsh
 %%% (pouriya.jahanbakhsh@gmail.com)
 %%% All rights reserved.
 %%%
-%%% Redistribution and use in source and binary forms, with or without
-%%% modification, are permitted provided that the following conditions
-%%% are met:
+%%% Redistribution and use in source and binary forms, with or without modification, are permitted
+%%% provided that the following conditions are met:
 %%%
-%%% 1. Redistributions of source code must retain the above copyright
-%%% notice, this list of conditions and the following disclaimer.
+%%% 1. Redistributions of source code must retain the above copyright notice, this list of
+%%%    conditions and the following disclaimer.
 %%%
-%%% 2. Redistributions in binary form must reproduce the above copyright
-%%% notice, this list of conditions and the following disclaimer in the
-%%% documentation and/or other materials provided with the distribution.
+%%% 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+%%%    conditions and the following disclaimer in the documentation and/or other materials provided
+%%%    with the distribution.
 %%%
-%%% 3. Neither the name of the copyright holder nor the names of its
-%%% contributors may be used to endorse or promote products derived from
-%%% this software without specific prior written permission.
+%%% 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+%%%    endorse or promote products derived from this software without specific prior written
+%%%    permission.
 %%%
-%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-%%% "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-%%% LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-%%% FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-%%% COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-%%% INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-%%% BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-%%% LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-%%% CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-%%% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-%%% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+%%% IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+%%% FITNESS FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+%%% CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+%%% SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+%%% THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %%% POSSIBILITY OF SUCH DAMAGE.
-%%% --------------------------------------------------------------------
+%%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.8.9
+%% @version
 %% @doc
 %%           Flexible, fast and powerful process supervisor.
 %% @end
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 
 
 -module(director).
 -author("pouriya.jahanbakhsh@gmail.com").
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Exports:
 
 
@@ -77,8 +74,7 @@
         ,change_count/3
         ,get_default_childspec/1
         ,change_default_childspec/2
-        ,get_debug_mode/1
-        ,change_debug_mode/2
+        ,change_log_validate_fun/2
         ,start_link/4
         ,start/2
         ,start/3
@@ -86,7 +82,8 @@
         ,stop/1
         ,stop/2
         ,stop/3
-        ,default_plan_element_fun/3]).
+        ,default_plan_element_fun/3
+        ,default_validate_log_fun/2]).
 
 
 
@@ -108,8 +105,7 @@
         ,get_pids/2
         ,get_default_childspec/2
         ,change_default_childspec/3
-        ,get_debug_mode/2
-        ,change_debug_mode/3]).
+        ,change_log_validate_fun/3]).
 
 
 
@@ -133,7 +129,7 @@
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Types:
 
 
@@ -178,15 +174,13 @@
                         | 'stop'
                         | {'stop', 'reason'}
                         | {'stop', Reason::term()}
-                        | fun((Id::term()
-                              ,Reason::term()
-                              ,RestartCount::pos_integer()) ->
-                                  'restart'
-                                | {'restart', pos_integer()}
-                                | 'wait'
-                                | 'stop'
-                                | {'stop', 'reason'}
-                                | {'stop', Reason::term()}).
+                        | fun((Id::term(), Reason::term(), RestartCount::pos_integer()) ->
+                              'restart'                  |
+                              {'restart', pos_integer()} |
+                              'wait'                     |
+                              'stop'                     |
+                              {'stop', 'reason'}         |
+                              {'stop', Reason::term()})  .
 -type  count() :: 'infinity' | non_neg_integer().
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
 -type  type() :: 'worker' | 'supervisor'.
@@ -196,8 +190,7 @@
 -type default_childspec() :: #{'start' => start()
                               ,'plan' => plan()
                               ,'count' => count()
-                              ,'terminate_timeout' =>
-                                   terminate_timeout()
+                              ,'terminate_timeout' => terminate_timeout()
                               ,'type' => type()
                               ,'modules' => modules()}.
 
@@ -213,7 +206,7 @@
 -type  start_option() :: debug_option()
                        | spawn_options()
                        | timeout_option()
-                       | debug_mode_option().
+                       | log_validate_fun_option().
 -type   debug_option() :: {'debug'
                           ,['trace'
                            |'log'
@@ -222,8 +215,10 @@
                           |[]}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
--type   debug_mode_option() :: {'debug_mode', debug_mode()}.
--type    debug_mode() :: 'short' | 'long' | 'off'.
+-type   log_validate_fun_option() :: {'log_validate_fun', log_validate_fun()}.
+-type    log_validate_fun() :: fun((Id::term(), Type:: {'crash', Reason::term()} | 'start') ->
+                                   log_mode()).
+-type     log_mode() :: 'short' | 'long' | 'off'.
 
 
 
@@ -233,13 +228,13 @@
              ,default_childspec/0
              ,start_options/0
              ,start_return/0
-             ,debug_mode/0]).
+             ,log_mode/0]).
 
 
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Behaviour information:
 
 
@@ -262,7 +257,7 @@ init(InitArg) ->
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
 
@@ -284,20 +279,21 @@ init(InitArg) ->
 
 
 
--record(director_state_record, {name
-                               ,module
-                               ,init_argument
-                               ,table
-                               ,default_childspec
-                               ,debug_mode
-                               ,table_type}).
 -define(STATE, director_state_record).
+-record(?STATE, {name
+                ,module
+                ,init_argument
+                ,table
+                ,default_childspec
+                ,log_fun
+                ,table_type}).
 
 
 
 
 
-%% ---------------------------------------------------------------------
+
+%% -------------------------------------------------------------------------------------------------
 %% supervisor-like API:
 
 
@@ -320,30 +316,15 @@ start_link(Mod, InitArg) ->
 
 
 -spec
-start_link(register_name()|module()
-          ,module()|term()
-          ,term()|start_options()) ->
+start_link(register_name()|module(), module()|term(), term()|start_options()) ->
     start_return().
 %% @doc
 %%      Starts and links a director.
 %% @end
-start_link(Name_or_Mod
-          ,Mod_or_InitArg
-          ,InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
-    gen:start(?MODULE
-             ,link
-             ,Name_or_Mod
-             ,Mod_or_InitArg
-             ,InitArg_or_Opts
-             ,?DEFAULT_START_OPTIONS);
-start_link(Name_or_Mod
-          ,Mod_or_InitArg
-          ,InitArg_or_Opts) ->
-    gen:start(?MODULE
-             ,link
-             ,Name_or_Mod
-             ,Mod_or_InitArg
-             ,InitArg_or_Opts).
+start_link(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
+    gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts, ?DEFAULT_START_OPTIONS);
+start_link(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
+    gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
 
 
@@ -371,10 +352,7 @@ start_child(Director, ChildSpec) ->
 restart_child(director(), id()) ->
     {'ok', pid()}                 |
     {'ok', pid(), Extra::term()} |
-    {'error', Reason :: 'running'
-                      | 'restarting'
-                      | 'not_found'
-                      | term()}.
+    {'error', Reason::'running'|'restarting'|'not_found'|term()}.
 %% @doc
 %%      Restarts a terminated or waited child using child id.
 %%      Reason of error may be for starting process.
@@ -438,8 +416,7 @@ count_children(Director) ->
 
 -spec
 which_children(director()) ->
-    [{id(), type(), pid() | 'restarting' | 'undefined', modules()}] |
-    [].
+    [{id(), type(), pid()|'restarting'|'undefined', modules()}] | [].
 %% @doc
 %%      Returns information about each children.
 %% @end
@@ -474,8 +451,7 @@ check_childspec(childspec()) ->
 %%      Returns childspec of child.
 %% @end
 check_childspec(ChildSpec) ->
-    case director_check:check_childspec(ChildSpec
-                                       ,?DEFAULT_DEFAULT_CHILDSPEC) of
+    case director_utils:check_childspec(ChildSpec, ?DEFAULT_DEFAULT_CHILDSPEC) of
         {ok, _FixedChildSpec} ->
             ok;
         {error, _Reason}=Error ->
@@ -486,7 +462,7 @@ check_childspec(ChildSpec) ->
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Specific API:
 
 
@@ -498,9 +474,8 @@ change_plan(director(), id(), plan()) ->
     'ok' | {'error', 'not_found' | term()}.
 %% @doc
 %%      Changes the plan of running or waited or terminated child.
-%%      If 'count' is equal to crash count, new plan will never run,
-%%      Because in next crash director will crash with reason
-%%      {reached_max_restart_plan, ...
+%%      If 'count' is equal to crash count, new plan will never run, Because in next crash director
+%%      will crash with reason {reached_max_restart_plan, ...
 %% @end
 change_plan(Director, Id, Plan) ->
     do_call(Director, {?CHANGE_PLAN_TAG, Id, Plan}).
@@ -513,7 +488,7 @@ change_plan(Director, Id, Plan) ->
 
 -spec
 change_count(director(), id(), count()) ->
-    'ok' | {'error', 'not_found' | term()}.
+    'ok' | {'error', 'not_found'|term()}.
 %% @doc
 %%      Changes the count of running or waited or terminated child.
 %% @end
@@ -528,7 +503,7 @@ change_count(Director, Id, Count) ->
 
 -spec
 get_plan(director(), id()) ->
-    'ok' | {'error', 'not_found' | term()}.
+    'ok' | {'error', 'not_found'|term()}.
 %% @doc
 %%      Returns plan of a child.
 %% @end
@@ -543,7 +518,7 @@ get_plan(Director, Id) ->
 
 -spec
 get_count(director(), id()) ->
-    'ok' | {'error', 'not_found' | term()}.
+    'ok' | {'error', 'not_found'|term()}.
 %% @doc
 %%      Returns count of a childspec for child.
 %% @end
@@ -558,7 +533,7 @@ get_count(Director, Id) ->
 
 -spec
 get_pid(director(), id()) ->
-    {'ok', pid()} | {'error', 'not_found' | 'restarting' | 'undefined'}.
+    {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'}.
 %% @doc
 %%      Returns pid of a running child.
 %% @end
@@ -606,9 +581,8 @@ change_default_childspec(director(), default_childspec()) ->
     {'ok', default_childspec()} | {'error', Reason::term()}.
 %% @doc
 %%      Changes director default childspec.
-%%      Be careful about using this function.
-%%      This will change all children with append => true in next 
-%%      restart.
+%%      Be careful about using this function. This will change all children with append => true in
+%%      their next restart.
 %% @end
 change_default_childspec(Director, DefChildSpec) ->
     do_call(Director, {?CHANGE_DEFAULT_CHILDSPEC, DefChildSpec}).
@@ -620,28 +594,13 @@ change_default_childspec(Director, DefChildSpec) ->
 
 
 -spec
-get_debug_mode(director()) ->
-    debug_mode().
-%% @doc
-%%      Gets mode of debug for director.
-%% @end
-get_debug_mode(Director) ->
-    do_call(Director, ?GET_DEBUG_MODE_TAG).
-
-
-
-
-
-
-
--spec
-change_debug_mode(director(), debug_mode()) ->
+change_log_validate_fun(director(), log_validate_fun()) ->
     'ok' | {'error', term()}.
 %% @doc
-%%      Changes debug_mode of director.
+%%      Changes validate fun.
 %% @end
-change_debug_mode(Director, DbgMode) ->
-    do_call(Director, {?CHANGE_DEBUG_MODE_TAG, DbgMode}).
+change_log_validate_fun(Director, LogFun) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}).
 
 
 
@@ -650,10 +609,7 @@ change_debug_mode(Director, DbgMode) ->
 
 
 -spec
-start_link(register_name()
-          ,module()
-          ,InitArg::term()
-          ,start_options()) ->
+start_link(register_name(), module(), InitArg::term(), start_options()) ->
     start_return().
 %% @doc
 %%      Starts and links a director.
@@ -683,28 +639,15 @@ start(Mod, InitArg) ->
 
 
 -spec
-start(register_name()|module()
-     ,module()|term()
-     ,term()|start_options()) ->
+start(register_name()|module(), module()|term(), term()|start_options()) ->
     start_return().
 %% @doc
 %%      Starts a director.
 %% @end
-start(Name_or_Mod
-     ,Mod_or_InitArg
-     ,InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
-    gen:start(?MODULE
-             ,nolink
-             ,Name_or_Mod
-             ,Mod_or_InitArg
-             ,InitArg_or_Opts
-             ,?DEFAULT_START_OPTIONS);
+start(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
+    gen:start(?MODULE,nolink,Name_or_Mod,Mod_or_InitArg, InitArg_or_Opts, ?DEFAULT_START_OPTIONS);
 start(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
-    gen:start(?MODULE
-             ,nolink
-             ,Name_or_Mod
-             ,Mod_or_InitArg
-             ,InitArg_or_Opts).
+    gen:start(?MODULE, nolink, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
 
 
@@ -747,7 +690,7 @@ stop(Director) ->
 stop(director(), Reason::term()) ->
     'ok'.
 %% @doc
-%%      Stops a director with 5000 mili seconds timeout.
+%%      Stops a director with 5000 milli-seconds timeout.
 %% @end
 stop(Director, Reason) ->
     proc_lib:stop(Director, Reason, ?DEFAULT_STOP_TIMEOUT).
@@ -774,13 +717,11 @@ stop(Director, Reason, Timeout) ->
 
 
 -spec
-default_plan_element_fun(Id::term()
-                        ,Reason::term()
-                        ,RestartCount::non_neg_integer()) ->
+default_plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) ->
     'delete' | 'restart'.
 %% @doc
-%%      Deletes child if it crashed with reasons 'normal', 'shutdown' or
-%%      {'shutdown', Any} and restart it if crashed with other reasons.
+%%      Deletes child if it crashed with reasons 'normal', 'shutdown' or {'shutdown', Any} and
+%%      restart it if crashed with other reasons.
 %% @end
 default_plan_element_fun(_Id, normal, _RestartCount) ->
     delete;
@@ -797,7 +738,19 @@ default_plan_element_fun(_Id, _Other, _Count) ->
 
 
 
-%% ---------------------------------------------------------------------
+-spec
+default_validate_log_fun(Id::term(), Extra::term()) ->
+    log_mode().
+default_validate_log_fun(_Id, _Extra) ->
+    short.
+
+
+
+
+
+
+
+%% -------------------------------------------------------------------------------------------------
 %% previous APIs with Timeout argument:
 
 
@@ -822,12 +775,9 @@ start_child(Director, ChildSpec, Timeout) ->
 
 -spec
 restart_child(director(), id(), timeout()) ->
-    {'ok', pid()}                 |
-    {'ok', pid(), Extra::term()} |
-    {'error', Reason :: 'running'
-    | 'restarting'
-    | 'not_found'
-    | term()}.
+    {'ok', pid()}                                               |
+    {'ok', pid(), Extra::term()}                                |
+    {'error', Reason::'running'|'restarting'|'not_found'|term()}.
 %% @doc
 %%      Restarts a terminated or waited child using child id.
 %%      Reason of error may be for starting process.
@@ -843,7 +793,7 @@ restart_child(Director, Id, Timeout) ->
 
 -spec
 terminate_child(director(), id() | pid(), timeout()) ->
-    'ok' | {'error', Reason :: 'not_found' | term()}.
+    'ok' | {'error', Reason::'not_found'|term()}.
 %% @doc
 %%      Restarts a running child using child id or child pid.
 %% @end
@@ -858,7 +808,7 @@ terminate_child(Director, Id_or_Pid, Timeout) ->
 
 -spec
 delete_child(director(), id(), timeout()) ->
-    'ok' | {'error', Reason :: 'not_found' | 'running' | term()}.
+    'ok' | {'error', Reason::'not_found'|'running'|term()}.
 %% @doc
 %%      Deletes a terminated or waited child using child id.
 %% @end
@@ -891,7 +841,7 @@ count_children(Director, Timeout) ->
 
 -spec
 which_children(director(), timeout()) ->
-    [{id(), type(), pid() | 'restarting' | 'undefined', modules()}] |
+    [{id(), type(), pid()|'restarting'|'undefined', modules()}] |
     [].
 %% @doc
 %%      Returns information about each children.
@@ -922,7 +872,7 @@ get_childspec(Director, Name, Timeout) ->
 
 -spec
 get_count(director(), id(), timeout()) ->
-    'ok' | {'error', 'not_found' | term()}.
+    'ok' | {'error', 'not_found'|term()}.
 %% @doc
 %%      Returns count of a childspec for child.
 %% @end
@@ -940,9 +890,8 @@ change_plan(director(), id(), plan(), timeout()) ->
     'ok' | {'error', not_found | term()}.
 %% @doc
 %%      Changes the plan of running or waited or terminated child.
-%%      If 'count' is equal to crash count, new plan will never run,
-%%      Because in next crash director will crash with reason
-%%      {reached_max_restart_plan, ...
+%%      If 'count' is equal to crash count, new plan will never run, Because in next crash director
+%%      will crash with reason {reached_max_restart_plan, ...
 %% @end
 change_plan(Director, Id, Plan, Timeout) ->
     do_call(Director, {?CHANGE_PLAN_TAG, Id, Plan}, Timeout).
@@ -955,7 +904,7 @@ change_plan(Director, Id, Plan, Timeout) ->
 
 -spec
 change_count(director(), id(), count(), timeout()) ->
-    'ok' | {'error', 'not_found' | term()}.
+    'ok' | {'error', 'not_found'|term()}.
 %% @doc
 %%      Changes the count of running or waited or terminated child.
 %% @end
@@ -985,7 +934,7 @@ get_plan(Director, Id, Timeout) ->
 
 -spec
 get_pid(director(), id(), timeout()) ->
-    {'ok', pid()} | {error, 'not_found' | 'restarting' | undefined}.
+    {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'}.
 %% @doc
 %%      Returns pid of a running child.
 %% @end
@@ -1033,9 +982,8 @@ change_default_childspec(director(), default_childspec(), timeout()) ->
     {'ok', default_childspec()} | {'error', Reason::term()}.
 %% @doc
 %%      Changes director default childspec.
-%%      Be careful about using this function.
-%%      This will change all children with append => true in next
-%%      restart.
+%%      Be careful about using this function. This will change all children with append => true in
+%%      next restart.
 %% @end
 change_default_childspec(Director, ChildSpec, Timeout) ->
     do_call(Director, {?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}, Timeout).
@@ -1047,28 +995,13 @@ change_default_childspec(Director, ChildSpec, Timeout) ->
 
 
 -spec
-get_debug_mode(director(), timeout()) ->
-    debug_mode().
-%% @doc
-%%      Gets mode of debug for director.
-%% @end
-get_debug_mode(Director, Timeout) ->
-    do_call(Director, ?GET_DEBUG_MODE_TAG, Timeout).
-
-
-
-
-
-
-
--spec
-change_debug_mode(director(), debug_mode(), timeout()) ->
+change_log_validate_fun(director(), log_validate_fun(), timeout()) ->
     'ok' | {'error', term()}.
 %% @doc
-%%      Changes debug_mode of director.
+%%      Changes validate fun of director.
 %% @end
-change_debug_mode(Director, DbgMode, Timeout) ->
-    do_call(Director, {?CHANGE_DEBUG_MODE_TAG, DbgMode}, Timeout).
+change_log_validate_fun(Director, LogFun, Timeout) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}, Timeout).
 
 
 
@@ -1086,29 +1019,21 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
-    DbgMode = director_check:get_debug_mode(Name
-                                           ,Opts
-                                           ,?DEFAULT_DEBUG_MODE),
-    TabType = director_check:get_table_type(Name
-                                           ,Opts
-                                           ,?DEFAULT_TABLE_TYPE),
-    Dbg = director_debug:debug_options(Name, Opts),
+    LogFun = director_utils:get_log_validate_fun(Name, Opts, ?DEFAULT_LOG_FUN),
+    TabType = director_utils:get_table_type(Name, Opts, ?DEFAULT_TABLE_TYPE),
+    Dbg = director_utils:get_debug_options(Name, Opts, ?DEFAULT_DEBUG_OPTIONS),
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
             Tab = director_table:create(TabType),
-            case start_children(Name
-                               ,Children
-                               ,Tab
-                               ,TabType
-                               ,DbgMode) of
+            case start_children(Name, Children, Tab, TabType, LogFun) of
                 {ok, Tab2} ->
                     State = #?STATE{name = Name
                                    ,module = Mod
                                    ,init_argument = InitArg
                                    ,table = Tab2
                                    ,default_childspec = DefChildSpec
-                                   ,debug_mode = DbgMode
+                                   ,log_fun = LogFun
                                    ,table_type = TabType},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
                     exit(element(2, (catch loop(Parent, Dbg, State))));
@@ -1180,9 +1105,7 @@ system_replace_state(ReplaceStateFun, [State|Rest]) ->
 
 
 %% @hidden
-system_code_change([#?STATE{module = Mod
-                           ,init_argument = InitArg
-                           ,table = Table}=State|Rest]
+system_code_change([#?STATE{module = Mod,init_argument = InitArg,table = Table}=State|Rest]
                   ,_Module
                   ,_OldVsn
                   ,_Extra) ->
@@ -1219,7 +1142,7 @@ system_code_change([#?STATE{module = Mod
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Process main loop and its main subcategories:
 
 
@@ -1227,13 +1150,10 @@ system_code_change([#?STATE{module = Mod
 
 
 loop(Parent, Dbg, State) ->
-    process_message(Parent
-                   ,Dbg
-                   ,State
-                   ,receive
-                        Msg ->
-                            Msg
-                    end).
+    process_message(Parent, Dbg, State, receive
+                                            Msg ->
+                                                Msg
+                                        end).
 
 
 
@@ -1244,46 +1164,20 @@ process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
                ,{?GEN_CALL_TAG, From, Request}=Msg) ->
-    {Dbg3, State2} = process_request(director_debug:debug(Dbg
-                                                         ,Name
-                                                         ,Msg)
-                                    ,State
-                                    ,From
-                                    ,Request),
+    {Dbg3, State2} = process_request(director_utils:debug(Dbg, Name, Msg), State, From, Request),
     loop(Parent, Dbg3, State2);
 
-process_message(Parent
-               ,Dbg
-               ,#?STATE{name= Name}=State
-               ,{'EXIT', Pid, Reason}=Msg) ->
-    process_exit(Parent
-                ,director_debug:debug(Dbg, Name, Msg)
-                ,State
-                ,Pid
-                ,Reason);
+process_message(Parent, Dbg, #?STATE{name= Name}=State, {'EXIT', Pid, Reason}=Msg) ->
+    process_exit(Parent, director_utils:debug(Dbg, Name, Msg), State, Pid, Reason);
 
-process_message(Parent
-               ,Dbg
-               ,#?STATE{name = Name}=State
-               ,{timeout, TimerRef, Id}=Msg) ->
-    {Dbg2, State2} = process_timeout(director_debug:debug(Dbg
-                                                         ,Name
-                                                         ,Msg)
-                                    ,State
-                                    ,TimerRef
-                                    ,Id),
+process_message(Parent, Dbg, #?STATE{name = Name}=State, {timeout, TimerRef, Id}=Msg) ->
+    {Dbg2, State2} = process_timeout(director_utils:debug(Dbg, Name, Msg), State, TimerRef, Id),
     loop(Parent, Dbg2, State2);
 
-process_message(Parent
-               ,Dbg
-               ,State
-               ,{cancel_timer, _TimerRef, _Result}) ->
+process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
     loop(Parent, Dbg, State);
 
-process_message(Parent
-               ,Dbg
-               ,#?STATE{module = Mod}=State
-               ,{system, From, Msg}) ->
+process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) ->
     sys:handle_system_msg(Msg
                          ,From
                          ,Parent
@@ -1291,10 +1185,13 @@ process_message(Parent
                          ,Dbg
                          ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
-process_message(Parent, Dbg, #?STATE{name = Name}=State, Msg) ->
-    error_logger:error_msg("Director \"~p\" received unexpected message"
-                           ": \"~p\"~n"
-                          ,[Name, Msg]),
+process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) ->
+    case director_utils:log_mode(LogFun, ?DIRECTOR_ID, receive_unexcepted_message) of
+        off ->
+            ok;
+        _ ->
+            error_logger:error_msg("Director ~p received unexpected message: \"~p\"~n", [Name, Msg])
+    end,
     loop(Parent, Dbg, State).
 
 
@@ -1304,9 +1201,7 @@ process_message(Parent, Dbg, #?STATE{name = Name}=State, Msg) ->
 
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?GET_PID_TAG, Id}) ->
     Result =
@@ -1321,25 +1216,21 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Tab
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
                ,?GET_PIDS_TAG) ->
-    Pids = [{Id, Pid} || #?CHILD{pid = Pid, id = Id}
-        <- director_table:tab2list(Tab, TabType), erlang:is_pid(Pid)],
+    Pids = [{Id, Pid}
+           || #?CHILD{pid = Pid, id = Id} <- director_table:tab2list(Tab, TabType)
+           ,  erlang:is_pid(Pid)],
     {reply(Dbg, Name, From, Pids), State};
 
 process_request(Dbg
-               ,#?STATE{table = Tab
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
                ,?COUNT_CHILDREN_TAG) ->
     Specs = director_table:count(Tab, TabType),
     Fun =
-        fun(#?CHILD{pid = Pid, type = Type}
-           ,{Actives, Sups, Workers}) ->
+        fun(#?CHILD{pid = Pid, type = Type}, {Actives, Sups, Workers}) ->
             Actives2 =
                 if
                     erlang:is_pid(Pid) ->
@@ -1364,9 +1255,7 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Tab
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
                ,{?DELETE_CHILD_TAG, Id}) ->
     {Result, State2} =
@@ -1382,9 +1271,7 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?GET_CHILDSPEC_TAG, Term}) ->
     Result =
@@ -1392,31 +1279,26 @@ process_request(Dbg
             not_found ->
                 if
                     erlang:is_pid(Term) ->
-                        case director_table:lookup_by_pid(Table
-                                                         ,Term
-                                                         ,TabType) of
+                        case director_table:lookup_by_pid(Table, Term, TabType) of
                             not_found ->
                                 {error, not_found};
                             Child ->
-                                {ok, director_wrapper:c2cs(Child)}
+                                {ok, director_utils:c2cs(Child)}
                         end;
                     true ->
                         {error, not_found}
                 end;
             Child ->
-                {ok, director_wrapper:c2cs(Child)}
+                {ok, director_utils:c2cs(Child)}
         end,
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Tab
-                       ,name = Name
-                       ,debug_mode = DbgMode
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Tab, name = Name, log_fun = LogFun, table_type = TabType}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
     {Result, State2} =
-        case do_restart_child(Name, Id, Tab, TabType, DbgMode) of
+        case do_restart_child(Name, Id, Tab, TabType, LogFun) of
             {ok, Pid, Tab2} ->
                 {{ok, Pid}, State#?STATE{table = Tab2}};
             {ok, Pid, Extra, Tab2} ->
@@ -1430,18 +1312,14 @@ process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
                        ,default_childspec = DefChildSpec
-                       ,debug_mode = DbgMode
+                       ,log_fun = LogFun
                        ,table_type = TabType}=State
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
     {Result, State2} =
-        case director_check:check_childspec(ChildSpec, DefChildSpec) of
+        case director_utils:check_childspec(ChildSpec, DefChildSpec) of
             {ok, Child} ->
-                case do_start_child(Name
-                                   ,Child
-                                   ,Tab
-                                   ,TabType
-                                   ,DbgMode) of
+                case do_start_child(Name, Child, Tab, TabType, LogFun) of
                     {ok, Pid, Tab2} ->
                         {{ok, Pid}, State#?STATE{table = Tab2}};
                     {ok, Pid, Extra, Tab2} ->
@@ -1455,14 +1333,11 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Tab
-                       ,name = Name
-                       ,debug_mode = DbgMode
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Tab, name = Name, log_fun = LogFun, table_type = TabType}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
     {Result, State2} =
-        case do_terminate_child(Name, Term, Tab, TabType, DbgMode) of
+        case do_terminate_child(Name, Term, Tab, TabType, LogFun) of
             not_found ->
                 {{error, not_found}, State};
             Tab2 ->
@@ -1471,22 +1346,18 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{name = Name
-                       ,table = Tab
-                       ,table_type = TabType}=State
+               ,#?STATE{name = Name, table = Tab, table_type = TabType}=State
                ,From
                ,?WHICH_CHILDREN_TAG) ->
-    Result = [{Id, Pid, Type, Mods} || #?CHILD{id = Id
-                                              ,pid = Pid
-                                              ,type = Type
-                                              ,modules = Mods}
-             <- director_table:tab2list(Tab, TabType)],
+    Result = [{Id, Pid, Type, Mods}
+             || #?CHILD{id = Id
+                       ,pid = Pid
+                       ,type = Type
+                       ,modules = Mods} <- director_table:tab2list(Tab, TabType)],
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?GET_PLAN_TAG, Id}) ->
     Result =
@@ -1499,13 +1370,11 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?CHANGE_PLAN_TAG, Id, Plan}) ->
     {Result, State2} =
-        case director_check:filter_plan(Plan) of
+        case director_utils:filter_plan(Plan) of
             {ok, Plan2} ->
                 case director_table:lookup(Table, Id, TabType) of
                     not_found ->
@@ -1520,10 +1389,9 @@ process_request(Dbg
                             end,
                         PlanLen = erlang:length(Plan2),
                         Child2 = Child#?CHILD{plan = Plan2
-                                             ,plan_element_index =
-                                                     PlanElemIndex
+                                             ,plan_element_index = PlanElemIndex
                                              ,plan_length = PlanLen},
-                        Tab2 = director_table:insert(Table, Child2),
+                        Tab2 = director_table:insert(Table, Child2, TabType),
                         {ok, State#?STATE{table = Tab2}}
                 end;
             {error, _Reason}=Error ->
@@ -1532,13 +1400,11 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?CHANGE_COUNT_TAG, Id, Count0}) ->
     CountCheck =
-        case director_check:is_whole_integer(Count0) of
+        case director_utils:is_whole_integer(Count0) of
             true ->
                 {ok, Count0};
             false when Count0 == infinity ->
@@ -1553,10 +1419,7 @@ process_request(Dbg
                     not_found ->
                         {{error, not_found}, State};
                     Child ->
-                        Tab2 = director_table:insert(Table
-                                                  ,Child#?CHILD{count
-                            = Count}
-                                                    ,TabType),
+                        Tab2 = director_table:insert(Table,Child#?CHILD{count = Count}, TabType),
                         {ok, State#?STATE{table = Tab2}}
                 end;
             error ->
@@ -1565,9 +1428,7 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Table
-                       ,name = Name
-                       ,table_type = TabType}=State
+               ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
                ,{?GET_COUNT_TAG, Id}) ->
     Result =
@@ -1580,8 +1441,7 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{name = Name
-                       ,default_childspec = DefChildSpec}=State
+               ,#?STATE{name = Name, default_childspec = DefChildSpec}=State
                ,From
                ,?GET_DEFAULT_CHILDSPEC) ->
     {reply(Dbg, Name, From, DefChildSpec), State};
@@ -1594,50 +1454,32 @@ process_request(Dbg
                ,From
                ,{?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}) ->
     {State2, Result} =
-        case director_check:check_default_childspec(ChildSpec) of
+        case director_utils:check_default_childspec(ChildSpec) of
             {ok, DefChildSpec2} ->
-                Tab2 = director_table:separate_children(DefChildSpec
-                                                       ,Tab
-                                                       ,TabType),
-                Tab3 = director_table:combine_children(DefChildSpec2
-                                                      ,Tab2
-                                                      ,TabType),
+                Tab2 = director_table:separate_children(DefChildSpec, Tab, TabType),
+                Tab3 = director_table:combine_children(DefChildSpec2, Tab2, TabType),
                 {State#?STATE{default_childspec = DefChildSpec2, table = Tab3}, ok};
             {error, _Reason}=Error ->
                 {State, Error}
         end,
     {reply(Dbg, Name, From, Result), State2};
 
-process_request(Dbg
-               ,#?STATE{name = Name
-                       ,debug_mode = DbgMode}=State
-               ,From
-               ,?GET_DEBUG_MODE_TAG) ->
-    {reply(Dbg, Name, From, DbgMode), State};
+%%process_request(Dbg
+%%               ,#?STATE{name = Name, log_fun = LogFun}=State
+%%               ,From
+%%               ,?GET_LOG_VALIDATE_FUN_TAG) ->
+%%    {reply(Dbg, Name, From, LogFun), State};
 
 process_request(Dbg
                ,#?STATE{name = Name}=State
                ,From
-               ,{?CHANGE_DEBUG_MODE_TAG, DbgMode}) ->
+               ,{?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}) ->
     {State2, Result} =
         if
-            erlang:is_atom(DbgMode) ->
-                if
-                    DbgMode == off orelse
-                    DbgMode == short orelse
-                    DbgMode == long ->
-                        {State#?STATE{debug_mode = DbgMode}, ok};
-                    true ->
-                        {State
-                        ,{error
-                         ,{debug_mode_value
-                          ,[{debug_mode, DbgMode}]}}}
-                end ;
+            erlang:is_function(LogFun, 2) ->
+                {State#?STATE{log_fun = LogFun}, ok};
             true ->
-                {State
-                    ,{error
-                    ,{debug_mode_type
-                     ,[{debug_mode, DbgMode}]}}}
+                {State, {error, {bad_log_validate_fun, [{log_validate_fun, LogFun}]}}}
         end,
     {reply(Dbg, Name, From, Result), State2};
 
@@ -1660,19 +1502,19 @@ process_exit(Parent
             ,Dbg
             ,#?STATE{table = Tab
                     ,name = Name
-                    ,debug_mode = DbgMode
-                    ,table_type = TabType}=State
+                    ,table_type = TabType
+                    ,log_fun = LogFun}=State
             ,Pid
             ,Reason) ->
     case director_table:lookup_by_pid(Tab, Pid, TabType) of
         not_found ->
             loop(Parent, Dbg, State);
         Child ->
-            director_debug:error_report(Name
+            director_utils:error_report(Name
                                        ,child_terminated
                                        ,Reason
                                        ,Child
-                                       ,DbgMode),
+                                       ,LogFun),
             Child2 = Child#?CHILD{pid = undefined, extra = undefined},
             Tab2 = director_table:insert(Tab, Child2, TabType),
             {Dbg2, State2} = handle_exit(Dbg, State#?STATE{table = Tab2}, Child2, Reason),
@@ -1685,40 +1527,24 @@ process_exit(Parent
 
 
 handle_exit(Dbg
-           ,#?STATE{name = Name, debug_mode = DbgMode}=State
+           ,State
            ,#?CHILD{plan = []}=Child
            ,Reason) ->
-    director_debug:error_report(Name
-                               ,empty_plan_child_terminated
-                               ,Reason
-                               ,Child
-                               ,DbgMode),
-    terminate(Dbg
-             ,State
-             ,{empty_plan_child_terminated
-              ,[{child, director_wrapper:c_r2p(Child, long)}
-               ,{child_last_error_reason, Reason}]});
+    Reason2 = {empty_plan_child_terminated, [{reason, Reason}|director_utils:c_r2p(Child, long)]},
+    terminate(Dbg, State, Reason2);
 
 handle_exit(Dbg
-           ,#?STATE{name = Name, debug_mode = DbgMode}=State
+           ,State
            ,#?CHILD{count = Count
                    ,count2 = _Count2 = Count}=Child
            ,Reason) ->
-    director_debug:error_report(Name
-                               ,reached_max_restart_plan
-                               ,Reason
-                               ,Child
-                               ,DbgMode),
-    terminate(Dbg
-             ,State
-             ,{reached_max_restart_plan
-              ,[{child, director_wrapper:c_r2p(Child, long)}
-               ,{child_last_error_reason, Reason}]});
+    Reason2 = {reached_max_restart_plan, [{reason, Reason}|director_utils:c_r2p(Child, long)]},
+    terminate(Dbg, State, Reason2);
 
 handle_exit(Dbg
            ,#?STATE{name = Name
                    ,table = Table
-                   ,debug_mode = DbgMode
+                   ,log_fun = LogFun
                    ,table_type = TabType}=State
            ,#?CHILD{id = Id
                    ,plan = Plan
@@ -1744,40 +1570,31 @@ handle_exit(Dbg
             Fun when erlang:is_function(Fun) ->
                 case catch Fun(Id, Reason, ResCount2) of
                     Term when erlang:is_function(Term) ->
-                        {error
-                            ,{fun_bad_return_value
-                            ,[{'fun', Fun}
-                             ,{arguments, [Reason, ResCount2]}
-                             ,{returned_value, Term}]}};
+                        {error, {fun_bad_return, [{returned_value, Term}
+                                                 ,{'fun', Fun}
+                                                 ,{arguments, [Id, Reason, ResCount2]}]}};
                     {'EXIT', Reason2} ->
-                        {error
-                            ,{fun_run_crash
-                            ,[{'fun', Fun}
-                             ,{arguments, [Reason, ResCount2]}
-                             ,{reason, Reason2}]}};
+                        {error, {fun_crash, [{reason, Reason2}
+                                            ,{'fun', Fun}
+                                            ,{arguments, [Reason, ResCount2]}]}};
                     Term ->
-                        case director_check:filter_plan_element(Term) of
+                        case director_utils:filter_plan_element(Term) of
                             {ok, Term2} ->
                                 Term2;
-                            {error, Reason2} ->
-                                {error
-                                    ,{fun_bad_return_value
-                                    ,[{'fun', Fun}
-                                     ,{arguments, [Id
-                                                  ,Reason
-                                                  ,ResCount2]}
-                                     ,{return_value, Term}
-                                     ,{reason, Reason2}]}}
+                            {error, _Reason2} ->
+                                {error, {fun_bad_return, [{returned_value, Term}
+                                                         ,{'fun', Fun}
+                                                         ,{arguments, [Id, Reason, ResCount2]}]}}
                         end
                 end;
             _Other ->
                 PlanElem
         end,
-    _ = director_debug:debug(Dbg, Name, {plan, Id, Strategy}),
+    _ = director_utils:debug(Dbg, Name, {plan, Id, Strategy}),
     case Strategy of
         restart ->
             Tab3 =
-                case do_restart_child(Name, Id, Tab2, TabType, DbgMode) of
+                case do_restart_child(Name, Id, Tab2, TabType, LogFun) of
                     {error, _Reason3} ->
                         TimeRef = restart_timer(0, Id),
                         director_table:insert(Tab2
@@ -1803,15 +1620,14 @@ handle_exit(Dbg
             TimeRef = restart_timer(PosInt, Id),
             Tab3 = director_table:insert(Tab2
                                       ,Child2#?CHILD{pid = restarting
-                                                     ,timer_reference =
-                                                          TimeRef}
+                                                     ,timer_reference = TimeRef}
                                         ,TabType),
             {Dbg, State#?STATE{table = Tab3}};
         {error, Reason3} ->
             terminate(Dbg
                      ,State#?STATE{table = Tab2}
                      ,{run_plan_element
-                      ,[{child, director_wrapper:c_r2p(Child2, long)}
+                      ,[{child, director_utils:c_r2p(Child2, long)}
                        ,{child_last_error_reason, Reason}
                        ,{run_plan_error_reason, Reason3}]})
     end.
@@ -1825,7 +1641,7 @@ handle_exit(Dbg
 process_timeout(Dbg
                ,#?STATE{name = Name
                        ,table = Tab
-                       ,debug_mode = DbgMode
+                       ,log_fun = LogFun
                        ,table_type = TabType}=State
                ,TimerRef
                ,Id) ->
@@ -1833,7 +1649,7 @@ process_timeout(Dbg
         not_found ->
             {Dbg, State};
         #?CHILD{timer_reference = TimerRef} ->
-            case do_restart_child(Name, Id, Tab, TabType, DbgMode) of
+            case do_restart_child(Name, Id, Tab, TabType, LogFun) of
 %%                {error, not_found} ->
 %%                    {Dbg, State};
                 {error, Reason} ->
@@ -1856,7 +1672,7 @@ process_timeout(Dbg
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Other internal functions:
 
 
@@ -1925,17 +1741,16 @@ unregister_name(_Other) ->
 init_module(Mod, InitArg) ->
     case catch Mod:init(InitArg) of
         {ok, ChildSpecs} ->
-            case director_check:check_childspecs(ChildSpecs) of
+            case director_utils:check_childspecs(ChildSpecs) of
                 {ok, ChildSpecs2} ->
                     {ok, ChildSpecs2, ?DEFAULT_DEFAULT_CHILDSPEC};
                 {error, _Reason}=Error ->
                     Error
             end;
         {ok, ChildSpecs, DefChildSpec} ->
-            case director_check:check_default_childspec(DefChildSpec) of
+            case director_utils:check_default_childspec(DefChildSpec) of
                 {ok, DefChildSpec2} ->
-                    case director_check:
-                         check_childspecs(ChildSpecs, DefChildSpec2) of
+                    case director_utils:check_childspecs(ChildSpecs, DefChildSpec2) of
                         {ok, ChildSpecs2} ->
                             {ok, ChildSpecs2, DefChildSpec2};
                         {error, _Reason}=Error ->
@@ -1964,21 +1779,17 @@ init_module(Mod, InitArg) ->
 
 
 
-start_children(Name
-              ,[#?CHILD{id=Id}=Child|Children]
-              ,Tab
-              ,TabType
-              ,DbgMode) ->
-    case do_start_child(Name, Child, Tab, TabType, DbgMode) of
+start_children(Name, [#?CHILD{id=Id}=Child|Children], Tab, TabType, LogFun) ->
+    case do_start_child(Name, Child, Tab, TabType, LogFun) of
         {ok, _Pid, Tab2} ->
-            start_children(Name, Children, Tab2, TabType, DbgMode);
+            start_children(Name, Children, Tab2, TabType, LogFun);
         {error, already_present} ->
             {error, {repeated_id, [{id, Id}]}};
         {error, _Reason}=Error ->
-            _ = terminate_children(Name, Tab, TabType, DbgMode),
+            _ = terminate_children(Name, Tab, TabType, LogFun),
             Error
     end;
-start_children(_Name, [], Tab, _TabType, _DbgMode) ->
+start_children(_Name, [], Tab, _TabType, _LogFun) ->
     {ok, Tab}.
 
 
@@ -1988,10 +1799,10 @@ start_children(_Name, [], Tab, _TabType, _DbgMode) ->
 
 
 
-do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, DbgMode) ->
+do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogFun) ->
     case director_table:lookup(Tab, Id, TabType) of
         not_found ->
-            start_mfa(Name, Child, Tab, TabType, DbgMode);
+            start_mfa(Name, Child, Tab, TabType, LogFun);
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
             {error, {already_started, Pid}};
         _Child ->
@@ -2001,7 +1812,7 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, DbgMode) ->
 
 
 
-do_restart_child(Name, Id, Tab, TabType, DbgMode) ->
+do_restart_child(Name, Id, Tab, TabType, LogFun) ->
     case director_table:lookup(Tab, Id, TabType) of
         not_found ->
             {error, not_found};
@@ -2014,9 +1825,9 @@ do_restart_child(Name, Id, Tab, TabType, DbgMode) ->
                                   ,timer_reference = undefined}
                      ,Tab
                      ,TabType
-                     ,DbgMode);
+                     ,LogFun);
         Child ->
-            start_mfa(Name, Child, Tab, TabType, DbgMode)
+            start_mfa(Name, Child, Tab, TabType, LogFun)
     end.
 
 
@@ -2026,18 +1837,17 @@ start_mfa(Name
          ,#?CHILD{start = {Mod, Func, Args}}=Child
          ,Tab
          ,TabType
-         ,DbgMode) ->
+         ,LogFun) ->
     case catch erlang:apply(Mod, Func, Args) of
         {ok, Pid} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid, extra = undefined},
             Tab2 = director_table:insert(Tab, Child2, TabType),
-            director_debug:progress_report(Name, Child2, DbgMode),
+            director_utils:progress_report(Name, Child2, LogFun),
             {ok, Pid, Tab2};
         {ok, Pid, Extra} when erlang:is_pid(Pid) ->
-            Child2 = Child#?CHILD{pid = Pid
-                                 ,extra = {extra, Extra}},
+            Child2 = Child#?CHILD{pid = Pid, extra = {extra, Extra}},
             Tab2 = director_table:insert(Tab, Child2, TabType),
-            director_debug:progress_report(Name, Child2, DbgMode),
+            director_utils:progress_report(Name, Child2, LogFun),
             {ok, Pid, Extra, Tab2};
         ignore ->
             {ok, undefined};
@@ -2046,11 +1856,10 @@ start_mfa(Name
         {'EXIT', Reason} ->
             {error, Reason};
         Other ->
-            {error
-            ,{bad_start_return_value, [{returned_value, Other}
-                                      ,{module, Mod}
-                                      ,{function, Func}
-                                      ,{arguments, Args}]}}
+            {error, {start_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, Func}
+                                       ,{arguments, Args}]}}
     end.
 
 
@@ -2062,19 +1871,26 @@ start_mfa(Name
 terminate(Dbg
          ,#?STATE{table = Tab
                  ,name = Name
-                 ,debug_mode = DbgMode
-                 ,table_type = TabType}=State
+                 ,log_fun = LogFun
+                 ,table_type = TabType}
          ,Reason) ->
     Children = director_table:tab2list(Tab, TabType),
-    _Tab2 = terminate_children(Name, Tab, TabType, DbgMode),
-    error_logger:format("** Director \"~p\" terminating \n** Reason for"
-                        " termination == \"~p\"~n** Children == \"~p\"~"
-                        "n** State == \"~p\"~n"
-                       ,[Name
-                        ,Reason
-                        ,[director_wrapper:c_r2p(Child, DbgMode)
-                         || Child <- Children]
-                        ,State]),
+    _Tab2 = terminate_children(Name, Tab, TabType, LogFun),
+    case director_utils:log_mode(LogFun, ?DIRECTOR_ID, Reason) of
+        off ->
+            ok;
+        short ->
+            error_logger:format("** Director ~p terminating \n"
+                                "** Reason for termination == ~p\n"
+                               ,[Name,Reason]);
+        long ->
+            error_logger:format("** Director \"~p\" terminating \n"
+                                "** Reason for termination == ~p\n"
+                                "** Children == ~p\n"
+                               ,[Name
+                                ,Reason
+                                ,[director_utils:c_r2p(Child, short) || Child <- Children]])
+    end,
     sys:print_log(Dbg),
     erlang:exit(Reason).
 
@@ -2084,19 +1900,17 @@ terminate(Dbg
 
 
 
-terminate_children(Name, Tab, TabType, DbgMode) ->
+terminate_children(Name, Tab, TabType, LogFun) ->
     Terminate =
         fun(Id, Tab2) ->
-            case do_terminate_child(Name, Id, Tab2, TabType, DbgMode) of
+            case do_terminate_child(Name, Id, Tab2, TabType, LogFun) of
                 not_found ->
                     Tab2;
                 Tab3 ->
                     Tab3
             end
         end,
-    _Tab3 = lists:foldl(Terminate
-                       ,Tab
-                       ,director_table:tab2list(Tab, TabType)).
+    _Tab3 = lists:foldl(Terminate, Tab, director_table:tab2list(Tab, TabType)).
 
 
 
@@ -2104,7 +1918,7 @@ terminate_children(Name, Tab, TabType, DbgMode) ->
 
 
 
-do_terminate_child(Name, Id_or_Pid, Tab, TabType, DbgMode) ->
+do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogFun) ->
     Search =
         case director_table:lookup(Tab, Id_or_Pid, TabType) of
             not_found ->
@@ -2115,7 +1929,7 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, DbgMode) ->
     _ =
         case Search of
             #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
-                ok = do_terminate_child(Name, Child2, DbgMode);
+                ok = do_terminate_child(Name, Child2, LogFun);
             #?CHILD{pid = restarting, timer_reference = Ref} ->
                 _ = erlang:cancel_timer(Ref, [{async, true}]),
                 ok;
@@ -2127,10 +1941,9 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, DbgMode) ->
             not_found;
         Child3 ->
             _Tab2 = director_table:insert(Tab
-                                      ,Child3#?CHILD{pid = undefined
-                                                    ,extra = undefined
-                                                    ,timer_reference =
-                                                         undefined}
+                                         ,Child3#?CHILD{pid = undefined
+                                                       ,extra = undefined
+                                                       ,timer_reference = undefined}
                                          ,TabType)
     end.
 
@@ -2140,10 +1953,7 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, DbgMode) ->
 
 
 
-do_terminate_child(Name
-                  ,#?CHILD{pid=Pid
-                          ,terminate_timeout = TerminateTimeout}=Child
-                  ,DbgMode)
+do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=Child, LogFun)
     when erlang:is_pid(Pid) ->
     BrutalKill =
         fun() ->
@@ -2152,11 +1962,7 @@ do_terminate_child(Name
                 {'DOWN', _Ref, process, Pid, killed} ->
                     ok;
                 {'DOWN', _Ref, process, Pid, Reason} ->
-                    director_debug:error_report(Name
-                                               ,shutdown_error
-                                               ,Reason
-                                               ,Child
-                                               ,DbgMode),
+                    director_utils:error_report(Name, shutdown_error, Reason, Child, LogFun),
                     ok
             end
         end,
@@ -2171,22 +1977,18 @@ do_terminate_child(Name
                         {'DOWN', _Ref, process, Pid, shutdown} ->
                             ok;
                         {'DOWN', _Ref, process, Pid, Reason2} ->
-                            director_debug:error_report(Name
+                            director_utils:error_report(Name
                                                        ,shutdown_error
                                                        ,Reason2
                                                        ,Child
-                                                       ,DbgMode),
+                                                       ,LogFun),
                             ok
                     after TerminateTimeout ->
                         BrutalKill()
                     end
             end;
         {error, Reason3} ->
-            director_debug:error_report(Name
-                                       ,shutdown_error
-                                       ,Reason3
-                                       ,Child
-                                       ,DbgMode),
+            director_utils:error_report(Name, shutdown_error, Reason3, Child, LogFun),
             ok
     end.
 
@@ -2226,7 +2028,7 @@ restart_timer(PosInt, Id) ->
 
 reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
     Pid ! {Tag, Result},
-    director_debug:debug(Dbg, Name, {out, Pid, Result}).
+    director_utils:debug(Dbg, Name, {out, Pid, Result}).
 
 
 
@@ -2247,7 +2049,7 @@ get_children([ChildR|Children], Table, Children2) ->
     case director_table:lookup(Table, ChildR#?CHILD.id) of
         not_found ->
             {error
-            ,{child_not_found, director_wrapper:c_r2p(ChildR, long)}};
+            ,{child_not_found, director_utils:c_r2p(ChildR, long)}};
         LastChildR ->
             get_children(Children
                         ,Table

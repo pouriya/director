@@ -42,6 +42,7 @@
 
 
 
+-define(DEFAULT_DEBUG_OPTIONS, []).
 -define(GEN_CALL_TAG, '$gen_call').
 -define(COUNT_CHILDREN_TAG, 'count_children').
 -define(DELETE_CHILD_TAG, 'delete_child').
@@ -58,9 +59,11 @@
 -define(GET_COUNT_TAG, 'get_count').
 -define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
--define(GET_DEBUG_MODE_TAG, 'get_debug_mode').
--define(CHANGE_DEBUG_MODE_TAG, 'change_debug_mode').
--define(DEFAULT_DEBUG_MODE, 'short').
+-define(CHANGE_LOG_VALIDATE_FUN_TAG, 'change_log_validate_fun').
+-define(GET_LOG_VALIDATE_FUN_TAG, 'get_log_validate_fun').
+-define(DEFAULT_LOG_FUN, fun director:default_validate_log_fun/2).
+-define(DIRECTOR_ID, '$director').
+-define(DEFAULT_LOG_MODE, 'short').
 -define(DEFAULT_TABLE_TYPE, 'list').
 
 

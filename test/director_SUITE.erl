@@ -81,7 +81,7 @@
 -define(CHILD, child_name).
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
--define(START_OPTIONS, [{debug, [trace]}, {debug_mode, long}, {table_type, list}]).
+-define(START_OPTIONS, [{debug, [trace]}, {log_validate_fun, fun log_validate_fun/2}, {table_type, list}]).
 
 
 -include_lib("common_test/include/ct.hrl").
@@ -257,7 +257,7 @@ end_per_testcase(_TestCase, _Config) ->
 
     % plan: {restart, Timeout}
     erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
+    timer:sleep(5),
     ?assertMatch([{Id, restarting, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,0,1),
     ?assertEqual({error, restarting}, director:get_pid(?DIRECTOR, Id)),
@@ -513,7 +513,7 @@ end_per_testcase(_TestCase, _Config) ->
                      {'EXIT'
                      ,Pid
                      ,{empty_plan_child_terminated
-                      ,[{child, _Child}, {child_last_error_reason, killed}]}} ->
+                      ,[{reason, killed}|_]}} ->
                          pass
                  end),
 
@@ -530,7 +530,7 @@ end_per_testcase(_TestCase, _Config) ->
                      {'EXIT'
                          ,Pid2
                          ,{reached_max_restart_plan
-                          ,[{child, _Child}, {child_last_error_reason, killed}]}} ->
+                          ,[{reason, killed}|_]}} ->
                          pass
                  end).
 
@@ -617,3 +617,10 @@ count_children(Director, Specs, Actives, Workers, Sups) ->
     ?assertEqual(Actives, ?config(active, CountChildren)),
     ?assertEqual(Workers, ?config(workers, CountChildren)),
     ?assertEqual(Sups, ?config(supervisors, CountChildren)).
+
+
+
+
+
+log_validate_fun(_, _) ->
+    long.

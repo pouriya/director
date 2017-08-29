@@ -197,10 +197,10 @@ tab2list(Tab) ->
 
 combine_children(DefChildSpec, Tab) ->
     AppendedChildren =
-        [director_wrapper:combine_child(director_wrapper:c2cs(Child)
+        [director_utils:combine_child(director_utils:c2cs(Child)
                                        ,DefChildSpec)
         || Child <- lookup_appended(Tab)],
-    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_wrapper:cs2c(AppendedChild)) end
+    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_utils:cs2c(AppendedChild)) end
                ,Tab
                ,AppendedChildren).
 
@@ -212,9 +212,9 @@ combine_children(DefChildSpec, Tab) ->
 
 separate_children(DefChildSpec, Tab) ->
     AppendedChildren =
-        [director_wrapper:separate_child(director_wrapper:c2cs(Child)
+        [director_utils:separate_child(director_utils:c2cs(Child)
                                        ,DefChildSpec)
             || Child <- lookup_appended(Tab)],
-    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_wrapper:cs2c(AppendedChild)) end
+    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_utils:cs2c(AppendedChild)) end
                ,Tab
                ,AppendedChildren).
