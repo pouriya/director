@@ -1,8 +1,8 @@
-![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)
+![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)[![Hex version](https://img.shields.io/hexpm/v/director.svg "Hex version")](https://hex.pm/packages/director)
 
 
 # Welcome
-**Director** is fast, powerful and flexible Erlang/Elixir process supervisor.  
+**Director** is fast, powerful and flexible Erlang process **supervisor** and **manager**.  
 
 ## Synopsis
 According to the Erlang's manual documentation:  
@@ -28,9 +28,9 @@ According to the Erlang's manual documentation:
 * Change default values for starting children dynamically.  
 * A **Director** process can give response for all API functions of OTP/Supervisor module !
 * **Director** is not a generic behavior like `gen_sever`, etc. It was written as Erlang special process and it's so fast ! (Don't worry about handling system messages, it handles)
-* **Director** has its own clean debug output for any working state.  
+* **Director** has its own clean debug output for any working state (Standard OTP/sys debug).  
 * **Director** makes necessary reports to `error_logger` just like OTP/Supervisor.(So some useful libraries like `lager` can use its output and don't need to write new code for understanding **Director**'s reports)  
-* **Director** has 3 modes for giving details to `error_logger`: `short`, `long` and `off`.
+* **Director** has 3 modes for giving details to `error_logger`: `short`, `long` and `none`, You can specify an Erlang fun for validating log which should returns one of these modes.
 
 If you are familiar with OTP/supervisor, by comparing **Director** and OTP/Supervisor you can understand that it's more flexible and more useful.
 
