@@ -6,19 +6,19 @@
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
 <hr>
 
 <h1>Module director</h1>
 <ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
-            Flexible, fast and powerful process supervisor.
+            Flexible, fast and powerful process supervisor and manager.
 
-<p><b>Version:</b>  17.8.9</p>
+<p><b>Version:</b>  17.9</p>
 <p><b>This module defines the <tt>director</tt> behaviour.</b><br> Required callback functions: <tt>init/1</tt>.</p>
 <p><b>Authors:</b> Pouriya Jahanbakhsh (<a href="mailto:pouriya.jahanbakhsh@gmail.com"><tt>pouriya.jahanbakhsh@gmail.com</tt></a>).</p>
 
 <h2><a name="description">Description</a></h2>
-            Flexible, fast and powerful process supervisor.
+            Flexible, fast and powerful process supervisor and manager.
 <h2><a name="types">Data Types</a></h2>
 
 <h3 class="typedecl"><a name="type-append">append()</a></h3>
@@ -31,14 +31,6 @@
 
 <h3 class="typedecl"><a name="type-count">count()</a></h3>
 <p><tt>count() = infinity | non_neg_integer()</tt></p>
-
-
-<h3 class="typedecl"><a name="type-debug_mode">debug_mode()</a></h3>
-<p><tt>debug_mode() = short | long | off</tt></p>
-
-
-<h3 class="typedecl"><a name="type-debug_mode_option">debug_mode_option()</a></h3>
-<p><tt>debug_mode_option() = {debug_mode, <a href="#type-debug_mode">debug_mode()</a>}</tt></p>
 
 
 <h3 class="typedecl"><a name="type-debug_option">debug_option()</a></h3>
@@ -57,6 +49,18 @@
 <p><tt>id() = term()</tt></p>
 
 
+<h3 class="typedecl"><a name="type-log_mode">log_mode()</a></h3>
+<p><tt>log_mode() = short | long | none</tt></p>
+
+
+<h3 class="typedecl"><a name="type-log_validate_fun">log_validate_fun()</a></h3>
+<p><tt>log_validate_fun() = fun((Id::term(), Type::{crash, Reason::term()} | start) -&gt; <a href="#type-log_mode">log_mode()</a>)</tt></p>
+
+
+<h3 class="typedecl"><a name="type-log_validate_fun_option">log_validate_fun_option()</a></h3>
+<p><tt>log_validate_fun_option() = {log_validate_fun, <a href="#type-log_validate_fun">log_validate_fun()</a>}</tt></p>
+
+
 <h3 class="typedecl"><a name="type-modules">modules()</a></h3>
 <p><tt>modules() = [module()] | dynamic</tt></p>
 
@@ -66,7 +70,7 @@
 
 
 <h3 class="typedecl"><a name="type-plan_element">plan_element()</a></h3>
-<p><tt>plan_element() = restart | {restart, pos_integer()} | wait | stop | {stop, reason} | {stop, Reason::term()} | fun((Reason::term(), RestartCount::pos_integer()) -&gt; restart | {restart, pos_integer()} | wait | stop | {stop, reason} | {stop, Reason::term()})</tt></p>
+<p><tt>plan_element() = restart | {restart, pos_integer()} | wait | stop | {stop, reason} | {stop, Reason::term()} | fun((Id::term(), Reason::term(), RestartCount::pos_integer()) -&gt; restart | {restart, pos_integer()} | wait | stop | {stop, reason} | {stop, Reason::term()})</tt></p>
 
 
 <h3 class="typedecl"><a name="type-register_name">register_name()</a></h3>
@@ -82,7 +86,7 @@
 
 
 <h3 class="typedecl"><a name="type-start_option">start_option()</a></h3>
-<p><tt>start_option() = <a href="#type-debug_option">debug_option()</a> | <a href="#type-spawn_options">spawn_options()</a> | <a href="#type-timeout_option">timeout_option()</a> | <a href="#type-debug_mode_option">debug_mode_option()</a></tt></p>
+<p><tt>start_option() = <a href="#type-debug_option">debug_option()</a> | <a href="#type-spawn_options">spawn_options()</a> | <a href="#type-timeout_option">timeout_option()</a> | <a href="#type-log_validate_fun_option">log_validate_fun_option()</a></tt></p>
 
 
 <h3 class="typedecl"><a name="type-start_options">start_options()</a></h3>
@@ -110,14 +114,14 @@
        Changes the count of running or waited or terminated child.</td></tr>
 <tr><td valign="top"><a href="#change_count-4">change_count/4</a></td><td>
        Changes the count of running or waited or terminated child.</td></tr>
-<tr><td valign="top"><a href="#change_debug_mode-2">change_debug_mode/2</a></td><td>
-       Changes debug_mode of director.</td></tr>
-<tr><td valign="top"><a href="#change_debug_mode-3">change_debug_mode/3</a></td><td>
-       Changes debug_mode of director.</td></tr>
 <tr><td valign="top"><a href="#change_default_childspec-2">change_default_childspec/2</a></td><td>
        Changes director default childspec.</td></tr>
 <tr><td valign="top"><a href="#change_default_childspec-3">change_default_childspec/3</a></td><td>
        Changes director default childspec.</td></tr>
+<tr><td valign="top"><a href="#change_log_validate_fun-2">change_log_validate_fun/2</a></td><td>
+       Changes validate fun.</td></tr>
+<tr><td valign="top"><a href="#change_log_validate_fun-3">change_log_validate_fun/3</a></td><td>
+       Changes validate fun of director.</td></tr>
 <tr><td valign="top"><a href="#change_plan-3">change_plan/3</a></td><td>
        Changes the plan of running or waited or terminated child.</td></tr>
 <tr><td valign="top"><a href="#change_plan-4">change_plan/4</a></td><td>
@@ -128,9 +132,6 @@
        Returns count of children.</td></tr>
 <tr><td valign="top"><a href="#count_children-2">count_children/2</a></td><td>
        Returns count of children.</td></tr>
-<tr><td valign="top"><a href="#default_plan_element_fun-2">default_plan_element_fun/2</a></td><td>
-       Deletes child if it crashed with reasons 'normal', 'shutdown' or
-       {'shutdown', Any} and restart it if crashed with other reasons.</td></tr>
 <tr><td valign="top"><a href="#delete_child-2">delete_child/2</a></td><td>
        Deletes a terminated or waited child using child id.</td></tr>
 <tr><td valign="top"><a href="#delete_child-3">delete_child/3</a></td><td>
@@ -143,10 +144,6 @@
        Returns count of a childspec for child.</td></tr>
 <tr><td valign="top"><a href="#get_count-3">get_count/3</a></td><td>
        Returns count of a childspec for child.</td></tr>
-<tr><td valign="top"><a href="#get_debug_mode-1">get_debug_mode/1</a></td><td>
-       Gets mode of debug for director.</td></tr>
-<tr><td valign="top"><a href="#get_debug_mode-2">get_debug_mode/2</a></td><td>
-       Gets mode of debug for director.</td></tr>
 <tr><td valign="top"><a href="#get_default_childspec-1">get_default_childspec/1</a></td><td>
        Returns director default childspec.</td></tr>
 <tr><td valign="top"><a href="#get_default_childspec-2">get_default_childspec/2</a></td><td>
@@ -163,6 +160,8 @@
        Returns plan of a child.</td></tr>
 <tr><td valign="top"><a href="#get_plan-3">get_plan/3</a></td><td>
        Returns plan of a child.</td></tr>
+<tr><td valign="top"><a href="#plan_element_fun-3">plan_element_fun/3</a></td><td>
+       Restarting if child crashed with any reason.</td></tr>
 <tr><td valign="top"><a href="#restart_child-2">restart_child/2</a></td><td>
        Restarts a terminated or waited child using child id.</td></tr>
 <tr><td valign="top"><a href="#restart_child-3">restart_child/3</a></td><td>
@@ -187,13 +186,15 @@
        Stops a director with reason termination 'normal' and 5000 mili
        seconds timeout.</td></tr>
 <tr><td valign="top"><a href="#stop-2">stop/2</a></td><td>
-       Stops a director with 5000 mili seconds timeout.</td></tr>
+       Stops a director with 5000 milli-seconds timeout.</td></tr>
 <tr><td valign="top"><a href="#stop-3">stop/3</a></td><td>
        Stops a director.</td></tr>
 <tr><td valign="top"><a href="#terminate_child-2">terminate_child/2</a></td><td>
        Restarts a running child using child id or child pid.</td></tr>
 <tr><td valign="top"><a href="#terminate_child-3">terminate_child/3</a></td><td>
        Restarts a running child using child id or child pid.</td></tr>
+<tr><td valign="top"><a href="#validate_log_fun-2">validate_log_fun/2</a></td><td>
+      Short description for every log.</td></tr>
 <tr><td valign="top"><a href="#which_children-1">which_children/1</a></td><td>
        Returns information about each children.</td></tr>
 <tr><td valign="top"><a href="#which_children-2">which_children/2</a></td><td>
@@ -214,53 +215,49 @@
 </div><p>
        Changes the count of running or waited or terminated child.</p>
 
-<h3 class="function"><a name="change_debug_mode-2">change_debug_mode/2</a></h3>
-<div class="spec">
-<p><tt>change_debug_mode(Director::<a href="#type-director">director()</a>, DbgMode::<a href="#type-debug_mode">debug_mode()</a>) -&gt; ok | {error, term()}</tt><br></p>
-</div><p>
-       Changes debug_mode of director.</p>
-
-<h3 class="function"><a name="change_debug_mode-3">change_debug_mode/3</a></h3>
-<div class="spec">
-<p><tt>change_debug_mode(Director::<a href="#type-director">director()</a>, DbgMode::<a href="#type-debug_mode">debug_mode()</a>, Timeout::timeout()) -&gt; ok | {error, term()}</tt><br></p>
-</div><p>
-       Changes debug_mode of director.</p>
-
 <h3 class="function"><a name="change_default_childspec-2">change_default_childspec/2</a></h3>
 <div class="spec">
 <p><tt>change_default_childspec(Director::<a href="#type-director">director()</a>, DefChildSpec::<a href="#type-default_childspec">default_childspec()</a>) -&gt; {ok, <a href="#type-default_childspec">default_childspec()</a>} | {error, Reason::term()}</tt><br></p>
 </div><p>
        Changes director default childspec.
-       Be careful about using this function.
-       This will change all children with append =&gt; true in next
-       restart.</p>
+       Be careful about using this function. This will change all children with append =&gt; true in
+       their next restart.</p>
 
 <h3 class="function"><a name="change_default_childspec-3">change_default_childspec/3</a></h3>
 <div class="spec">
 <p><tt>change_default_childspec(Director::<a href="#type-director">director()</a>, ChildSpec::<a href="#type-default_childspec">default_childspec()</a>, Timeout::timeout()) -&gt; {ok, <a href="#type-default_childspec">default_childspec()</a>} | {error, Reason::term()}</tt><br></p>
 </div><p>
        Changes director default childspec.
-       Be careful about using this function.
-       This will change all children with append =&gt; true in next
-       restart.</p>
+       Be careful about using this function. This will change all children with append =&gt; true in
+       next restart.</p>
+
+<h3 class="function"><a name="change_log_validate_fun-2">change_log_validate_fun/2</a></h3>
+<div class="spec">
+<p><tt>change_log_validate_fun(Director::<a href="#type-director">director()</a>, LogFun::<a href="#type-log_validate_fun">log_validate_fun()</a>) -&gt; ok | {error, term()}</tt><br></p>
+</div><p>
+       Changes validate fun.</p>
+
+<h3 class="function"><a name="change_log_validate_fun-3">change_log_validate_fun/3</a></h3>
+<div class="spec">
+<p><tt>change_log_validate_fun(Director::<a href="#type-director">director()</a>, LogFun::<a href="#type-log_validate_fun">log_validate_fun()</a>, Timeout::timeout()) -&gt; ok | {error, term()}</tt><br></p>
+</div><p>
+       Changes validate fun of director.</p>
 
 <h3 class="function"><a name="change_plan-3">change_plan/3</a></h3>
 <div class="spec">
 <p><tt>change_plan(Director::<a href="#type-director">director()</a>, Id::<a href="#type-id">id()</a>, Plan::<a href="#type-plan">plan()</a>) -&gt; ok | {error, not_found | term()}</tt><br></p>
 </div><p>
        Changes the plan of running or waited or terminated child.
-       If 'count' is equal to crash count, new plan will never run,
-       Because in next crash director will crash with reason
-       {reached_max_restart_plan, ...</p>
+       If 'count' is equal to crash count, new plan will never run, Because in next crash director
+       will crash with reason {reached_max_restart_plan, ...</p>
 
 <h3 class="function"><a name="change_plan-4">change_plan/4</a></h3>
 <div class="spec">
 <p><tt>change_plan(Director::<a href="#type-director">director()</a>, Id::<a href="#type-id">id()</a>, Plan::<a href="#type-plan">plan()</a>, Timeout::timeout()) -&gt; ok | {error, not_found | term()}</tt><br></p>
 </div><p>
        Changes the plan of running or waited or terminated child.
-       If 'count' is equal to crash count, new plan will never run,
-       Because in next crash director will crash with reason
-       {reached_max_restart_plan, ...</p>
+       If 'count' is equal to crash count, new plan will never run, Because in next crash director
+       will crash with reason {reached_max_restart_plan, ...</p>
 
 <h3 class="function"><a name="check_childspec-1">check_childspec/1</a></h3>
 <div class="spec">
@@ -279,13 +276,6 @@
 <p><tt>count_children(Director::<a href="#type-director">director()</a>, Timeout::timeout()) -&gt; [{specs, non_neg_integer()} | {active, non_neg_integer()} | {supervisors, non_neg_integer()} | {workers, non_neg_integer()}]</tt><br></p>
 </div><p>
        Returns count of children.</p>
-
-<h3 class="function"><a name="default_plan_element_fun-2">default_plan_element_fun/2</a></h3>
-<div class="spec">
-<p><tt>default_plan_element_fun(Reason::term(), RestartCount::non_neg_integer()) -&gt; delete | restart</tt><br></p>
-</div><p>
-       Deletes child if it crashed with reasons 'normal', 'shutdown' or
-       {'shutdown', Any} and restart it if crashed with other reasons.</p>
 
 <h3 class="function"><a name="delete_child-2">delete_child/2</a></h3>
 <div class="spec">
@@ -322,18 +312,6 @@
 <p><tt>get_count(Director::<a href="#type-director">director()</a>, Id::<a href="#type-id">id()</a>, Timeout::timeout()) -&gt; ok | {error, not_found | term()}</tt><br></p>
 </div><p>
        Returns count of a childspec for child.</p>
-
-<h3 class="function"><a name="get_debug_mode-1">get_debug_mode/1</a></h3>
-<div class="spec">
-<p><tt>get_debug_mode(Director::<a href="#type-director">director()</a>) -&gt; <a href="#type-debug_mode">debug_mode()</a></tt><br></p>
-</div><p>
-       Gets mode of debug for director.</p>
-
-<h3 class="function"><a name="get_debug_mode-2">get_debug_mode/2</a></h3>
-<div class="spec">
-<p><tt>get_debug_mode(Director::<a href="#type-director">director()</a>, Timeout::timeout()) -&gt; <a href="#type-debug_mode">debug_mode()</a></tt><br></p>
-</div><p>
-       Gets mode of debug for director.</p>
 
 <h3 class="function"><a name="get_default_childspec-1">get_default_childspec/1</a></h3>
 <div class="spec">
@@ -382,6 +360,12 @@
 <p><tt>get_plan(Director::<a href="#type-director">director()</a>, Id::<a href="#type-id">id()</a>, Timeout::timeout()) -&gt; ok | {error, not_found | term()}</tt><br></p>
 </div><p>
        Returns plan of a child.</p>
+
+<h3 class="function"><a name="plan_element_fun-3">plan_element_fun/3</a></h3>
+<div class="spec">
+<p><tt>plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) -&gt; restart</tt><br></p>
+</div><p>
+       Restarting if child crashed with any reason.</p>
 
 <h3 class="function"><a name="restart_child-2">restart_child/2</a></h3>
 <div class="spec">
@@ -458,7 +442,7 @@
 <div class="spec">
 <p><tt>stop(Director::<a href="#type-director">director()</a>, Reason::term()) -&gt; ok</tt><br></p>
 </div><p>
-       Stops a director with 5000 mili seconds timeout.</p>
+       Stops a director with 5000 milli-seconds timeout.</p>
 
 <h3 class="function"><a name="stop-3">stop/3</a></h3>
 <div class="spec">
@@ -478,6 +462,12 @@
 </div><p>
        Restarts a running child using child id or child pid.</p>
 
+<h3 class="function"><a name="validate_log_fun-2">validate_log_fun/2</a></h3>
+<div class="spec">
+<p><tt>validate_log_fun(Id::term(), Extra::term()) -&gt; short</tt><br></p>
+</div><p>
+      Short description for every log.</p>
+
 <h3 class="function"><a name="which_children-1">which_children/1</a></h3>
 <div class="spec">
 <p><tt>which_children(Director::<a href="#type-director">director()</a>) -&gt; [{<a href="#type-id">id()</a>, <a href="#type-type">type()</a>, pid() | restarting | undefined, <a href="#type-modules">modules()</a>}] | []</tt><br></p>
@@ -491,7 +481,7 @@
        Returns information about each children.</p>
 <hr>
 
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Aug 9 2017, 17:59:52.</i></p>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Aug 31 2017, 12:16:12.</i></p>
 </body>
 </html>
