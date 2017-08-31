@@ -74,7 +74,7 @@
         ,change_count/3
         ,get_default_childspec/1
         ,change_default_childspec/2
-        ,change_log_validate_fun/2
+        ,change_log_validator/2
         ,start_link/4
         ,start/2
         ,start/3
@@ -83,7 +83,7 @@
         ,stop/2
         ,stop/3
         ,plan_element_fun/3
-        ,validate_log_fun/2]).
+        ,validate_log/2]).
 
 
 
@@ -105,7 +105,7 @@
         ,get_pids/2
         ,get_default_childspec/2
         ,change_default_childspec/3
-        ,change_log_validate_fun/3]).
+        ,change_log_validator/3]).
 
 
 
@@ -140,16 +140,10 @@
 %% If you don't set 'start' for default childspec, 'start' is mandatory.
 %% Default values for other keys:
 %%  #{plan => [fun
-%%                 (_Id, normal, _RestartCount) ->
-%%                     delete;
-%%                 (_Id, shutdown, _RestartCount) ->
-%%                     delete;
-%%                 (_Id, {shutdown, _Reason}, _RestartCount) ->
-%%                     delete;
 %%                 (_Id, _Reason, _RestartCount) ->
 %%                     restart
 %%             end]
-%%   ,count => 1
+%%   ,count => 5
 %%   ,terminate_timeout => infinity % For supervisors
 %%                         1000     % For workers
 %%   ,type => worker
@@ -216,8 +210,11 @@
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
 -type   log_validate_fun_option() :: {'log_validate_fun', log_validate_fun()}.
--type    log_validate_fun() :: fun((Id::term(), Type:: {'crash', Reason::term()} | 'start') ->
-                                   log_mode()).
+-type    log_validate_fun() :: fun((Id:: ?DIRECTOR_ID | term()
+                                   ,Type:: {'info', 'start'}
+                                         | {'warning', term()}
+                                         | {'error', term()}) ->
+                                      log_mode()).
 -type     log_mode() :: 'short' | 'long' | 'none'.
 
 
@@ -596,13 +593,13 @@ change_default_childspec(Director, DefChildSpec) ->
 
 
 -spec
-change_log_validate_fun(director(), log_validate_fun()) ->
+change_log_validator(director(), log_validate_fun()) ->
     'ok' | {'error', term()}.
 %% @doc
 %%      Changes validate fun.
 %% @end
-change_log_validate_fun(Director, LogFun) ->
-    do_call(Director, {?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}).
+change_log_validator(Director, LogFun) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogFun}).
 
 
 
@@ -734,12 +731,12 @@ plan_element_fun(_Id, _Other, _Count) ->
 
 
 -spec
-validate_log_fun(Id::term(), Extra::term()) ->
+validate_log(Id::term(), Extra::term()) ->
     'short'.
 %% @doc
 %%     Short description for every log.
 %% @end
-validate_log_fun(_Id, _Extra) ->
+validate_log(_Id, _Extra) ->
     short.
 
 
@@ -993,13 +990,13 @@ change_default_childspec(Director, ChildSpec, Timeout) ->
 
 
 -spec
-change_log_validate_fun(director(), log_validate_fun(), timeout()) ->
+change_log_validator(director(), log_validate_fun(), timeout()) ->
     'ok' | {'error', term()}.
 %% @doc
 %%      Changes validate fun of director.
 %% @end
-change_log_validate_fun(Director, LogFun, Timeout) ->
-    do_call(Director, {?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}, Timeout).
+change_log_validator(Director, LogFun, Timeout) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogFun}, Timeout).
 
 
 
@@ -1181,7 +1178,7 @@ process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) -
 process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) ->
     case director_utils:run_log_validate_fun(LogFun
                                             ,?DIRECTOR_ID
-                                            ,{warning, receive_unexcepted_message}) of
+                                            ,{warning, receive_unexpected_message}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
         none ->
@@ -1470,7 +1467,7 @@ process_request(Dbg
 process_request(Dbg
                ,#?STATE{name = Name}=State
                ,From
-               ,{?CHANGE_LOG_VALIDATE_FUN_TAG, LogFun}) ->
+               ,{?CHANGE_LOG_VALIDATOR, LogFun}) ->
     {State2, Result} =
         if
             erlang:is_function(LogFun, 2) ->
@@ -1484,7 +1481,7 @@ process_request(Dbg
 process_request(Dbg, #?STATE{name = Name, log_fun = LogFun}=State, From, Other) ->
     case director_utils:run_log_validate_fun(LogFun
                                             ,?DIRECTOR_ID
-                                            ,{warning, receive_unexcepted_call}) of
+                                            ,{warning, receive_unexpected_call}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
         none ->
