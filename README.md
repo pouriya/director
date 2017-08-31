@@ -1,4 +1,4 @@
-![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)[![Hex version](https://img.shields.io/hexpm/v/director.svg "Hex version")](https://hex.pm/packages/director)
+![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master) [![Hex version](https://img.shields.io/hexpm/v/director.svg "Hex version")](https://hex.pm/packages/director)
 
 
 # Welcome
