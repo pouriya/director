@@ -130,7 +130,7 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
 
 
 error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogFun) ->
-    case run_log_validate_fun(LogFun, Id, Reason) of
+    case run_log_validate_fun(LogFun, Id, {crash, Reason}) of
         none ->
             ok;
         LogMode ->
