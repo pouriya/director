@@ -2,7 +2,7 @@
 %%% Director is available for use under the following license, commonly known as the 3-clause (or
 %%% "modified") BSD license:
 %%%
-%%% Copyright (c) 2016-2017, Pouriya Jahanbakhsh
+%%% Copyright (c) 2017-2018, Pouriya Jahanbakhsh
 %%% (pouriya.jahanbakhsh@gmail.com)
 %%% All rights reserved.
 %%%
@@ -31,9 +31,9 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version
+%% @version  17.9
 %% @doc
-%%           Flexible, fast and powerful process supervisor.
+%%           Flexible, fast and powerful process supervisor and manager.
 %% @end
 %% -------------------------------------------------------------------------------------------------
 
@@ -82,8 +82,8 @@
         ,stop/1
         ,stop/2
         ,stop/3
-        ,default_plan_element_fun/3
-        ,default_validate_log_fun/2]).
+        ,plan_element_fun/3
+        ,validate_log_fun/2]).
 
 
 
@@ -227,7 +227,9 @@
 -export_type([childspec/0
              ,default_childspec/0
              ,start_options/0
+             ,start_option/0
              ,start_return/0
+             ,log_validate_fun/0
              ,log_mode/0]).
 
 
@@ -307,7 +309,7 @@ start_link(module(), InitArg::term()) ->
 %%      Starts and links a director.
 %% @end
 start_link(Mod, InitArg) ->
-    gen:start(?MODULE, link, Mod, InitArg, ?DEFAULT_START_OPTIONS).
+    gen:start(?MODULE, link, Mod, InitArg, ?DEF_START_OPTIONS).
 
 
 
@@ -322,7 +324,7 @@ start_link(register_name()|module(), module()|term(), term()|start_options()) ->
 %%      Starts and links a director.
 %% @end
 start_link(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
-    gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts, ?DEFAULT_START_OPTIONS);
+    gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts, ?DEF_START_OPTIONS);
 start_link(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
     gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
@@ -451,7 +453,7 @@ check_childspec(childspec()) ->
 %%      Returns childspec of child.
 %% @end
 check_childspec(ChildSpec) ->
-    case director_utils:check_childspec(ChildSpec, ?DEFAULT_DEFAULT_CHILDSPEC) of
+    case director_utils:check_childspec(ChildSpec, ?DEF_DEF_CHILDSPEC) of
         {ok, _FixedChildSpec} ->
             ok;
         {error, _Reason}=Error ->
@@ -568,7 +570,7 @@ get_default_childspec(director()) ->
 %%      Returns director default childspec.
 %% @end
 get_default_childspec(Director) ->
-    do_call(Director, ?GET_DEFAULT_CHILDSPEC).
+    do_call(Director, ?GET_DEF_CHILDSPEC).
 
 
 
@@ -585,7 +587,7 @@ change_default_childspec(director(), default_childspec()) ->
 %%      their next restart.
 %% @end
 change_default_childspec(Director, DefChildSpec) ->
-    do_call(Director, {?CHANGE_DEFAULT_CHILDSPEC, DefChildSpec}).
+    do_call(Director, {?CHANGE_DEF_CHILDSPEC, DefChildSpec}).
 
 
 
@@ -630,7 +632,7 @@ start(module(), InitArg::term()) ->
 %%      Starts a director.
 %% @end
 start(Mod, InitArg) ->
-    gen:start(?MODULE, nolink, Mod, InitArg, ?DEFAULT_START_OPTIONS).
+    gen:start(?MODULE, nolink, Mod, InitArg, ?DEF_START_OPTIONS).
 
 
 
@@ -645,7 +647,7 @@ start(register_name()|module(), module()|term(), term()|start_options()) ->
 %%      Starts a director.
 %% @end
 start(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) when is_tuple(Name_or_Mod) ->
-    gen:start(?MODULE,nolink,Name_or_Mod,Mod_or_InitArg, InitArg_or_Opts, ?DEFAULT_START_OPTIONS);
+    gen:start(?MODULE,nolink,Name_or_Mod,Mod_or_InitArg, InitArg_or_Opts, ?DEF_START_OPTIONS);
 start(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
     gen:start(?MODULE, nolink, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
@@ -678,7 +680,7 @@ stop(director()) ->
 %%      seconds timeout.
 %% @end
 stop(Director) ->
-    proc_lib:stop(Director, normal, ?DEFAULT_STOP_TIMEOUT).
+    proc_lib:stop(Director, normal, ?DEF_STOP_TIMEOUT).
 
 
 
@@ -693,7 +695,7 @@ stop(director(), Reason::term()) ->
 %%      Stops a director with 5000 milli-seconds timeout.
 %% @end
 stop(Director, Reason) ->
-    proc_lib:stop(Director, Reason, ?DEFAULT_STOP_TIMEOUT).
+    proc_lib:stop(Director, Reason, ?DEF_STOP_TIMEOUT).
 
 
 
@@ -717,19 +719,12 @@ stop(Director, Reason, Timeout) ->
 
 
 -spec
-default_plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) ->
-    'delete' | 'restart'.
+plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) ->
+    'restart'.
 %% @doc
-%%      Deletes child if it crashed with reasons 'normal', 'shutdown' or {'shutdown', Any} and
-%%      restart it if crashed with other reasons.
+%%      Restarting if child crashed with any reason.
 %% @end
-default_plan_element_fun(_Id, normal, _RestartCount) ->
-    delete;
-default_plan_element_fun(_Id, shutdown, _RestartCount) ->
-    delete;
-default_plan_element_fun(_Id, {shutdown, _Reason}, _RestartCount) ->
-    delete;
-default_plan_element_fun(_Id, _Other, _Count) ->
+plan_element_fun(_Id, _Other, _Count) ->
     restart.
 
 
@@ -739,9 +734,12 @@ default_plan_element_fun(_Id, _Other, _Count) ->
 
 
 -spec
-default_validate_log_fun(Id::term(), Extra::term()) ->
-    log_mode().
-default_validate_log_fun(_Id, _Extra) ->
+validate_log_fun(Id::term(), Extra::term()) ->
+    'short'.
+%% @doc
+%%     Short description for every log.
+%% @end
+validate_log_fun(_Id, _Extra) ->
     short.
 
 
@@ -969,7 +967,7 @@ get_default_childspec(director(), timeout()) ->
 %%      Returns director default childspec.
 %% @end
 get_default_childspec(Director, Timeout) ->
-    do_call(Director, ?GET_DEFAULT_CHILDSPEC, Timeout).
+    do_call(Director, ?GET_DEF_CHILDSPEC, Timeout).
 
 
 
@@ -986,7 +984,7 @@ change_default_childspec(director(), default_childspec(), timeout()) ->
 %%      next restart.
 %% @end
 change_default_childspec(Director, ChildSpec, Timeout) ->
-    do_call(Director, {?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}, Timeout).
+    do_call(Director, {?CHANGE_DEF_CHILDSPEC, ChildSpec}, Timeout).
 
 
 
@@ -1019,9 +1017,9 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
-    LogFun = director_utils:get_log_validate_fun(Name, Opts, ?DEFAULT_LOG_FUN),
-    TabType = director_utils:get_table_type(Name, Opts, ?DEFAULT_TABLE_TYPE),
-    Dbg = director_utils:get_debug_options(Name, Opts, ?DEFAULT_DEBUG_OPTIONS),
+    LogFun = director_utils:get_log_validate_fun(Name, Opts, ?DEF_LOG_FUN),
+    TabType = director_utils:get_table_type(Name, Opts, ?DEF_TABLE_TYPE),
+    Dbg = director_utils:get_debug_options(Name, Opts, ?DEF_DEBUG_OPTIONS),
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
@@ -1055,7 +1053,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% 'sys' callbacks:
 
 
@@ -1105,35 +1103,30 @@ system_replace_state(ReplaceStateFun, [State|Rest]) ->
 
 
 %% @hidden
-system_code_change([#?STATE{module = Mod,init_argument = InitArg,table = Table}=State|Rest]
+system_code_change([#?STATE{module = Mod
+                           ,init_argument = InitArg
+                           ,table = Tab
+                           ,table_type = TabType}=State
+                   |Rest]
                   ,_Module
                   ,_OldVsn
                   ,_Extra) ->
     case init_module(Mod, InitArg) of
-        {ok, Children1, DefChildSpec} ->
-            case get_children(Children1, Table) of
-                {ok, ChildrenR2} ->
-                    UpdateTable =
-                        fun(#?CHILD{pid = Pid, extra = Extra}=LastChild
-                           ,CurrentChild) ->
-                            director_table:delete(Table, LastChild),
-                            NewChild =
-                                CurrentChild#?CHILD{pid = Pid
-                                                   ,extra = Extra},
-                            director_table:insert(Table, NewChild)
-                        end,
-                    [UpdateTable(LastChild, CurrentChild)
-                    || {LastChild, CurrentChild} <- ChildrenR2],
-                    {ok
-                    ,[State#?STATE{default_childspec = DefChildSpec}
-                     |Rest]};
-                {error, _Reason}=Error ->
-                    Error
+        {ok, Children, DefChildSpec} ->
+            case check_duplicate_ids(Children) of
+                ok ->
+                    {ok, [State#?STATE{table = change_old_children_pids(Children
+                                                                       ,Tab
+                                                                       ,TabType)
+                                      ,default_childspec = DefChildSpec}
+                         |Rest]};
+                {error, _}=Err ->
+                    Err
             end;
         ignore ->
             {ok, [State|Rest]};
-        {error, _Reason}=Error ->
-            Error
+        {error, _}=Err ->
+            Err
     end.
 
 
@@ -1186,11 +1179,13 @@ process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) -
                          ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) ->
-    case director_utils:log_mode(LogFun, ?DIRECTOR_ID, receive_unexcepted_message) of
+    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_message) of
+        short ->
+            error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
         off ->
             ok;
-        _ ->
-            error_logger:error_msg("Director ~p received unexpected message: \"~p\"~n", [Name, Msg])
+        long ->
+            error_logger:error_msg("Director ~p received unexpected message: ~p~n", [Name, Msg])
     end,
     loop(Parent, Dbg, State).
 
@@ -1443,7 +1438,7 @@ process_request(Dbg
 process_request(Dbg
                ,#?STATE{name = Name, default_childspec = DefChildSpec}=State
                ,From
-               ,?GET_DEFAULT_CHILDSPEC) ->
+               ,?GET_DEF_CHILDSPEC) ->
     {reply(Dbg, Name, From, DefChildSpec), State};
 
 process_request(Dbg
@@ -1452,7 +1447,7 @@ process_request(Dbg
                        ,default_childspec = DefChildSpec
                        ,table_type = TabType}=State
                ,From
-               ,{?CHANGE_DEFAULT_CHILDSPEC, ChildSpec}) ->
+               ,{?CHANGE_DEF_CHILDSPEC, ChildSpec}) ->
     {State2, Result} =
         case director_utils:check_default_childspec(ChildSpec) of
             {ok, DefChildSpec2} ->
@@ -1484,10 +1479,16 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 %% Catch clause:
-process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
-    error_logger:error_msg("Director \"~p\" received unexpected call: \"
-                           ""~p\"~n"
-                          ,[Name, Other]),
+process_request(Dbg, #?STATE{name = Name, log_fun = LogFun}=State, From, Other) ->
+    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_call) of
+        short ->
+            error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
+        off ->
+            ok;
+        long ->
+            error_logger:error_msg("Director ~p received unexpected call request ~p with from ~p~n"
+                                  ,[Name, Other, From])
+    end,
     {reply(Dbg, Name, From, {error, {unknown_call, Other}}), State}.
 
 
@@ -1626,10 +1627,9 @@ handle_exit(Dbg
         {error, Reason3} ->
             terminate(Dbg
                      ,State#?STATE{table = Tab2}
-                     ,{run_plan_element
-                      ,[{child, director_utils:c_r2p(Child2, long)}
-                       ,{child_last_error_reason, Reason}
-                       ,{run_plan_error_reason, Reason3}]})
+                     ,{run_plan_element, [{reason, Reason3}
+                                         ,{child_last_error_reason, Reason}
+                                         |director_utils:c_r2p(Child2, long)]})
     end.
 
 
@@ -1680,16 +1680,16 @@ process_timeout(Dbg
 
 
 do_call(Name, Request) ->
-    do_call(Name, Request, ?DEFAULT_CALL_TIMEOUT).
+    do_call(Name, Request, ?DEF_CALL_TIMEOUT).
 
 do_call(Name, Request, Timeout) ->
     case catch gen:call(Name, ?GEN_CALL_TAG, Request, Timeout) of
         {ok, Res} ->
             Res;
         {'EXIT', Reason} ->
-            erlang:exit({call_crash, [{reason, Reason}
-                                     ,{remote_process, Name}
-                                     ,{request, Request}]})
+            erlang:exit({call_request, [{reason, Reason}
+                                       ,{remote_process, Name}
+                                       ,{request, Request}]})
     end.
 
 
@@ -1743,7 +1743,7 @@ init_module(Mod, InitArg) ->
         {ok, ChildSpecs} ->
             case director_utils:check_childspecs(ChildSpecs) of
                 {ok, ChildSpecs2} ->
-                    {ok, ChildSpecs2, ?DEFAULT_DEFAULT_CHILDSPEC};
+                    {ok, ChildSpecs2, ?DEF_DEF_CHILDSPEC};
                 {error, _Reason}=Error ->
                     Error
             end;
@@ -1766,11 +1766,10 @@ init_module(Mod, InitArg) ->
         {'EXIT', Reason} ->
             {error, Reason};
         Other ->
-            {error
-            ,{init_bad_return, [{returned_value, Other}
-                               ,{module, Mod}
-                               ,{function, init}
-                               ,{argument, InitArg}]}}
+            {error, {init_bad_return, [{returned_value, Other}
+                                      ,{module, Mod}
+                                      ,{function, init}
+                                      ,{argument, InitArg}]}}
     end.
 
 
@@ -1784,7 +1783,9 @@ start_children(Name, [#?CHILD{id=Id}=Child|Children], Tab, TabType, LogFun) ->
         {ok, _Pid, Tab2} ->
             start_children(Name, Children, Tab2, TabType, LogFun);
         {error, already_present} ->
-            {error, {repeated_id, [{id, Id}]}};
+            {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
+        {error, {already_started, _}} ->
+            {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {error, _Reason}=Error ->
             _ = terminate_children(Name, Tab, TabType, LogFun),
             Error
@@ -1876,7 +1877,7 @@ terminate(Dbg
          ,Reason) ->
     Children = director_table:tab2list(Tab, TabType),
     _Tab2 = terminate_children(Name, Tab, TabType, LogFun),
-    case director_utils:log_mode(LogFun, ?DIRECTOR_ID, Reason) of
+    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, Reason) of
         off ->
             ok;
         short ->
@@ -1884,12 +1885,13 @@ terminate(Dbg
                                 "** Reason for termination == ~p\n"
                                ,[Name,Reason]);
         long ->
+            ChildrenStr = string:join([io_lib:print(director_utils:c_r2p(Child, short))
+                                      || Child <- Children]
+                                     ,"\n"),
             error_logger:format("** Director \"~p\" terminating \n"
                                 "** Reason for termination == ~p\n"
-                                "** Children == ~p\n"
-                               ,[Name
-                                ,Reason
-                                ,[director_utils:c_r2p(Child, short) || Child <- Children]])
+                                "** Children == \n~s\n"
+                               ,[Name, Reason, ChildrenStr])
     end,
     sys:print_log(Dbg),
     erlang:exit(Reason).
@@ -2036,8 +2038,8 @@ reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
 
 
 
-get_children(Children, Table) ->
-    get_children(Children, Table, []).
+check_duplicate_ids(Children) ->
+    check_duplicate_ids([Id || #?CHILD{id = Id} <- Children], []).
 
 
 
@@ -2045,15 +2047,31 @@ get_children(Children, Table) ->
 
 
 
-get_children([ChildR|Children], Table, Children2) ->
-    case director_table:lookup(Table, ChildR#?CHILD.id) of
-        not_found ->
-            {error
-            ,{child_not_found, director_utils:c_r2p(ChildR, long)}};
-        LastChildR ->
-            get_children(Children
-                        ,Table
-                        ,[{LastChildR, ChildR}|Children2])
+check_duplicate_ids([Id|Ids], Ids2) ->
+    case lists:member(Id, Ids2) of
+        true ->
+            {error, {duplicate_child_name, Id}}; %% Like OTP/supervisor
+        false ->
+            check_duplicate_ids(Ids, [Id|Ids2])
     end;
-get_children([], _Table, Children2) ->
-    {ok, Children2}.
+check_duplicate_ids([], _Ids2) ->
+    ok.
+
+
+
+
+
+
+
+change_old_children_pids([#?CHILD{id = Id}=Child|Children], Tab, TabType) ->
+    Pid =
+        case director_table:lookup(Tab, Id, TabType) of
+            not_found ->
+                undefined;
+            #?CHILD{pid = Pid2} ->
+                Pid2
+        end,
+    Tab2 = director_table:insert(Tab, Child#?CHILD{pid = Pid}, TabType),
+    change_old_children_pids(Children, Tab2, TabType);
+change_old_children_pids([], Tab, _TabType) ->
+    Tab.

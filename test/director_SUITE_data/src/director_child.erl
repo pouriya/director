@@ -2,7 +2,8 @@
 -export([start_link/1
         ,start_link/2
         ,init/1
-        ,terminate/2]).
+        ,terminate/2
+        ,code_change/3]).
 
 
 
@@ -22,11 +23,11 @@ init(Arg) ->
     Arg().
 
 
-
-
-
-
-
-
 terminate(_Reason, _State) ->
     ok.
+
+
+
+
+code_change(_, State, _) ->
+    {ok, State}.

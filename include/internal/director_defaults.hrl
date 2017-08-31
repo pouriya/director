@@ -1,48 +1,45 @@
-%%% --------------------------------------------------------------------
-%%% BSD 3-Clause License
+%%% ------------------------------------------------------------------------------------------------
+%%% Director is available for use under the following license, commonly known as the 3-clause (or
+%%% "modified") BSD license:
 %%%
 %%% Copyright (c) 2017-2018, Pouriya Jahanbakhsh
 %%% (pouriya.jahanbakhsh@gmail.com)
 %%% All rights reserved.
 %%%
-%%% Redistribution and use in source and binary forms, with or without
-%%% modification, are permitted provided that the following conditions
-%%% are met:
+%%% Redistribution and use in source and binary forms, with or without modification, are permitted
+%%% provided that the following conditions are met:
 %%%
-%%% 1. Redistributions of source code must retain the above copyright
-%%% notice, this list of conditions and the following disclaimer.
+%%% 1. Redistributions of source code must retain the above copyright notice, this list of
+%%%    conditions and the following disclaimer.
 %%%
-%%% 2. Redistributions in binary form must reproduce the above copyright
-%%% notice, this list of conditions and the following disclaimer in the
-%%% documentation and/or other materials provided with the distribution.
+%%% 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+%%%    conditions and the following disclaimer in the documentation and/or other materials provided
+%%%    with the distribution.
 %%%
-%%% 3. Neither the name of the copyright holder nor the names of its
-%%% contributors may be used to endorse or promote products derived from
-%%% this software without specific prior written permission.
+%%% 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+%%%    endorse or promote products derived from this software without specific prior written
+%%%    permission.
 %%%
-%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-%%% "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-%%% LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-%%% FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-%%% COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-%%% INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-%%% BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-%%% LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-%%% CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-%%% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-%%% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+%%% IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+%%% FITNESS FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+%%% CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+%%% SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+%%% THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %%% POSSIBILITY OF SUCH DAMAGE.
-%%% --------------------------------------------------------------------
+%%% ------------------------------------------------------------------------------------------------
 
--define(DEFAULT_START_OPTIONS, []).
--define(DEFAULT_STOP_TIMEOUT, 5000).
--define(DEFAULT_CALL_TIMEOUT, 5000).
-
-
+-define(DEF_START_OPTIONS, []).
+-define(DEF_STOP_TIMEOUT, 5000).
+-define(DEF_CALL_TIMEOUT, 5000).
 
 
 
--define(DEFAULT_DEBUG_OPTIONS, []).
+
+
+-define(DEF_DEBUG_OPTIONS, []).
 -define(GEN_CALL_TAG, '$gen_call').
 -define(COUNT_CHILDREN_TAG, 'count_children').
 -define(DELETE_CHILD_TAG, 'delete_child').
@@ -57,40 +54,38 @@
 -define(CHANGE_COUNT_TAG, 'change_count').
 -define(GET_PLAN_TAG, 'get_plan').
 -define(GET_COUNT_TAG, 'get_count').
--define(GET_DEFAULT_CHILDSPEC, 'get_default_childspec').
--define(CHANGE_DEFAULT_CHILDSPEC, 'change_default_childspec').
+-define(GET_DEF_CHILDSPEC, 'get_default_childspec').
+-define(CHANGE_DEF_CHILDSPEC, 'change_default_childspec').
 -define(CHANGE_LOG_VALIDATE_FUN_TAG, 'change_log_validate_fun').
 -define(GET_LOG_VALIDATE_FUN_TAG, 'get_log_validate_fun').
--define(DEFAULT_LOG_FUN, fun director:default_validate_log_fun/2).
+-define(DEF_LOG_FUN, fun director:validate_log_fun/2).
 -define(DIRECTOR_ID, '$director').
--define(DEFAULT_LOG_MODE, 'short').
--define(DEFAULT_TABLE_TYPE, 'list').
+-define(DEF_LOG_MODE, 'short').
+-define(DEF_TABLE_TYPE, 'list').
 
 
 
 
 
 
--define(DEFAULT_PLAN_ELEMENT, fun director:default_plan_element_fun/3).
--define(DEFAULT_PLAN, [?DEFAULT_PLAN_ELEMENT]).
--define(DEFAULT_COUNT, 1).
--define(DEFAULT_TYPE, worker).
--define(DEFAULT_APPEND, false).
--define(DEFAULT_WORKER_TERMINATE_TIMEOUT, 1000).
--define(DEFAULT_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
+-define(DEF_PLAN_ELEMENT, fun director:plan_element_fun/3).
+-define(DEF_PLAN, [?DEF_PLAN_ELEMENT]).
+-define(DEF_COUNT, 3).
+-define(DEF_TYPE, worker).
+-define(DEF_APPEND, false).
+-define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
+-define(DEF_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
 
 
 
 
 
 
--define(DEFAULT_DEFAULT_CHILDSPEC_PLAN, []).
--define(DEFAULT_DEFAULT_CHILDSPEC_COUNT, 0).
--define(DEFAULT_DEFAULT_CHILDSPEC_TERMINATE_TIMEOUT, 0).
--define(DEFAULT_DEFAULT_CHILDSPEC_MODULES, []).
--define(DEFAULT_DEFAULT_CHILDSPEC
-       ,#{plan => ?DEFAULT_DEFAULT_CHILDSPEC_PLAN
-         ,count => ?DEFAULT_DEFAULT_CHILDSPEC_COUNT
-         ,terminate_timeout =>
-          ?DEFAULT_DEFAULT_CHILDSPEC_TERMINATE_TIMEOUT
-         ,modules => ?DEFAULT_DEFAULT_CHILDSPEC_MODULES}).
+-define(DEF_DEF_CHILDSPEC_PLAN, []).
+-define(DEF_DEF_CHILDSPEC_COUNT, 0).
+-define(DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT, 0).
+-define(DEF_DEF_CHILDSPEC_MODULES, []).
+-define(DEF_DEF_CHILDSPEC, #{plan => ?DEF_DEF_CHILDSPEC_PLAN
+                            ,count => ?DEF_DEF_CHILDSPEC_COUNT
+                            ,terminate_timeout => ?DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT
+                            ,modules => ?DEF_DEF_CHILDSPEC_MODULES}).

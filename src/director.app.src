@@ -1,7 +1,7 @@
 {application
 ,director
-,[{description, "Flexible, fast and powerful supervisor library for Erlang/Elixir processes"}
- ,{vsn, "17.8.9"}
+,[{description, "Flexible, fast and powerful supervisor and manager for Erlang/Elixir processes"}
+ ,{vsn, "17.9"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}

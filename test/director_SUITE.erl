@@ -1,51 +1,45 @@
-%%% --------------------------------------------------------------------
-%%% BSD 3-Clause License
+%%% ------------------------------------------------------------------------------------------------
+%%% Director is available for use under the following license, commonly known as the 3-clause (or
+%%% "modified") BSD license:
 %%%
 %%% Copyright (c) 2017-2018, Pouriya Jahanbakhsh
 %%% (pouriya.jahanbakhsh@gmail.com)
 %%% All rights reserved.
 %%%
-%%% Redistribution and use in source and binary forms, with or without
-%%% modification, are permitted provided that the following conditions
-%%% are met:
+%%% Redistribution and use in source and binary forms, with or without modification, are permitted
+%%% provided that the following conditions are met:
 %%%
-%%% 1. Redistributions of source code must retain the above copyright
-%%% notice, this list of conditions and the following disclaimer.
+%%% 1. Redistributions of source code must retain the above copyright notice, this list of
+%%%    conditions and the following disclaimer.
 %%%
-%%% 2. Redistributions in binary form must reproduce the above copyright
-%%% notice, this list of conditions and the following disclaimer in the
-%%% documentation and/or other materials provided with the distribution.
+%%% 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+%%%    conditions and the following disclaimer in the documentation and/or other materials provided
+%%%    with the distribution.
 %%%
-%%% 3. Neither the name of the copyright holder nor the names of its
-%%% contributors may be used to endorse or promote products derived from
-%%% this software without specific prior written permission.
+%%% 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+%%%    endorse or promote products derived from this software without specific prior written
+%%%    permission.
 %%%
-%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-%%% "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-%%% LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-%%% FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-%%% COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-%%% INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-%%% BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-%%% LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-%%% CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-%%% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-%%% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+%%% IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+%%% FITNESS FOR A  PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+%%% CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+%%% SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+%%% THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+%%% OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %%% POSSIBILITY OF SUCH DAMAGE.
-%%% --------------------------------------------------------------------
+%%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.8.9
-%% @doc
-%%           Test suites.
-%% @end
-%% ---------------------------------------------------------------------
+%% @version  17.9
+%% -------------------------------------------------------------------------------------------------
 
 
 -module(director_SUITE).
 -author("pouriya.jahanbakhsh@gmail.com").
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Exports:
 
 
@@ -67,13 +61,13 @@
         ,'6'/1
         ,'7'/1
         ,'8'/1
-        ,'9'/1]).
-%%        ,'10'/1]).
+        ,'9'/1
+        ,'10'/1]).
 
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
 
@@ -81,16 +75,19 @@
 -define(CHILD, child_name).
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
--define(START_OPTIONS, [{debug, [trace]}, {log_validate_fun, fun log_validate_fun/2}, {table_type, list}]).
+-define(START_OPTIONS, [{debug, [trace]}
+                       ,{log_validate_fun, fun log_validate_fun/2}
+                       ,{table_type, list}]).
 
 
+-include("internal/director_defaults.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% ct callbacks:
 
 
@@ -99,8 +96,7 @@
 
 all() ->
     [erlang:list_to_atom(erlang:integer_to_list(Int))
-    || Int <- lists:seq(1
-                       ,erlang:length(?MODULE:module_info(exports))-8)].
+    || Int <- lists:seq(1, erlang:length(?MODULE:module_info(exports))-8)].
 
 
 
@@ -142,18 +138,16 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '1'(_Config) ->
-    ?assertEqual({error, foo}
-                , director_callback:start_link(fun()-> {stop, foo} end)),
-    ?assertEqual(ignore
-                , director_callback:start_link(fun() -> ignore end)),
+    ?assertEqual({error, foo}, director:start_link(?CALLBACK, fun()-> {stop, foo} end)),
+    ?assertEqual(ignore, director:start_link(?CALLBACK, fun() -> ignore end)),
     ?assertMatch({error, {init_bad_return, [{returned_value, bar}|_]}}
-                , director_callback:start_link(fun()-> bar end)),
-    ?assertEqual({error, baz}, director_callback:start_link(fun()-> erlang:exit(baz) end)),
+                ,director:start_link(?CALLBACK, fun()-> bar end)),
+    ?assertEqual({error, baz}, director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
 
-    ?assertEqual(director_callback:start_link({local, director}, fun() -> {ok, []} end)
-                ,{ok, erlang:whereis(director)}),
-    ?assertEqual(ok, director:stop(director)),
-    ?assertEqual(undefined, erlang:whereis(director)).
+    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, []} end)
+                ,{ok, erlang:whereis(?DIRECTOR)}),
+    ?assertEqual(ok, director:stop(?DIRECTOR)),
+    ?assertEqual(undefined, erlang:whereis(?DIRECTOR)).
 
 
 
@@ -257,7 +251,7 @@ end_per_testcase(_TestCase, _Config) ->
 
     % plan: {restart, Timeout}
     erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(5),
+    timer:sleep(1),
     ?assertMatch([{Id, restarting, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,0,1),
     ?assertEqual({error, restarting}, director:get_pid(?DIRECTOR, Id)),
@@ -454,7 +448,7 @@ end_per_testcase(_TestCase, _Config) ->
     Mods = [?CHILD_MODULE],
     DefChildSpec = #{start => Start
                    ,plan => [restart]
-                   ,count => 5
+                   ,count => 1
                    ,terminate_timeout => 1000
                    ,modules => Mods},
     F = fun() -> {ok, [], DefChildSpec} end,
@@ -469,7 +463,7 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, ChildSpec2} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start, maps:get(start, ChildSpec2)),
     ?assertEqual([restart, {restart, 1000}], maps:get(plan, ChildSpec2)),
-    ?assertEqual(6, maps:get(count, ChildSpec2)),
+    ?assertEqual(?DEF_COUNT + 1, maps:get(count, ChildSpec2)),
     ?assertEqual(2000, maps:get(terminate_timeout, ChildSpec2)),
     ?assertEqual(Mods, maps:get(modules, ChildSpec2)),
 
@@ -481,7 +475,7 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, ChildSpec3} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start2, maps:get(start, ChildSpec3)),
     ?assertEqual([restart, wait, {restart, 1000}], maps:get(plan, ChildSpec3)),
-    ?assertEqual(1, maps:get(count, ChildSpec3)),
+    ?assertEqual(?DEF_COUNT, maps:get(count, ChildSpec3)),
     ?assertEqual(1000, maps:get(terminate_timeout, ChildSpec3)),
     ?assertEqual([?CHILD_MODULE], maps:get(modules, ChildSpec3)).
 
@@ -548,8 +542,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
     ChildSpec2 = #{id => Id
                  ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}
-                 ,plan => [fun director:default_plan_element_fun/3]
-                 ,count => 1
+                 ,plan => [fun director:plan_element_fun/3]
+                 ,count => ?DEF_COUNT
                  ,terminate_timeout => 1000
                  ,modules => [?CHILD_MODULE]
                  ,append => false
@@ -574,36 +568,35 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-
-
-%%'10'(_Config) ->
-%%    ChildSpec = #{id => foo
-%%                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
-%%                ,plan => []
-%%                ,count => 0
-%%                ,terminate_timeout => 0
-%%                ,modules => [?CHILD_MODULE]
-%%                ,default_arguments => []
-%%                ,type => worker},
-%%    F = fun() -> {ok, [ChildSpec]} end,
-%%    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-%%                                                ,?CALLBACK
-%%                                                ,F
-%%                                                ,?START_OPTIONS)),
-%%    State = sys:get_state(?DIRECTOR),
-%%    State = sys:replace_state(?DIRECTOR, fun(State2) -> State2 end),
-%%    State = sys:get_state(?DIRECTOR),
-%%
-%%    ?CALLBACK = supervisor:get_callback_module(?DIRECTOR),
-%%    ok = sys:suspend(?DIRECTOR),
-%%    ok = sys:change_code(?DIRECTOR, ?CALLBACK, old, extra),
-%%    ok = sys:resume(?DIRECTOR).
-
-
+'10'(Config) ->
+    F = F = fun() -> {ok, undefined} end,
+    Id = foo,
+    ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
+    F1 = fun() -> io:format("TEST~n"), {ok, [ChildSpec]} end, %% will see this twice in ct log
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F1
+                                                ,?START_OPTIONS)),
+    ?assertMatch([{foo, _}], director:get_pids(?DIRECTOR)),
+    {_, _Pid} = director:get_pid(?DIRECTOR, Id),
+    DataDir = ?config(data_dir, Config),
+    ModFile = filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ ".erl"]),
+    {ok, Src} = file:read_file(ModFile),
+    {ok, Src2} =  file:read_file(filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ "2"])),
+    ?assertEqual(ok, file:write_file(ModFile, Src2)),
+    {ok, Src3} = file:read_file(ModFile),
+    io:format(Src3),
+    ?assertEqual({ok, ?CALLBACK}, compile:file(ModFile)),
+    ?assertEqual(ok, sys:suspend(?DIRECTOR)),
+    ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
+    ?assertEqual(ok, sys:resume(?DIRECTOR)),
+    ?assertEqual(ok, file:write_file(ModFile, Src)).
 
 
 
-%% ---------------------------------------------------------------------
+
+
+%% -------------------------------------------------------------------------------------------------
 %% Internal functions:
 
 

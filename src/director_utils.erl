@@ -32,7 +32,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version
+%% @version  17.9
 %% -------------------------------------------------------------------------------------------------
 
 
@@ -62,7 +62,6 @@
         ,is_whole_integer/1
         ,get_log_validate_fun/3
         ,get_table_type/3
-        ,log_mode/3
         ,combine_child/2
         ,separate_child/2
         ,c2cs/1
@@ -85,10 +84,19 @@
 
 
 
+
+
+%% -------------------------------------------------------------------------------------------------
+%% Functions:
+
+
+
+
+
 get_debug_options(Name, Opts, Def) ->
     case lists:keyfind(debug, 1, Opts) of
         {_, DbgOpts} ->
-            try sys:debug_options(Opts)
+            try sys:debug_options(DbgOpts)
             catch _:_ ->
                 error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, DbgOpts]),
                 Def
@@ -105,6 +113,7 @@ get_debug_options(Name, Opts, Def) ->
 
 
 
+
 progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
     case run_log_validate_fun(LogFun, Id, start) of
         off ->
@@ -113,6 +122,7 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
             error_logger:info_report(progress, [{supervisor, Name}
                                                ,{started, c_r2p(Child, LogMode)}])
     end.
+
 
 
 
@@ -135,29 +145,8 @@ error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogFun) ->
 
 
 
-run_log_validate_fun(ValidateLogFun, Id, Extra) ->
-    case catch ValidateLogFun(Id, Extra) of
-        off ->
-            off;
-        short ->
-            short;
-        long ->
-            long;
-        {'EXIT', Reason} ->
-            error_logger:format("~p: validate log fun crashed: ~p~n", [erlang:self(), Reason]),
-            ?DEFAULT_LOG_MODE;
-        Other ->
-            error_logger:format("~p: ignoring erroneous log mode: ~p~n", [erlang:self(), Other]),
-            ?DEFAULT_LOG_MODE
-    end.
 
 
-
-
-
-
-
-%% @hidden
 debug([], _Name, _MsgInfo) ->
     [];
 debug(Dbg, Name, MsgInfo) ->
@@ -170,64 +159,7 @@ debug(Dbg, Name, MsgInfo) ->
 
 
 check_childspecs(ChildSpecs) ->
-    check_childspecs(ChildSpecs, ?DEFAULT_DEFAULT_CHILDSPEC).
-
-
-
-
-
-
-
-check_childspec(ChildSpec
-               ,DefChildSpec) when erlang:is_map(ChildSpec) ->
-    Keys = [{append, fun filter_append/1, ?DEFAULT_APPEND}],
-    {ok, #{append := Append}} = {ok, ChildSpec2} = check_map(ChildSpec
-                                                            ,Keys
-                                                            ,#{}),
-    StartKey =
-        if
-            Append ->
-                case DefChildSpec of
-                    #{start := {Mod, Func, _Args}} ->
-                        {start, fun filter_start/1, {Mod, Func, []}};
-                    _Other ->
-                        {start, fun filter_start/1}
-                end;
-            true ->
-                {start, fun filter_start/1}
-        end,
-    Keys2 = [id
-            ,StartKey
-            ,{plan, fun filter_plan/1, ?DEFAULT_PLAN}
-            ,{count, fun filter_count/1, ?DEFAULT_COUNT}
-            ,{type, fun filter_type/1, ?DEFAULT_TYPE}],
-    case check_map(ChildSpec, Keys2, ChildSpec2) of
-        {ok, ChildSpec3} ->
-            DefTerminateTimeout =
-                case maps:get(type, ChildSpec3) of
-                    worker ->
-                        ?DEFAULT_WORKER_TERMINATE_TIMEOUT;
-                    supervisor ->
-                        ?DEFAULT_SUPERVISOR_TERMINATE_TIMEOUT
-                end,
-            DefMods = [erlang:element(1, maps:get(start, ChildSpec3))],
-            Keys3 = [{terminate_timeout
-                     ,fun filter_terminate_timeout/1
-                     ,DefTerminateTimeout}
-                    ,{modules, fun filter_modules/1, DefMods}],
-            case check_map(ChildSpec
-                          ,Keys3
-                          ,ChildSpec3) of
-                {ok, ChildSpec4} ->
-                    {ok, cs2c((combine_child(ChildSpec4, DefChildSpec)))};
-                {error, _Reason}=Error ->
-                    Error
-            end;
-        {error, _Reason}=Error ->
-            Error
-    end;
-check_childspec(Other, _DefChildSpec) ->
-    {error, {childspec_type, [{childspec, Other}]}}.
+    check_childspecs(ChildSpecs, ?DEF_DEF_CHILDSPEC).
 
 
 
@@ -246,53 +178,6 @@ check_default_childspec(ChildSpec)
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
-
-
-
-
-
-
-
-filter_plan(Plan) when erlang:is_list(Plan) ->
-    filter_plan(Plan, []);
-filter_plan(Other) ->
-    {error, {plan_type, [{plan, Other}]}}.
-
-
-
-
-
-
-
-filter_plan_element(restart) ->
-    {ok, restart};
-filter_plan_element({restart, WholeInt}=PlanElem) ->
-    case is_whole_integer(WholeInt) of
-        true ->
-            {ok, PlanElem};
-        false ->
-            {error
-            ,{plan_restart_time_integer, [{plan_element, PlanElem}]}}
-    end;
-filter_plan_element(delete) ->
-    {ok, delete};
-filter_plan_element({stop, reason}) ->
-    {ok, {stop, reason}};
-filter_plan_element({stop, _Reason}=PlanElem) ->
-    {ok, PlanElem};
-filter_plan_element(stop) ->
-    {ok, stop};
-filter_plan_element(wait) ->
-    {ok, wait};
-filter_plan_element(Fun) when erlang:is_function(Fun) ->
-    case erlang:fun_info(Fun, arity) of
-        {arity, 3} ->
-            {ok, Fun};
-        {arity, Other} ->
-            {error, {plan_fun_arity, [{'fun', Fun}, {arity, Other}]}}
-    end;
-filter_plan_element(Other) ->
-    {error, {plan_element_type, [{plan_element, Other}]}}.
 
 
 
@@ -342,7 +227,7 @@ get_table_type(Name, Opts, Def) ->
 
 
 
-log_mode(ValidateLogFun, Id, Extra) ->
+run_log_validate_fun(ValidateLogFun, Id, Extra) ->
     case catch ValidateLogFun(Id, Extra) of
         off ->
             off;
@@ -352,237 +237,11 @@ log_mode(ValidateLogFun, Id, Extra) ->
             long;
         {'EXIT', Reason} ->
             error_logger:format("~p: validate log fun crashed: ~p~n", [erlang:self(), Reason]),
-            ?DEFAULT_LOG_MODE;
+            ?DEF_LOG_MODE;
         Other ->
             error_logger:format("~p: ignoring erroneous log mode: ~p~n", [erlang:self(), Other]),
-            ?DEFAULT_LOG_MODE
+            ?DEF_LOG_MODE
     end.
-
-
-
-
-
-%% ---------------------------------------------------------------------
-%% Internal functions:
-
-
-
-
-
-check_map(ChildSpec, [{Key, Filter, Default}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map(ChildSpec
-                             ,Keys
-                             ,maps:put(Key
-                                      ,Value2
-                                      ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_ ->
-            check_map(ChildSpec
-                     ,Keys
-                     ,maps:put(Key
-                              ,Default
-                              ,ChildSpec2))
-
-    end;
-check_map(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map(ChildSpec
-                             ,Keys
-                             ,maps:put(Key
-                                      ,Value2
-                                      ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_->
-            {error, {key_not_found, [{key, Key}
-                                    ,{childspec, ChildSpec}]}}
-    end;
-check_map(ChildSpec, [Key|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            check_map(ChildSpec
-                     ,Keys
-                     ,maps:put(Key, Value, ChildSpec2))
-    catch
-        _:_ ->
-            {error, {key_not_found, [{key, Key}
-                                    ,{childspec, ChildSpec}]}}
-    end;
-check_map(_ChidlSpec, [], ChildSpec2) ->
-    {ok, ChildSpec2}.
-
-
-
-
-
-
-
-
-
-
-check_map2(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
-    try maps:get(Key, ChildSpec) of
-        Value ->
-            case Filter(Value) of
-                {ok, Value2} ->
-                    check_map2(ChildSpec
-                              ,Keys
-                              ,maps:put(Key
-                                       ,Value2
-                                       ,ChildSpec2));
-                {error, Reason} ->
-                    {error, {childspec_value, [{key, Key}
-                                              ,{reason, Reason}]}}
-            end
-    catch
-        _:_ ->
-            check_map2(ChildSpec, Keys, ChildSpec2)
-    end;
-check_map2(_ChidlSpec, [], ChildSpec2) ->
-    {ok, ChildSpec2}.
-
-
-
-
-
-
-
-filter_start({_Mod, _Func, _Args}=Start) ->
-    {ok, Start};
-filter_start({Mod, Func}) ->
-    {ok, {Mod, Func, []}};
-filter_start(Other) ->
-    {error, {format, [{start, Other}]}}.
-
-
-
-
-
-
-
-filter_plan([PlanElem|Plan], Plan2) ->
-    case filter_plan_element(PlanElem) of
-        {ok, PlanElem2} ->
-            filter_plan(Plan, [PlanElem2|Plan2]);
-        {error, _Reason}=Error ->
-            Error
-    end;
-filter_plan([], Plan2) ->
-    {ok, lists:reverse(Plan2)}.
-
-
-
-
-
-
-
-is_whole_integer(Int) when erlang:is_integer(Int) ->
-    if
-        Int >= 0 ->
-            true;
-        true ->
-            false
-    end;
-is_whole_integer(_Other) ->
-    false.
-
-
-
-
-
-
-
-filter_count(infinity) ->
-    {ok, infinity};
-filter_count(Count) ->
-    case is_whole_integer(Count) of
-        true ->
-            {ok, Count};
-        false ->
-            {error, {count_range_or_type, [{count, Count}]}}
-    end.
-
-
-
-
-
-
-
-filter_terminate_timeout(infinity) ->
-    {ok, infinity};
-filter_terminate_timeout(TerminateTimeout) ->
-    case is_whole_integer(TerminateTimeout) of
-        true ->
-            {ok, TerminateTimeout};
-        false ->
-            {error
-                ,{terminate_timeout_range_or_type
-                 ,[{terminate_timeout, TerminateTimeout}]}}
-    end.
-
-
-
-
-
-
-
-filter_type(worker) ->
-    {ok, worker};
-filter_type(supervisor) ->
-    {ok, supervisor};
-filter_type(Other) ->
-    {error, {type_type, [{type, Other}]}}.
-
-
-
-
-
-
-
-filter_modules(dynamic) ->
-    {ok, dynamic};
-filter_modules(Mod) when erlang:is_atom(Mod) ->
-    {ok, [Mod]};
-filter_modules(Mods) when erlang:is_list(Mods) ->
-    {ok, Mods};
-filter_modules(Other) ->
-    {error, {modules_type, [{modules, Other}]}}.
-
-
-
-
-
-
-
-filter_append(Bool) when erlang:is_boolean(Bool) ->
-    {ok, Bool};
-filter_append(Other) ->
-    {error, {append_type, [{append, Other}]}}.
-
-
-
-
-
-
-
-check_childspecs([], _DefChildSpec) ->
-    {ok, []};
-check_childspecs(ChildSpecs, DefChildSpec) ->
-    check_childspecs(ChildSpecs, DefChildSpec, []).
 
 
 
@@ -603,23 +262,6 @@ check_childspecs([], _DefChildSpec, Children) ->
     {ok, lists:reverse(Children)};
 check_childspecs(Other, _DefChildSpec, _Children) ->
     {error, {childspecs_type, [{childspecs, Other}]}}.
-
-
-
-
-
-
-
-
-
-
-combine_child(ChildSpec, DefChildSpec) ->
-    case maps:get(append, ChildSpec) of
-        true ->
-            maps:fold(fun combine_child/3, DefChildSpec, ChildSpec);
-        false ->
-            ChildSpec
-    end.
 
 
 
@@ -695,6 +337,7 @@ c2cs(#?CHILD{id = Id
     ,modules => Modules
     ,type => Type
     ,append => Append}.
+
 
 
 
@@ -787,8 +430,114 @@ c_r2p(#?CHILD{pid = Pid
 
 
 
-%% ---------------------------------------------------------------------
-%% Internal functions:
+
+
+check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
+    try maps:get(Key, ChildSpec) of
+        Value ->
+            case Filter(Value) of
+                {ok, Value2} ->
+                    check_map(ChildSpec
+                             ,Keys
+                             ,maps:put(Key
+                                      ,Value2
+                                      ,ChildSpec2));
+                {error, Reason} ->
+                    {error, {childspec_value, [{key, Key}, {reason, Reason}]}}
+            end
+    catch
+        _:_ ->
+            check_map(ChildSpec
+                     ,Keys
+                     ,maps:put(Key
+                              ,DEF
+                              ,ChildSpec2))
+
+    end;
+check_map(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
+    try maps:get(Key, ChildSpec) of
+        Value ->
+            case Filter(Value) of
+                {ok, Value2} ->
+                    check_map(ChildSpec
+                             ,Keys
+                             ,maps:put(Key
+                                      ,Value2
+                                      ,ChildSpec2));
+                {error, Reason} ->
+                    {error, {childspec_value, [{key, Key}, {reason, Reason}]}}
+            end
+    catch
+        _:_->
+            {error, {key_not_found, [{key, Key}, {childspec, ChildSpec}]}}
+    end;
+check_map(ChildSpec, [Key|Keys], ChildSpec2) ->
+    try maps:get(Key, ChildSpec) of
+        Value ->
+            check_map(ChildSpec
+                     ,Keys
+                     ,maps:put(Key, Value, ChildSpec2))
+    catch
+        _:_ ->
+            {error, {key_not_found, [{key, Key}, {childspec, ChildSpec}]}}
+    end;
+check_map(_ChidlSpec, [], ChildSpec2) ->
+    {ok, ChildSpec2}.
+
+
+
+
+
+
+
+check_map2(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
+    try maps:get(Key, ChildSpec) of
+        Value ->
+            case Filter(Value) of
+                {ok, Value2} ->
+                    check_map2(ChildSpec
+                              ,Keys
+                              ,maps:put(Key
+                                       ,Value2
+                                       ,ChildSpec2));
+                {error, Reason} ->
+                    {error, {childspec_value, [{key, Key}, {reason, Reason}]}}
+            end
+    catch
+        _:_ ->
+            check_map2(ChildSpec, Keys, ChildSpec2)
+    end;
+check_map2(_ChidlSpec, [], ChildSpec2) ->
+    {ok, ChildSpec2}.
+
+
+
+
+
+
+
+filter_start({_Mod, _Func, _Args}=Start) ->
+    {ok, Start};
+filter_start({Mod, Func}) ->
+    {ok, {Mod, Func, []}};
+filter_start(Other) ->
+    {error, {format, [{start, Other}]}}.
+
+
+
+
+
+
+
+combine_child(ChildSpec, DefChildSpec) ->
+    case maps:get(append, ChildSpec) of
+        true ->
+            maps:fold(fun combine_child/3, DefChildSpec, ChildSpec);
+        false ->
+            ChildSpec
+    end.
+
+
 
 
 
@@ -832,6 +581,7 @@ combine_child(plan, Plan, #{plan := Plan2}=Map) ->
     Map#{plan => Plan2 ++ Plan};
 combine_child(Key, Value, Map) ->
     Map#{Key => Value}.
+
 
 
 
@@ -920,3 +670,215 @@ print(IODev, Other, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got debug \"~p\" ~n"
              ,[Name, Other]).
+
+
+
+
+
+
+
+check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
+    Keys = [{append, fun filter_append/1, ?DEF_APPEND}],
+    {ok, #{append := Append}} = {ok, ChildSpec2} = check_map(ChildSpec, Keys, #{}),
+    StartKey =
+        if
+            Append ->
+                case DefChildSpec of
+                    #{start := {Mod, Func, _Args}} ->
+                        {start, fun filter_start/1, {Mod, Func, []}};
+                    _Other ->
+                        {start, fun filter_start/1}
+                end;
+            true ->
+                {start, fun filter_start/1}
+        end,
+    Keys2 = [id
+            ,StartKey
+            ,{plan, fun filter_plan/1, ?DEF_PLAN}
+            ,{count, fun filter_count/1, ?DEF_COUNT}
+            ,{type, fun filter_type/1, ?DEF_TYPE}],
+    case check_map(ChildSpec, Keys2, ChildSpec2) of
+        {ok, ChildSpec3} ->
+            DefTerminateTimeout =
+                case maps:get(type, ChildSpec3) of
+                    worker ->
+                        ?DEF_WORKER_TERMINATE_TIMEOUT;
+                    supervisor ->
+                        ?DEF_SUPERVISOR_TERMINATE_TIMEOUT
+                end,
+            DefMods = [erlang:element(1, maps:get(start, ChildSpec3))],
+            Keys3 = [{terminate_timeout, fun filter_terminate_timeout/1, DefTerminateTimeout}
+                    ,{modules, fun filter_modules/1, DefMods}],
+            case check_map(ChildSpec
+                          ,Keys3
+                          ,ChildSpec3) of
+                {ok, ChildSpec4} ->
+                    {ok, cs2c((combine_child(ChildSpec4, DefChildSpec)))};
+                {error, _Reason}=Error ->
+                    Error
+            end;
+        {error, _Reason}=Error ->
+            Error
+    end;
+check_childspec(Other, _DefChildSpec) ->
+    {error, {childspec_type, [{childspec, Other}]}}.
+
+
+
+
+
+
+
+filter_plan(Plan) when erlang:is_list(Plan) ->
+    filter_plan(Plan, []);
+filter_plan(Other) ->
+    {error, {plan_type, [{plan, Other}]}}.
+
+
+
+
+
+
+
+filter_plan_element(restart) ->
+    {ok, restart};
+filter_plan_element({restart, WholeInt}=PlanElem) ->
+    case is_whole_integer(WholeInt) of
+        true ->
+            {ok, PlanElem};
+        false ->
+            {error, {plan_restart_time_integer, [{plan_element, PlanElem}]}}
+    end;
+filter_plan_element(delete) ->
+    {ok, delete};
+filter_plan_element({stop, reason}) ->
+    {ok, {stop, reason}};
+filter_plan_element({stop, _Reason}=PlanElem) ->
+    {ok, PlanElem};
+filter_plan_element(stop) ->
+    {ok, stop};
+filter_plan_element(wait) ->
+    {ok, wait};
+filter_plan_element(Fun) when erlang:is_function(Fun) ->
+    case erlang:fun_info(Fun, arity) of
+        {arity, 3} ->
+            {ok, Fun};
+        {arity, Other} ->
+            {error, {plan_fun_arity, [{'fun', Fun}, {arity, Other}]}}
+    end;
+filter_plan_element(Other) ->
+    {error, {plan_element_type, [{plan_element, Other}]}}.
+
+
+
+
+
+
+
+filter_plan([PlanElem|Plan], Plan2) ->
+    case filter_plan_element(PlanElem) of
+        {ok, PlanElem2} ->
+            filter_plan(Plan, [PlanElem2|Plan2]);
+        {error, _Reason}=Error ->
+            Error
+    end;
+filter_plan([], Plan2) ->
+    {ok, lists:reverse(Plan2)}.
+
+
+
+
+
+
+
+is_whole_integer(Int) when erlang:is_integer(Int) ->
+    if
+        Int >= 0 ->
+            true;
+        true ->
+            false
+    end;
+is_whole_integer(_Other) ->
+    false.
+
+
+
+
+
+
+
+filter_count(infinity) ->
+    {ok, infinity};
+filter_count(Count) ->
+    case is_whole_integer(Count) of
+        true ->
+            {ok, Count};
+        false ->
+            {error, {count_range_or_type, [{count, Count}]}}
+    end.
+
+
+
+
+
+
+
+filter_terminate_timeout(infinity) ->
+    {ok, infinity};
+filter_terminate_timeout(TerminateTimeout) ->
+    case is_whole_integer(TerminateTimeout) of
+        true ->
+            {ok, TerminateTimeout};
+        false ->
+            {error, {terminate_timeout_range_or_type, [{terminate_timeout, TerminateTimeout}]}}
+    end.
+
+
+
+
+
+
+
+filter_type(worker) ->
+    {ok, worker};
+filter_type(supervisor) ->
+    {ok, supervisor};
+filter_type(Other) ->
+    {error, {type_type, [{type, Other}]}}.
+
+
+
+
+
+
+
+filter_modules(dynamic) ->
+    {ok, dynamic};
+filter_modules(Mod) when erlang:is_atom(Mod) ->
+    {ok, [Mod]};
+filter_modules(Mods) when erlang:is_list(Mods) ->
+    {ok, Mods};
+filter_modules(Other) ->
+    {error, {modules_type, [{modules, Other}]}}.
+
+
+
+
+
+
+
+filter_append(Bool) when erlang:is_boolean(Bool) ->
+    {ok, Bool};
+filter_append(Other) ->
+    {error, {append_type, [{append, Other}]}}.
+
+
+
+
+
+
+
+check_childspecs([], _DefChildSpec) ->
+    {ok, []};
+check_childspecs(ChildSpecs, DefChildSpec) ->
+    check_childspecs(ChildSpecs, DefChildSpec, []).
