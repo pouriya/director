@@ -1179,7 +1179,9 @@ process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) -
                          ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) ->
-    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_message) of
+    case director_utils:run_log_validate_fun(LogFun
+                                            ,?DIRECTOR_ID
+                                            ,{warning, receive_unexcepted_message}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
         none ->
@@ -1480,7 +1482,9 @@ process_request(Dbg
 
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_fun = LogFun}=State, From, Other) ->
-    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_call) of
+    case director_utils:run_log_validate_fun(LogFun
+                                            ,?DIRECTOR_ID
+                                            ,{warning, receive_unexcepted_call}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
         none ->
@@ -1877,7 +1881,7 @@ terminate(Dbg
          ,Reason) ->
     Children = director_table:tab2list(Tab, TabType),
     _Tab2 = terminate_children(Name, Tab, TabType, LogFun),
-    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, Reason) of
+    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, {error, Reason}) of
         none ->
             ok;
         short ->

@@ -115,7 +115,7 @@ get_debug_options(Name, Opts, Def) ->
 
 
 progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
-    case run_log_validate_fun(LogFun, Id, start) of
+    case run_log_validate_fun(LogFun, Id, {info, start}) of
         none ->
             ok;
         LogMode ->
@@ -130,7 +130,7 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
 
 
 error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogFun) ->
-    case run_log_validate_fun(LogFun, Id, {crash, Reason}) of
+    case run_log_validate_fun(LogFun, Id, {error, Reason}) of
         none ->
             ok;
         LogMode ->
