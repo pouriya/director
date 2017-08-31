@@ -218,7 +218,7 @@
 -type   log_validate_fun_option() :: {'log_validate_fun', log_validate_fun()}.
 -type    log_validate_fun() :: fun((Id::term(), Type:: {'crash', Reason::term()} | 'start') ->
                                    log_mode()).
--type     log_mode() :: 'short' | 'long' | 'off'.
+-type     log_mode() :: 'short' | 'long' | 'none'.
 
 
 
@@ -1182,7 +1182,7 @@ process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) 
     case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_message) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
-        off ->
+        none ->
             ok;
         long ->
             error_logger:error_msg("Director ~p received unexpected message: ~p~n", [Name, Msg])
@@ -1483,7 +1483,7 @@ process_request(Dbg, #?STATE{name = Name, log_fun = LogFun}=State, From, Other) 
     case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, receive_unexcepted_call) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
-        off ->
+        none ->
             ok;
         long ->
             error_logger:error_msg("Director ~p received unexpected call request ~p with from ~p~n"
@@ -1878,7 +1878,7 @@ terminate(Dbg
     Children = director_table:tab2list(Tab, TabType),
     _Tab2 = terminate_children(Name, Tab, TabType, LogFun),
     case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, Reason) of
-        off ->
+        none ->
             ok;
         short ->
             error_logger:format("** Director ~p terminating \n"

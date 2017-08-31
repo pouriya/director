@@ -116,7 +116,7 @@ get_debug_options(Name, Opts, Def) ->
 
 progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
     case run_log_validate_fun(LogFun, Id, start) of
-        off ->
+        none ->
             ok;
         LogMode ->
             error_logger:info_report(progress, [{supervisor, Name}
@@ -131,7 +131,7 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
 
 error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogFun) ->
     case run_log_validate_fun(LogFun, Id, Reason) of
-        off ->
+        none ->
             ok;
         LogMode ->
             error_logger:error_report(supervisor_report
@@ -229,8 +229,8 @@ get_table_type(Name, Opts, Def) ->
 
 run_log_validate_fun(ValidateLogFun, Id, Extra) ->
     case catch ValidateLogFun(Id, Extra) of
-        off ->
-            off;
+        none ->
+            none;
         short ->
             short;
         long ->
@@ -344,23 +344,6 @@ c2cs(#?CHILD{id = Id
 
 
 
-c_r2p(#?CHILD{pid = Pid
-             ,id = Id
-             ,start = Start
-             ,type = Type
-             ,terminate_timeout = TerminateTimeout}
-     ,off) ->
-    [{id, Id}
-    ,{pid, Pid}
-    ,{mfargs, Start}
-    ,{restart_type, temporary}
-    ,{shutdown, case TerminateTimeout of
-                    0 ->
-                        brutal_kill;
-                    Timeout ->
-                        Timeout
-                end}
-    ,{child_type, Type}];
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
              ,plan = Plan
