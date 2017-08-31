@@ -56,9 +56,9 @@
 -define(GET_COUNT_TAG, 'get_count').
 -define(GET_DEF_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEF_CHILDSPEC, 'change_default_childspec').
--define(CHANGE_LOG_VALIDATE_FUN_TAG, 'change_log_validate_fun').
--define(GET_LOG_VALIDATE_FUN_TAG, 'get_log_validate_fun').
--define(DEF_LOG_FUN, fun director:validate_log_fun/2).
+-define(CHANGE_LOG_VALIDATOR, 'change_log_validateor').
+%%-define(GET_LOG_VALIDATE_FUN_TAG, 'get_log_validator').
+-define(DEF_LOG_FUN, fun director:validate_log/2).
 -define(DIRECTOR_ID, '$director').
 -define(DEF_LOG_MODE, 'short').
 -define(DEF_TABLE_TYPE, 'list').
