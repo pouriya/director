@@ -836,8 +836,7 @@ count_children(Director, Timeout) ->
 
 -spec
 which_children(director(), timeout()) ->
-    [{id(), type(), pid()|'restarting'|'undefined', modules()}] |
-    [].
+    [{id(), type(), pid()|'restarting'|'undefined', modules()}] | [].
 %% @doc
 %%      Returns information about each children.
 %% @end
@@ -1002,7 +1001,7 @@ change_log_validator(Director, LogFun, Timeout) ->
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %% 'gen' callback:
 
 
