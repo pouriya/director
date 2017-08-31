@@ -210,7 +210,7 @@
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
 -type   log_validate_fun_option() :: {'log_validate_fun', log_validate_fun()}.
--type    log_validate_fun() :: fun((Id:: ?DIRECTOR_ID | term()
+-type    log_validate_fun() :: fun((Id:: '$director' | term()
                                    ,Type:: {'info', 'start'}
                                          | {'warning', term()}
                                          | {'error', term()}) ->
