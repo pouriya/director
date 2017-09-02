@@ -1039,9 +1039,9 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                         none ->
                             ok;
                         _ ->
-                            error_logger:format("** Director ~p terminating in initialize state\n"
-                                                "** Reason for termination == ~p\n"
-                                               ,[Name,Reason])
+                            error_logger:error_msg("** Director ~p terminating in initialize state~"
+                                                   "n** Reason for termination == ~p\n"
+                                                  ,[Name,Reason])
                     end,
                     unregister_name(Name0),
                     proc_lib:init_ack(Starter, Error),
@@ -1059,9 +1059,9 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                 none ->
                     ok;
                 _ ->
-                    error_logger:format("** Director ~p terminating in initialize state\n"
-                                        "** Reason for termination == ~p\n"
-                                       ,[Name,Reason])
+                    error_logger:error_msg("** Director ~p terminating in initialize state\n"
+                                           "** Reason for termination == ~p\n"
+                                          ,[Name,Reason])
             end,
             unregister_name(Name0),
             proc_lib:init_ack(Starter, Other),
@@ -1909,17 +1909,17 @@ terminate(Dbg
         none ->
             ok;
         short ->
-            error_logger:format("** Director ~p terminating \n"
-                                "** Reason for termination == ~p\n"
-                               ,[Name,Reason]);
+            error_logger:error_msg("** Director ~p terminating \n"
+                                   "** Reason for termination == ~p\n"
+                                  ,[Name,Reason]);
         long ->
             ChildrenStr = string:join([io_lib:print(director_utils:c_r2p(Child, short))
                                       || Child <- Children]
                                      ,"\n"),
-            error_logger:format("** Director \"~p\" terminating \n"
-                                "** Reason for termination == ~p\n"
-                                "** Children == \n~s\n"
-                               ,[Name, Reason, ChildrenStr])
+            error_logger:error_msg("** Director \"~p\" terminating \n"
+                                   "** Reason for termination == ~p\n"
+                                   "** Children == \n~s\n"
+                                  ,[Name, Reason, ChildrenStr])
     end,
     sys:print_log(Dbg),
     erlang:exit(Reason).
