@@ -1033,16 +1033,38 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                     exit(element(2, (catch loop(Parent, Dbg, State))));
 %%                    loop(Parent, Dbg, State);
                 {error, Reason}=Error ->
+                    case director_utils:run_log_validator(LogValidator
+                                                         ,?DIRECTOR_ID
+                                                         ,{error, Reason}) of
+                        none ->
+                            ok;
+                        _ ->
+                            error_logger:format("** Director ~p terminating in initialize state\n"
+                                                "** Reason for termination == ~p\n"
+                                               ,[Name,Reason])
+                    end,
                     unregister_name(Name0),
                     proc_lib:init_ack(Starter, Error),
                     erlang:exit(Reason)
             end;
-        ignore ->
-            proc_lib:init_ack(Starter, ignore),
-            erlang:exit(normal);
-        {error, Reason}=Error ->
+        Other ->
+            Reason =
+                case Other of
+                    {error, Reason2} ->
+                        Reason2;
+                    ignore ->
+                        normal
+                end,
+            case director_utils:run_log_validator(LogValidator, ?DIRECTOR_ID, {error, Reason}) of
+                none ->
+                    ok;
+                _ ->
+                    error_logger:format("** Director ~p terminating in initialize state\n"
+                                        "** Reason for termination == ~p\n"
+                                       ,[Name,Reason])
+            end,
             unregister_name(Name0),
-            proc_lib:init_ack(Starter, Error),
+            proc_lib:init_ack(Starter, Other),
             erlang:exit(Reason)
     end.
 
