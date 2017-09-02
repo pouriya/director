@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.9
+%% @version  17.9.2
 %% -------------------------------------------------------------------------------------------------
 
 
@@ -584,7 +584,6 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, Src} = file:read_file(ModFile),
     {ok, Src2} =  file:read_file(filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ "2"])),
     ?assertEqual(ok, file:write_file(ModFile, Src2)),
-    {ok, Src3} = file:read_file(ModFile),
     ?assertEqual({ok, ?CALLBACK}, compile:file(ModFile)),
     ?assertEqual(ok, sys:suspend(?DIRECTOR)),
     ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
