@@ -52,7 +52,7 @@
         ,get_debug_options/3
         ,progress_report/3
         ,error_report/5
-        ,run_log_validate_fun/3
+        ,run_log_validator/3
         ,check_childspecs/1
         ,check_childspecs/2
         ,check_childspec/2
@@ -60,7 +60,7 @@
         ,filter_plan/1
         ,filter_plan_element/1
         ,is_whole_integer/1
-        ,get_log_validate_fun/3
+        ,get_log_validator/3
         ,get_table_type/3
         ,combine_child/2
         ,separate_child/2
@@ -114,8 +114,8 @@ get_debug_options(Name, Opts, Def) ->
 
 
 
-progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
-    case run_log_validate_fun(LogFun, Id, {info, start}) of
+progress_report(Name, #?CHILD{id = Id}=Child, LogValidator) ->
+    case run_log_validator(LogValidator, Id, {info, start}) of
         none ->
             ok;
         LogMode ->
@@ -129,8 +129,8 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogFun) ->
 
 
 
-error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogFun) ->
-    case run_log_validate_fun(LogFun, Id, {error, Reason}) of
+error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogValidator) ->
+    case run_log_validator(LogValidator, Id, {error, Reason}) of
         none ->
             ok;
         LogMode ->
@@ -185,17 +185,17 @@ check_default_childspec(Other) ->
 
 
 
-get_log_validate_fun(Name, Opts, Def) ->
-    case lists:keyfind(log_validate_fun, 1, Opts) of
+get_log_validator(Name, Opts, Def) ->
+    case lists:keyfind(log_validator, 1, Opts) of
         false ->
             Def;
         {_, Fun} when erlang:is_function(Fun, 2) ->
             Fun;
         {_, Other} ->
-            error_logger:format("~p: ignoring erroneous log validate fun: ~p~n", [Name, Other]),
+            error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
             Def;
         Other ->
-            error_logger:format("~p: ignoring erroneous log validate fun: ~p~n", [Name, Other]),
+            error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
             Def
     end.
 
@@ -227,8 +227,8 @@ get_table_type(Name, Opts, Def) ->
 
 
 
-run_log_validate_fun(ValidateLogFun, Id, Extra) ->
-    case catch ValidateLogFun(Id, Extra) of
+run_log_validator(Validator, Id, Extra) ->
+    case catch Validator(Id, Extra) of
         none ->
             none;
         short ->
@@ -236,7 +236,7 @@ run_log_validate_fun(ValidateLogFun, Id, Extra) ->
         long ->
             long;
         {'EXIT', Reason} ->
-            error_logger:format("~p: validate log fun crashed: ~p~n", [erlang:self(), Reason]),
+            error_logger:format("~p: log validator crashed: ~p~n", [erlang:self(), Reason]),
             ?DEF_LOG_MODE;
         Other ->
             error_logger:format("~p: ignoring erroneous log mode: ~p~n", [erlang:self(), Other]),

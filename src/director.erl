@@ -1013,7 +1013,7 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
-    LogValidator = director_utils:get_log_validate_fun(Name, Opts, ?DEF_LOG_VALIDATOR),
+    LogValidator = director_utils:get_log_validator(Name, Opts, ?DEF_LOG_VALIDATOR),
     TabType = director_utils:get_table_type(Name, Opts, ?DEF_TABLE_TYPE),
     Dbg = director_utils:get_debug_options(Name, Opts, ?DEF_DEBUG_OPTIONS),
     erlang:process_flag(trap_exit, true),
@@ -1175,7 +1175,7 @@ process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) -
                          ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, Msg) ->
-    case director_utils:run_log_validate_fun(LogValidator
+    case director_utils:run_log_validator(LogValidator
                                         ,?DIRECTOR_ID
                                         ,{warning, receive_unexpected_message}) of
         short ->
@@ -1484,7 +1484,7 @@ process_request(Dbg
 
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, From, Other) ->
-    case director_utils:run_log_validate_fun(LogValidator
+    case director_utils:run_log_validator(LogValidator
                                         ,?DIRECTOR_ID
                                         ,{warning, receive_unexpected_call}) of
         short ->
@@ -1883,7 +1883,7 @@ terminate(Dbg
          ,Reason) ->
     Children = director_table:tab2list(Tab, TabType),
     _Tab2 = terminate_children(Name, Tab, TabType, LogValidator),
-    case director_utils:run_log_validate_fun(LogValidator, ?DIRECTOR_ID, {error, Reason}) of
+    case director_utils:run_log_validator(LogValidator, ?DIRECTOR_ID, {error, Reason}) of
         none ->
             ok;
         short ->
