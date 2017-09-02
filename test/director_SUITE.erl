@@ -585,7 +585,6 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, Src2} =  file:read_file(filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ "2"])),
     ?assertEqual(ok, file:write_file(ModFile, Src2)),
     {ok, Src3} = file:read_file(ModFile),
-    io:format(Src3),
     ?assertEqual({ok, ?CALLBACK}, compile:file(ModFile)),
     ?assertEqual(ok, sys:suspend(?DIRECTOR)),
     ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
