@@ -1,6 +1,6 @@
 {application
 ,director
-,[{description, "Flexible, fast and powerful supervisor and manager for Erlang/Elixir processes"}
+,[{description, "Flexible, fast and powerful supervisor and manager for Erlang processes."}
  ,{vsn, "17.9"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
