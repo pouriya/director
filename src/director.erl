@@ -1030,8 +1030,8 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                    ,log_validator = LogValidator
                                    ,table_type = TabType},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
-                    exit(element(2, (catch loop(Parent, Dbg, State))));
-%%                    loop(Parent, Dbg, State);
+%%                    exit(element(2, (catch loop(Parent, Dbg, State))));
+                    loop(Parent, Dbg, State);
                 {error, Reason}=Error ->
                     case director_utils:run_log_validator(LogValidator
                                                          ,?DIRECTOR_ID
