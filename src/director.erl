@@ -83,7 +83,7 @@
         ,stop/2
         ,stop/3
         ,plan_element_fun/3
-        ,validate_log/2]).
+        ,log_validator/2]).
 
 
 
@@ -200,7 +200,7 @@
 -type  start_option() :: debug_option()
                        | spawn_options()
                        | timeout_option()
-                       | log_validate_fun_option().
+                       | log_validator_option().
 -type   debug_option() :: {'debug'
                           ,['trace'
                            |'log'
@@ -209,12 +209,12 @@
                           |[]}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
--type   log_validate_fun_option() :: {'log_validate_fun', log_validate_fun()}.
--type    log_validate_fun() :: fun((Id:: '$director' | term()
-                                   ,Type:: {'info', 'start'}
-                                         | {'warning', term()}
-                                         | {'error', term()}) ->
-                                      log_mode()).
+-type   log_validator_option() :: {'log_validator', log_validator()}.
+-type    log_validator() :: fun((Id:: '$director' | term()
+                                ,Type:: {'info', 'start'}
+                                      | {'warning', term()}
+                                      | {'error', term()}) ->
+                                   log_mode()).
 -type     log_mode() :: 'short' | 'long' | 'none'.
 
 
@@ -226,7 +226,7 @@
              ,start_options/0
              ,start_option/0
              ,start_return/0
-             ,log_validate_fun/0
+             ,log_validator/0
              ,log_mode/0]).
 
 
@@ -284,7 +284,7 @@ init(InitArg) ->
                 ,init_argument
                 ,table
                 ,default_childspec
-                ,log_fun
+                ,log_validator
                 ,table_type}).
 
 
@@ -593,13 +593,13 @@ change_default_childspec(Director, DefChildSpec) ->
 
 
 -spec
-change_log_validator(director(), log_validate_fun()) ->
+change_log_validator(director(), log_validator()) ->
     'ok' | {'error', term()}.
 %% @doc
 %%      Changes validate fun.
 %% @end
-change_log_validator(Director, LogFun) ->
-    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogFun}).
+change_log_validator(Director, LogValidator) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}).
 
 
 
@@ -731,12 +731,12 @@ plan_element_fun(_Id, _Other, _Count) ->
 
 
 -spec
-validate_log(Id::term(), Extra::term()) ->
+log_validator(Id::term(), Extra::term()) ->
     'short'.
 %% @doc
 %%     Short description for every log.
 %% @end
-validate_log(_Id, _Extra) ->
+log_validator(_Id, _Extra) ->
     short.
 
 
@@ -989,13 +989,13 @@ change_default_childspec(Director, ChildSpec, Timeout) ->
 
 
 -spec
-change_log_validator(director(), log_validate_fun(), timeout()) ->
+change_log_validator(director(), log_validator(), timeout()) ->
     'ok' | {'error', term()}.
 %% @doc
 %%      Changes validate fun of director.
 %% @end
-change_log_validator(Director, LogFun, Timeout) ->
-    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogFun}, Timeout).
+change_log_validator(Director, LogValidator, Timeout) ->
+    do_call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}, Timeout).
 
 
 
@@ -1013,21 +1013,21 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
     init_it(Starter, erlang:self(), Name, Mod, InitArg, Opts);
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
-    LogFun = director_utils:get_log_validate_fun(Name, Opts, ?DEF_LOG_FUN),
+    LogValidator = director_utils:get_log_validate_fun(Name, Opts, ?DEF_LOG_VALIDATOR),
     TabType = director_utils:get_table_type(Name, Opts, ?DEF_TABLE_TYPE),
     Dbg = director_utils:get_debug_options(Name, Opts, ?DEF_DEBUG_OPTIONS),
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
             Tab = director_table:create(TabType),
-            case start_children(Name, Children, Tab, TabType, LogFun) of
+            case start_children(Name, Children, Tab, TabType, LogValidator) of
                 {ok, Tab2} ->
                     State = #?STATE{name = Name
                                    ,module = Mod
                                    ,init_argument = InitArg
                                    ,table = Tab2
                                    ,default_childspec = DefChildSpec
-                                   ,log_fun = LogFun
+                                   ,log_validator = LogValidator
                                    ,table_type = TabType},
                     proc_lib:init_ack(Starter, {ok, erlang:self()}),
                     exit(element(2, (catch loop(Parent, Dbg, State))));
@@ -1174,10 +1174,10 @@ process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) -
                          ,Dbg
                          ,[State, {supervisor, [{"Callback", Mod}]}]);
 %% Catch clause:
-process_message(Parent, Dbg, #?STATE{name = Name, log_fun = LogFun}=State, Msg) ->
-    case director_utils:run_log_validate_fun(LogFun
-                                            ,?DIRECTOR_ID
-                                            ,{warning, receive_unexpected_message}) of
+process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, Msg) ->
+    case director_utils:run_log_validate_fun(LogValidator
+                                        ,?DIRECTOR_ID
+                                        ,{warning, receive_unexpected_message}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
         none ->
@@ -1287,11 +1287,14 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State};
 
 process_request(Dbg
-               ,#?STATE{table = Tab, name = Name, log_fun = LogFun, table_type = TabType}=State
+               ,#?STATE{table = Tab
+                       ,name = Name
+                       ,log_validator = LogValidator
+                       ,table_type = TabType}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
     {Result, State2} =
-        case do_restart_child(Name, Id, Tab, TabType, LogFun) of
+        case do_restart_child(Name, Id, Tab, TabType, LogValidator) of
             {ok, Pid, Tab2} ->
                 {{ok, Pid}, State#?STATE{table = Tab2}};
             {ok, Pid, Extra, Tab2} ->
@@ -1305,14 +1308,14 @@ process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
                        ,default_childspec = DefChildSpec
-                       ,log_fun = LogFun
+                       ,log_validator = LogValidator
                        ,table_type = TabType}=State
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
     {Result, State2} =
         case director_utils:check_childspec(ChildSpec, DefChildSpec) of
             {ok, Child} ->
-                case do_start_child(Name, Child, Tab, TabType, LogFun) of
+                case do_start_child(Name, Child, Tab, TabType, LogValidator) of
                     {ok, Pid, Tab2} ->
                         {{ok, Pid}, State#?STATE{table = Tab2}};
                     {ok, Pid, Extra, Tab2} ->
@@ -1326,11 +1329,14 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 process_request(Dbg
-               ,#?STATE{table = Tab, name = Name, log_fun = LogFun, table_type = TabType}=State
+               ,#?STATE{table = Tab
+                       ,name = Name
+                       ,log_validator = LogValidator
+                       ,table_type = TabType}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
     {Result, State2} =
-        case do_terminate_child(Name, Term, Tab, TabType, LogFun) of
+        case do_terminate_child(Name, Term, Tab, TabType, LogValidator) of
             not_found ->
                 {{error, not_found}, State};
             Tab2 ->
@@ -1458,29 +1464,29 @@ process_request(Dbg
     {reply(Dbg, Name, From, Result), State2};
 
 %%process_request(Dbg
-%%               ,#?STATE{name = Name, log_fun = LogFun}=State
+%%               ,#?STATE{name = Name, log_validator = LogValidator}=State
 %%               ,From
-%%               ,?GET_LOG_VALIDATE_FUN_TAG) ->
-%%    {reply(Dbg, Name, From, LogFun), State};
+%%               ,?GET_LOG_VALIDATOR) ->
+%%    {reply(Dbg, Name, From, LogValidator), State};
 
 process_request(Dbg
                ,#?STATE{name = Name}=State
                ,From
-               ,{?CHANGE_LOG_VALIDATOR, LogFun}) ->
+               ,{?CHANGE_LOG_VALIDATOR, LogValidator}) ->
     {State2, Result} =
         if
-            erlang:is_function(LogFun, 2) ->
-                {State#?STATE{log_fun = LogFun}, ok};
+            erlang:is_function(LogValidator, 2) ->
+                {State#?STATE{log_validator = LogValidator}, ok};
             true ->
-                {State, {error, {bad_log_validate_fun, [{log_validate_fun, LogFun}]}}}
+                {State, {error, {bad_log_validator, [{log_validator, LogValidator}]}}}
         end,
     {reply(Dbg, Name, From, Result), State2};
 
 %% Catch clause:
-process_request(Dbg, #?STATE{name = Name, log_fun = LogFun}=State, From, Other) ->
-    case director_utils:run_log_validate_fun(LogFun
-                                            ,?DIRECTOR_ID
-                                            ,{warning, receive_unexpected_call}) of
+process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, From, Other) ->
+    case director_utils:run_log_validate_fun(LogValidator
+                                        ,?DIRECTOR_ID
+                                        ,{warning, receive_unexpected_call}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
         none ->
@@ -1504,7 +1510,7 @@ process_exit(Parent
             ,#?STATE{table = Tab
                     ,name = Name
                     ,table_type = TabType
-                    ,log_fun = LogFun}=State
+                    ,log_validator = LogValidator}=State
             ,Pid
             ,Reason) ->
     case director_table:lookup_by_pid(Tab, Pid, TabType) of
@@ -1515,7 +1521,7 @@ process_exit(Parent
                                        ,child_terminated
                                        ,Reason
                                        ,Child
-                                       ,LogFun),
+                                       ,LogValidator),
             Child2 = Child#?CHILD{pid = undefined, extra = undefined},
             Tab2 = director_table:insert(Tab, Child2, TabType),
             {Dbg2, State2} = handle_exit(Dbg, State#?STATE{table = Tab2}, Child2, Reason),
@@ -1545,7 +1551,7 @@ handle_exit(Dbg
 handle_exit(Dbg
            ,#?STATE{name = Name
                    ,table = Table
-                   ,log_fun = LogFun
+                   ,log_validator = LogValidator
                    ,table_type = TabType}=State
            ,#?CHILD{id = Id
                    ,plan = Plan
@@ -1595,7 +1601,7 @@ handle_exit(Dbg
     case Strategy of
         restart ->
             Tab3 =
-                case do_restart_child(Name, Id, Tab2, TabType, LogFun) of
+                case do_restart_child(Name, Id, Tab2, TabType, LogValidator) of
                     {error, _Reason3} ->
                         TimeRef = restart_timer(0, Id),
                         director_table:insert(Tab2
@@ -1641,7 +1647,7 @@ handle_exit(Dbg
 process_timeout(Dbg
                ,#?STATE{name = Name
                        ,table = Tab
-                       ,log_fun = LogFun
+                       ,log_validator = LogValidator
                        ,table_type = TabType}=State
                ,TimerRef
                ,Id) ->
@@ -1649,7 +1655,7 @@ process_timeout(Dbg
         not_found ->
             {Dbg, State};
         #?CHILD{timer_reference = TimerRef} ->
-            case do_restart_child(Name, Id, Tab, TabType, LogFun) of
+            case do_restart_child(Name, Id, Tab, TabType, LogValidator) of
 %%                {error, not_found} ->
 %%                    {Dbg, State};
                 {error, Reason} ->
@@ -1778,19 +1784,19 @@ init_module(Mod, InitArg) ->
 
 
 
-start_children(Name, [#?CHILD{id=Id}=Child|Children], Tab, TabType, LogFun) ->
-    case do_start_child(Name, Child, Tab, TabType, LogFun) of
+start_children(Name, [#?CHILD{id=Id}=Child|Children], Tab, TabType, LogValidator) ->
+    case do_start_child(Name, Child, Tab, TabType, LogValidator) of
         {ok, _Pid, Tab2} ->
-            start_children(Name, Children, Tab2, TabType, LogFun);
+            start_children(Name, Children, Tab2, TabType, LogValidator);
         {error, already_present} ->
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {error, {already_started, _}} ->
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {error, _Reason}=Error ->
-            _ = terminate_children(Name, Tab, TabType, LogFun),
+            _ = terminate_children(Name, Tab, TabType, LogValidator),
             Error
     end;
-start_children(_Name, [], Tab, _TabType, _LogFun) ->
+start_children(_Name, [], Tab, _TabType, _LogValidator) ->
     {ok, Tab}.
 
 
@@ -1800,10 +1806,10 @@ start_children(_Name, [], Tab, _TabType, _LogFun) ->
 
 
 
-do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogFun) ->
+do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogValidator) ->
     case director_table:lookup(Tab, Id, TabType) of
         not_found ->
-            start_mfa(Name, Child, Tab, TabType, LogFun);
+            start_mfa(Name, Child, Tab, TabType, LogValidator);
         #?CHILD{pid = Pid} when erlang:is_pid(Pid) ->
             {error, {already_started, Pid}};
         _Child ->
@@ -1813,7 +1819,7 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogFun) ->
 
 
 
-do_restart_child(Name, Id, Tab, TabType, LogFun) ->
+do_restart_child(Name, Id, Tab, TabType, LogValidator) ->
     case director_table:lookup(Tab, Id, TabType) of
         not_found ->
             {error, not_found};
@@ -1826,9 +1832,9 @@ do_restart_child(Name, Id, Tab, TabType, LogFun) ->
                                   ,timer_reference = undefined}
                      ,Tab
                      ,TabType
-                     ,LogFun);
+                     ,LogValidator);
         Child ->
-            start_mfa(Name, Child, Tab, TabType, LogFun)
+            start_mfa(Name, Child, Tab, TabType, LogValidator)
     end.
 
 
@@ -1838,17 +1844,17 @@ start_mfa(Name
          ,#?CHILD{start = {Mod, Func, Args}}=Child
          ,Tab
          ,TabType
-         ,LogFun) ->
+         ,LogValidator) ->
     case catch erlang:apply(Mod, Func, Args) of
         {ok, Pid} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid, extra = undefined},
             Tab2 = director_table:insert(Tab, Child2, TabType),
-            director_utils:progress_report(Name, Child2, LogFun),
+            director_utils:progress_report(Name, Child2, LogValidator),
             {ok, Pid, Tab2};
         {ok, Pid, Extra} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid, extra = {extra, Extra}},
             Tab2 = director_table:insert(Tab, Child2, TabType),
-            director_utils:progress_report(Name, Child2, LogFun),
+            director_utils:progress_report(Name, Child2, LogValidator),
             {ok, Pid, Extra, Tab2};
         ignore ->
             {ok, undefined};
@@ -1872,12 +1878,12 @@ start_mfa(Name
 terminate(Dbg
          ,#?STATE{table = Tab
                  ,name = Name
-                 ,log_fun = LogFun
+                 ,log_validator = LogValidator
                  ,table_type = TabType}
          ,Reason) ->
     Children = director_table:tab2list(Tab, TabType),
-    _Tab2 = terminate_children(Name, Tab, TabType, LogFun),
-    case director_utils:run_log_validate_fun(LogFun, ?DIRECTOR_ID, {error, Reason}) of
+    _Tab2 = terminate_children(Name, Tab, TabType, LogValidator),
+    case director_utils:run_log_validate_fun(LogValidator, ?DIRECTOR_ID, {error, Reason}) of
         none ->
             ok;
         short ->
@@ -1902,10 +1908,10 @@ terminate(Dbg
 
 
 
-terminate_children(Name, Tab, TabType, LogFun) ->
+terminate_children(Name, Tab, TabType, LogValidator) ->
     Terminate =
         fun(Id, Tab2) ->
-            case do_terminate_child(Name, Id, Tab2, TabType, LogFun) of
+            case do_terminate_child(Name, Id, Tab2, TabType, LogValidator) of
                 not_found ->
                     Tab2;
                 Tab3 ->
@@ -1920,7 +1926,7 @@ terminate_children(Name, Tab, TabType, LogFun) ->
 
 
 
-do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogFun) ->
+do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogValidator) ->
     Search =
         case director_table:lookup(Tab, Id_or_Pid, TabType) of
             not_found ->
@@ -1931,7 +1937,7 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogFun) ->
     _ =
         case Search of
             #?CHILD{pid = Pid}=Child2 when erlang:is_pid(Pid) ->
-                ok = do_terminate_child(Name, Child2, LogFun);
+                ok = do_terminate_child(Name, Child2, LogValidator);
             #?CHILD{pid = restarting, timer_reference = Ref} ->
                 _ = erlang:cancel_timer(Ref, [{async, true}]),
                 ok;
@@ -1955,7 +1961,7 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogFun) ->
 
 
 
-do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=Child, LogFun)
+do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=Child, LogValidator)
     when erlang:is_pid(Pid) ->
     BrutalKill =
         fun() ->
@@ -1964,7 +1970,7 @@ do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=
                 {'DOWN', _Ref, process, Pid, killed} ->
                     ok;
                 {'DOWN', _Ref, process, Pid, Reason} ->
-                    director_utils:error_report(Name, shutdown_error, Reason, Child, LogFun),
+                    director_utils:error_report(Name, shutdown_error, Reason, Child, LogValidator),
                     ok
             end
         end,
@@ -1983,14 +1989,14 @@ do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=
                                                        ,shutdown_error
                                                        ,Reason2
                                                        ,Child
-                                                       ,LogFun),
+                                                       ,LogValidator),
                             ok
                     after TerminateTimeout ->
                         BrutalKill()
                     end
             end;
         {error, Reason3} ->
-            director_utils:error_report(Name, shutdown_error, Reason3, Child, LogFun),
+            director_utils:error_report(Name, shutdown_error, Reason3, Child, LogValidator),
             ok
     end.
 
