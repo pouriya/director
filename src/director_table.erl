@@ -31,9 +31,10 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.9
+%% @version  17.9.2
+%% @hidden
 %% @doc
-%%           PI functions for keeping, updating and fetching
+%%           API functions for keeping, updating and fetching
 %%           childspecs data.<br/>
 %%           director supports tho type of tables: list, ets.
 %% @end

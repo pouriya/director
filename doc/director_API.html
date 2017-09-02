@@ -6,14 +6,14 @@
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
 <body bgcolor="white">
-<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
 <hr>
 
 <h1>Module director</h1>
 <ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>
             Flexible, fast and powerful process supervisor and manager.
 
-<p><b>Version:</b>  17.9</p>
+<p><b>Version:</b>  17.9.2</p>
 <p><b>This module defines the <tt>director</tt> behaviour.</b><br> Required callback functions: <tt>init/1</tt>.</p>
 <p><b>Authors:</b> Pouriya Jahanbakhsh (<a href="mailto:pouriya.jahanbakhsh@gmail.com"><tt>pouriya.jahanbakhsh@gmail.com</tt></a>).</p>
 
@@ -53,12 +53,12 @@
 <p><tt>log_mode() = short | long | none</tt></p>
 
 
-<h3 class="typedecl"><a name="type-log_validate_fun">log_validate_fun()</a></h3>
-<p><tt>log_validate_fun() = fun((Id::term(), Type::{crash, Reason::term()} | start) -&gt; <a href="#type-log_mode">log_mode()</a>)</tt></p>
+<h3 class="typedecl"><a name="type-log_validator">log_validator()</a></h3>
+<p><tt>log_validator() = fun((Id::'$director' | term(), Type::{info, start} | {warning, term()} | {error, term()}) -&gt; <a href="#type-log_mode">log_mode()</a>)</tt></p>
 
 
-<h3 class="typedecl"><a name="type-log_validate_fun_option">log_validate_fun_option()</a></h3>
-<p><tt>log_validate_fun_option() = {log_validate_fun, <a href="#type-log_validate_fun">log_validate_fun()</a>}</tt></p>
+<h3 class="typedecl"><a name="type-log_validator_option">log_validator_option()</a></h3>
+<p><tt>log_validator_option() = {log_validator, <a href="#type-log_validator">log_validator()</a>}</tt></p>
 
 
 <h3 class="typedecl"><a name="type-modules">modules()</a></h3>
@@ -86,7 +86,7 @@
 
 
 <h3 class="typedecl"><a name="type-start_option">start_option()</a></h3>
-<p><tt>start_option() = <a href="#type-debug_option">debug_option()</a> | <a href="#type-spawn_options">spawn_options()</a> | <a href="#type-timeout_option">timeout_option()</a> | <a href="#type-log_validate_fun_option">log_validate_fun_option()</a></tt></p>
+<p><tt>start_option() = <a href="#type-debug_option">debug_option()</a> | <a href="#type-spawn_options">spawn_options()</a> | <a href="#type-timeout_option">timeout_option()</a> | <a href="#type-log_validator_option">log_validator_option()</a></tt></p>
 
 
 <h3 class="typedecl"><a name="type-start_options">start_options()</a></h3>
@@ -118,9 +118,9 @@
        Changes director default childspec.</td></tr>
 <tr><td valign="top"><a href="#change_default_childspec-3">change_default_childspec/3</a></td><td>
        Changes director default childspec.</td></tr>
-<tr><td valign="top"><a href="#change_log_validate_fun-2">change_log_validate_fun/2</a></td><td>
+<tr><td valign="top"><a href="#change_log_validator-2">change_log_validator/2</a></td><td>
        Changes validate fun.</td></tr>
-<tr><td valign="top"><a href="#change_log_validate_fun-3">change_log_validate_fun/3</a></td><td>
+<tr><td valign="top"><a href="#change_log_validator-3">change_log_validator/3</a></td><td>
        Changes validate fun of director.</td></tr>
 <tr><td valign="top"><a href="#change_plan-3">change_plan/3</a></td><td>
        Changes the plan of running or waited or terminated child.</td></tr>
@@ -160,6 +160,8 @@
        Returns plan of a child.</td></tr>
 <tr><td valign="top"><a href="#get_plan-3">get_plan/3</a></td><td>
        Returns plan of a child.</td></tr>
+<tr><td valign="top"><a href="#log_validator-2">log_validator/2</a></td><td>
+      Short description for every log.</td></tr>
 <tr><td valign="top"><a href="#plan_element_fun-3">plan_element_fun/3</a></td><td>
        Restarting if child crashed with any reason.</td></tr>
 <tr><td valign="top"><a href="#restart_child-2">restart_child/2</a></td><td>
@@ -193,8 +195,6 @@
        Restarts a running child using child id or child pid.</td></tr>
 <tr><td valign="top"><a href="#terminate_child-3">terminate_child/3</a></td><td>
        Restarts a running child using child id or child pid.</td></tr>
-<tr><td valign="top"><a href="#validate_log_fun-2">validate_log_fun/2</a></td><td>
-      Short description for every log.</td></tr>
 <tr><td valign="top"><a href="#which_children-1">which_children/1</a></td><td>
        Returns information about each children.</td></tr>
 <tr><td valign="top"><a href="#which_children-2">which_children/2</a></td><td>
@@ -231,15 +231,15 @@
        Be careful about using this function. This will change all children with append =&gt; true in
        next restart.</p>
 
-<h3 class="function"><a name="change_log_validate_fun-2">change_log_validate_fun/2</a></h3>
+<h3 class="function"><a name="change_log_validator-2">change_log_validator/2</a></h3>
 <div class="spec">
-<p><tt>change_log_validate_fun(Director::<a href="#type-director">director()</a>, LogFun::<a href="#type-log_validate_fun">log_validate_fun()</a>) -&gt; ok | {error, term()}</tt><br></p>
+<p><tt>change_log_validator(Director::<a href="#type-director">director()</a>, LogValidator::<a href="#type-log_validator">log_validator()</a>) -&gt; ok | {error, term()}</tt><br></p>
 </div><p>
        Changes validate fun.</p>
 
-<h3 class="function"><a name="change_log_validate_fun-3">change_log_validate_fun/3</a></h3>
+<h3 class="function"><a name="change_log_validator-3">change_log_validator/3</a></h3>
 <div class="spec">
-<p><tt>change_log_validate_fun(Director::<a href="#type-director">director()</a>, LogFun::<a href="#type-log_validate_fun">log_validate_fun()</a>, Timeout::timeout()) -&gt; ok | {error, term()}</tt><br></p>
+<p><tt>change_log_validator(Director::<a href="#type-director">director()</a>, LogValidator::<a href="#type-log_validator">log_validator()</a>, Timeout::timeout()) -&gt; ok | {error, term()}</tt><br></p>
 </div><p>
        Changes validate fun of director.</p>
 
@@ -361,6 +361,12 @@
 </div><p>
        Returns plan of a child.</p>
 
+<h3 class="function"><a name="log_validator-2">log_validator/2</a></h3>
+<div class="spec">
+<p><tt>log_validator(Id::term(), Extra::term()) -&gt; short</tt><br></p>
+</div><p>
+      Short description for every log.</p>
+
 <h3 class="function"><a name="plan_element_fun-3">plan_element_fun/3</a></h3>
 <div class="spec">
 <p><tt>plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) -&gt; restart</tt><br></p>
@@ -462,12 +468,6 @@
 </div><p>
        Restarts a running child using child id or child pid.</p>
 
-<h3 class="function"><a name="validate_log_fun-2">validate_log_fun/2</a></h3>
-<div class="spec">
-<p><tt>validate_log_fun(Id::term(), Extra::term()) -&gt; short</tt><br></p>
-</div><p>
-      Short description for every log.</p>
-
 <h3 class="function"><a name="which_children-1">which_children/1</a></h3>
 <div class="spec">
 <p><tt>which_children(Director::<a href="#type-director">director()</a>) -&gt; [{<a href="#type-id">id()</a>, <a href="#type-type">type()</a>, pid() | restarting | undefined, <a href="#type-modules">modules()</a>}] | []</tt><br></p>
@@ -481,7 +481,7 @@
        Returns information about each children.</p>
 <hr>
 
-<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Aug 31 2017, 12:16:12.</i></p>
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Sep 2 2017, 10:44:50.</i></p>
 </body>
 </html>
