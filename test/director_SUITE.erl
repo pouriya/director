@@ -76,7 +76,7 @@
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
 -define(START_OPTIONS, [{debug, [trace]}
-                       ,{log_validate_fun, fun log_validate_fun/2}
+                       ,{log_validator, fun log_validator/2}
                        ,{table_type, list}]).
 
 
@@ -130,7 +130,7 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-%% ---------------------------------------------------------------------
+%% -------------------------------------------------------------------------------------------------
 %%
 
 
@@ -615,5 +615,5 @@ count_children(Director, Specs, Actives, Workers, Sups) ->
 
 
 
-log_validate_fun(_, _) ->
+log_validator(_, _) ->
     long.
