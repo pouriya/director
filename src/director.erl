@@ -1517,7 +1517,7 @@ process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, F
             error_logger:error_msg("Director ~p received unexpected call request ~p with from ~p~n"
                                   ,[Name, Other, From])
     end,
-    {reply(Dbg, Name, From, {error, {unknown_call, Other}}), State}.
+    {reply(Dbg, Name, From, {error, {unknown_request, Other}}), State}.
 
 
 
