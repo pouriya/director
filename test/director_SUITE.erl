@@ -80,7 +80,6 @@
                        ,{table_type, list}]).
 
 
--include("internal/director_defaults.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -463,7 +462,7 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, ChildSpec2} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start, maps:get(start, ChildSpec2)),
     ?assertEqual([restart, {restart, 1000}], maps:get(plan, ChildSpec2)),
-    ?assertEqual(?DEF_COUNT + 1, maps:get(count, ChildSpec2)),
+    ?assertEqual(4, maps:get(count, ChildSpec2)),
     ?assertEqual(2000, maps:get(terminate_timeout, ChildSpec2)),
     ?assertEqual(Mods, maps:get(modules, ChildSpec2)),
 
@@ -475,7 +474,7 @@ end_per_testcase(_TestCase, _Config) ->
     {ok, ChildSpec3} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start2, maps:get(start, ChildSpec3)),
     ?assertEqual([restart, wait, {restart, 1000}], maps:get(plan, ChildSpec3)),
-    ?assertEqual(?DEF_COUNT, maps:get(count, ChildSpec3)),
+    ?assertEqual(3, maps:get(count, ChildSpec3)),
     ?assertEqual(1000, maps:get(terminate_timeout, ChildSpec3)),
     ?assertEqual([?CHILD_MODULE], maps:get(modules, ChildSpec3)).
 
@@ -543,7 +542,7 @@ end_per_testcase(_TestCase, _Config) ->
     ChildSpec2 = #{id => Id
                  ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}
                  ,plan => [fun director:plan_element_fun/3]
-                 ,count => ?DEF_COUNT
+                 ,count => 3
                  ,terminate_timeout => 1000
                  ,modules => [?CHILD_MODULE]
                  ,append => false
