@@ -1,7 +1,7 @@
 {application
 ,director
 ,[{description, "Flexible, fast and powerful supervisor and manager for Erlang processes."}
- ,{vsn, "17.9.3"}
+ ,{vsn, "17.9.10"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}
