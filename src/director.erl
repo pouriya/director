@@ -1879,7 +1879,7 @@ start_mfa(Name
             director_utils:progress_report(Name, Child2, LogValidator),
             {ok, Pid, Extra, Tab2};
         ignore ->
-            {ok, undefined};
+            {ok, undefined, Tab};
         {error, _Reason}=Error ->
             Error;
         {'EXIT', Reason} ->
