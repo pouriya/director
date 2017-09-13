@@ -173,19 +173,12 @@
                        | spawn_options()
                        | timeout_option()
                        | log_validator_option().
--type   debug_option() :: {'debug'
-                          ,['trace'
-                           |'log'
-                           |'statistics'
-                           |'debug']
-                          |[]}.
+-type   debug_option() :: {'debug', ['trace'|'log'|'statistics'|'debug'] | []}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
 -type   log_validator_option() :: {'log_validator', log_validator()}.
 -type    log_validator() :: fun((Id:: '$director' | term()
-                                ,Type:: {'info', 'start'}
-                                      | {'warning', term()}
-                                      | {'error', term()}) ->
+                                ,Type:: {'info', 'start'}|{'warning', term()}|{'error', term()}) ->
                                    log_mode()).
 -type     log_mode() :: 'short' | 'long' | 'none'.
 
