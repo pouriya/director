@@ -47,8 +47,8 @@
 %% API:
 -export([debug/3
         ,get_debug_options/3
-        ,progress_report/3
-        ,error_report/5
+        ,progress_report/2
+        ,error_report/4
         ,run_log_validator/3
         ,check_childspecs/1
         ,check_childspecs/2
@@ -90,8 +90,8 @@ get_debug_options(Name, Opts, Def) ->
     end.
 
 
-progress_report(Name, #?CHILD{id = Id}=Child, LogValidator) ->
-    case run_log_validator(LogValidator, Id, {info, start}) of
+progress_report(Name, #?CHILD{log_validator = LogValidator}=Child) ->
+    case run_log_validator(LogValidator, info, start) of
         none ->
             ok;
         LogMode ->
@@ -100,8 +100,8 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogValidator) ->
     end.
 
 
-error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogValidator) ->
-    case run_log_validator(LogValidator, Id, {error, Reason}) of
+error_report(Name, ErrorContext, Reason, #?CHILD{log_validator = LogValidator}=Child) ->
+    case run_log_validator(LogValidator, error, Reason) of
         none ->
             ok;
         LogMode ->
@@ -130,7 +130,7 @@ check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
            ,{type, fun filter_type/1}
            ,{terminate_timeout, fun filter_terminate_timeout/1}
            ,{modules, fun filter_modules/1}
-           ,{logger, fun filter_logger/1}],
+           ,{log_validator, fun filter_log_validator/1}],
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
@@ -219,7 +219,8 @@ cs2c(#{id := Id
      ,terminate_timeout := TerminateTimeout
      ,modules := Mods
      ,type := Type
-     ,append := Append}) ->
+     ,append := Append
+     ,log_validator := LogValidator}) ->
     PlanLen = erlang:length(Plan),
     PlanElemIndex =
         if
@@ -242,7 +243,8 @@ cs2c(#{id := Id
            ,extra = undeined
            ,modules = Mods
            ,type = Type
-           ,append = Append}.
+           ,append = Append
+           ,log_validator = LogValidator}.
 
 
 
@@ -253,7 +255,8 @@ c2cs(#?CHILD{id = Id
             ,terminate_timeout = TerminateTimeout
             ,modules = Modules
             ,type = Type
-            ,append = Append}) ->
+            ,append = Append
+            ,log_validator = LogValidator}) ->
     #{id => Id
     ,start => Start
     ,plan => Plan
@@ -261,7 +264,8 @@ c2cs(#?CHILD{id = Id
     ,terminate_timeout => TerminateTimeout
     ,modules => Modules
     ,type => Type
-    ,append => Append}.
+    ,append => Append
+    ,log_validator => LogValidator}.
 
 
 c_r2p(#?CHILD{pid = Pid
@@ -305,7 +309,8 @@ c_r2p(#?CHILD{pid = Pid
              ,extra = Extra
              ,modules = Mods
              ,type = Type
-             ,append = Append}
+             ,append = Append
+             ,log_validator = LogValidator}
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
@@ -327,7 +332,8 @@ c_r2p(#?CHILD{pid = Pid
     ,{child_type, Type}
     ,{extra, Extra}
     ,{modules, Mods}
-    ,{append, Append}].
+    ,{append, Append}
+    ,{log_validator, LogValidator}].
 
 
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
@@ -560,7 +566,7 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{count, fun filter_count/1, ?DEF_COUNT}
             ,{type, fun filter_type/1, ?DEF_TYPE}
-            ,{logger, fun filter_logger/1, ?DEF_LOGGER}],
+            ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
         {ok, ChildSpec3} ->
             DefTerminateTimeout =
@@ -692,15 +698,15 @@ filter_append(Other) ->
 
 
 
-filter_logger(F) when erlang:is_function(F) ->
+filter_log_validator(F) when erlang:is_function(F) ->
     case erlang:fun_info(F, arity) of
-        {arity, 3} ->
+        {arity, 2} ->
             {ok, F};
         {arity, Other} ->
-            {error, {logger_arity, [{logger, F}, {arity, Other}]}}
+            {error, {log_validator_arity, [{log_validator, F}, {arity, Other}]}}
     end;
-filter_logger(F) ->
-    {error, {logger_type, [{logger, F}]}}.
+filter_log_validator(F) ->
+    {error, {log_validator_type, [{log_validator, F}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->

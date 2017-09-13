@@ -46,4 +46,5 @@
                 ,terminate_timeout
                 ,extra
                 ,modules
-                ,type}).
+                ,type
+                ,log_validator}).

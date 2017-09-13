@@ -163,7 +163,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,terminate_timeout => 0
                 ,modules => Mods
                 ,append => false
-                ,type => worker},
+                ,type => worker
+                ,log_validator => fun(_, _) -> none end},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
@@ -223,7 +224,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,terminate_timeout => infinity
                 ,modules => Mods
                 ,append => false
-                ,type => supervisor},
+                ,type => supervisor
+                ,log_validator => fun(_, _) -> long end},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, []} end,
 
@@ -379,7 +381,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,terminate_timeout => infinity
                 ,modules => Mods
                 ,append => false
-                ,type => supervisor},
+                ,type => supervisor
+                ,log_validator => fun(_, _) -> long end},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, [ChildSpec]} end,
 
@@ -546,7 +549,8 @@ end_per_testcase(_TestCase, _Config) ->
                  ,terminate_timeout => 1000
                  ,modules => [?CHILD_MODULE]
                  ,append => false
-                 ,type => worker},
+                 ,type => worker
+                 ,log_validator => fun director:log_validator/2},
     F2 = fun() -> {ok, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK

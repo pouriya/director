@@ -59,7 +59,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
--define(ETS_TABLE_OPTIONS, [named_table, {keypos,2}]).
+-define(ETS_TABLE_OPTIONS, [private, named_table, {keypos,2}]).
 
 %% Dependencies:
 %%  #?CHILD{}
