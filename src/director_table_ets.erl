@@ -111,7 +111,8 @@ lookup_by_pid(Table, Pid) ->
                                  ,extra = '_'
                                  ,modules = '_'
                                  ,type = '_'
-                                 ,append = '_'}) of
+                                 ,append = '_'
+                                 ,log_validator = '_'}) of
         [Child] ->
             Child;
         [] ->
@@ -135,7 +136,8 @@ lookup_appended(Table) ->
                             ,extra = '_'
                             ,modules = '_'
                             ,type = '_'
-                            ,append = true}).
+                            ,append = true
+                            ,log_validator = '_'}).
 
 
 
