@@ -732,15 +732,16 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                            ,log_validator = LogValidator
                                            ,table_type = TabType},
                             proc_lib:init_ack(Starter, {ok, erlang:self()}),
-                    exit(element(2, (catch loop(Parent, Dbg, State))));
-%%                            loop(Parent, Dbg, State);
+%%                    exit(element(2, (catch loop(Parent, Dbg, State))));
+                            loop(Parent, Dbg, State);
                         {error, Reason}=Error ->
-                            case director_utils:run_log_validator(LogValidator,error, Reason) of
+                            case director_utils:run_log_validator(LogValidator,error , Reason) of
                                 none ->
                                     ok;
                                 _ ->
-                                    error_logger:error_msg("** Director ~p terminating in initialize state~"
-                                    "n** Reason for termination == ~p\n"
+                                    error_logger:error_msg("** Director ~p terminating in initializ"
+                                                           "e state\n"
+                                                           "** Reason for termination == ~p\n"
                                                           ,[Name,Reason])
                             end,
                             unregister_name(Name0),
@@ -878,7 +879,7 @@ process_message(Parent, Dbg, State, {system, From, Msg}) ->
 process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, Msg) ->
     case director_utils:run_log_validator(LogValidator
                                         ,warning
-                                        ,receive_unexpected_message) of
+                                        ,{receive_unexpected_message, Msg}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
         none ->
@@ -1183,8 +1184,8 @@ process_request(Dbg
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, From, Other) ->
     case director_utils:run_log_validator(LogValidator
-                                        ,warning
-                                        ,receive_unexpected_call) of
+                                         ,warning
+                                         ,{receive_unexpected_call, From, Other}) of
         short ->
             error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]);
         none ->

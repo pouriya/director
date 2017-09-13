@@ -59,8 +59,6 @@
 -define(CHANGE_LOG_VALIDATOR, 'change_log_validator').
 %%-define(GET_LOG_VALIDATOR, 'get_log_validator').
 -define(DEF_LOG_VALIDATOR, fun director:log_validator/2).
--define(DEF_LOGGER, fun director:logger/3).
--define(DIRECTOR_ID, '$director').
 -define(DEF_LOG_MODE, 'short').
 -define(DEF_TABLE_TYPE, 'list').
 
