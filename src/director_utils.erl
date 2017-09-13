@@ -209,15 +209,9 @@ separate_child(ChildSpec, DefChildSpec) ->
     end.
 
 
-cs2c(#{id := Id
-     ,plan := Plan
-     ,count := Count
-     ,start := Start
-     ,terminate_timeout := TerminateTimeout
-     ,modules := Mods
-     ,type := Type
-     ,append := Append}) ->
-    PlanLen = erlang:length(Plan),
+cs2c(Ch) when erlang:is_map(Ch) ->
+    Plan = maps:get(plan, Ch),
+    PlanLen = erlang:length(maps:get(Plan, Ch)),
     PlanElemIndex =
         if
             PlanLen =:= 0 ->
@@ -225,21 +219,21 @@ cs2c(#{id := Id
             true ->
                 1
         end,
-    #?CHILD{id = Id
+    #?CHILD{id = maps:get(id, Ch)
            ,pid = undefined
            ,plan = Plan
-           ,count = Count
+           ,count = maps:get(count, Ch)
            ,count2 = 0
            ,restart_count = 0
-           ,start = Start
+           ,start = maps:get(start, Ch)
            ,plan_element_index = PlanElemIndex
            ,plan_length = PlanLen
            ,timer_reference = undefined
-           ,terminate_timeout = TerminateTimeout
+           ,terminate_timeout = maps:get(terminate_timeout, Ch)
            ,extra = undeined
-           ,modules = Mods
-           ,type = Type
-           ,append = Append}.
+           ,modules = maps:get(modules, Ch)
+           ,type = maps:get(type, Ch)
+           ,append = maps:get(append, Ch)}.
 
 
 
@@ -251,14 +245,20 @@ c2cs(#?CHILD{id = Id
             ,modules = Modules
             ,type = Type
             ,append = Append}) ->
-    #{id => Id
-    ,start => Start
-    ,plan => Plan
-    ,count => Count
-    ,terminate_timeout => TerminateTimeout
-    ,modules => Modules
-    ,type => Type
-    ,append => Append}.
+    Fold =
+        fun({Key, Val}, Acc) ->
+            maps:put(Key, Val, Acc)
+        end,
+    lists:foldl(Fold
+               ,maps:new()
+               ,[{id, Id}
+                ,{start, Start}
+                ,{plan, Plan}
+                ,{count, Count}
+                ,{terminate_timeout, TerminateTimeout}
+                ,{modules, Modules}
+                ,{type, Type}
+                ,{append, Append}]).
 
 
 c_r2p(#?CHILD{pid = Pid
