@@ -44,7 +44,7 @@
 %% Exports:
 
 %% API:
--export([create/0
+-export([create/1
         ,insert/2
         ,delete/2
         ,lookup/2
@@ -66,8 +66,8 @@
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
 
-create() ->
-    [].
+create(list) ->
+    {ok, []}.
 
 
 delete_table(_Tab) ->

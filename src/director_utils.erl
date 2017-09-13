@@ -123,14 +123,14 @@ check_childspecs(ChildSpecs) ->
     check_childspecs(ChildSpecs, ?DEF_DEF_CHILDSPEC).
 
 
-check_default_childspec(ChildSpec)
-    when erlang:is_map(ChildSpec) ->
+check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
     Keys = [{start, fun filter_start/1}
            ,{plan, fun filter_plan/1}
            ,{count, fun filter_count/1}
            ,{type, fun filter_type/1}
            ,{terminate_timeout, fun filter_terminate_timeout/1}
-           ,{modules, fun filter_modules/1}],
+           ,{modules, fun filter_modules/1}
+           ,{logger, fun filter_logger/1}],
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
@@ -157,8 +157,11 @@ get_table_type(Name, Opts, Def) ->
             Def;
         {_, list} ->
             list;
-        {_, ets} ->
-            ets;
+        {_, {ets, TabName}=TabType} when erlang:is_atom(TabName) ->
+            TabType;
+        {_, {ets, TabName}} ->
+            error_logger:format("~p: ignoring erroneous ETS table name: ~p~n", [Name, TabName]),
+            Def;
         {_, Mode} ->
             error_logger:format("~p: ignoring erroneous table type: ~p~n", [Name, Mode]),
             Def;
@@ -556,7 +559,8 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,StartKey
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{count, fun filter_count/1, ?DEF_COUNT}
-            ,{type, fun filter_type/1, ?DEF_TYPE}],
+            ,{type, fun filter_type/1, ?DEF_TYPE}
+            ,{logger, fun filter_logger/1, ?DEF_LOGGER}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
         {ok, ChildSpec3} ->
             DefTerminateTimeout =
@@ -569,9 +573,7 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             DefMods = [erlang:element(1, maps:get(start, ChildSpec3))],
             Keys3 = [{terminate_timeout, fun filter_terminate_timeout/1, DefTerminateTimeout}
                     ,{modules, fun filter_modules/1, DefMods}],
-            case check_map(ChildSpec
-                          ,Keys3
-                          ,ChildSpec3) of
+            case check_map(ChildSpec, Keys3, ChildSpec3) of
                 {ok, ChildSpec4} ->
                     {ok, cs2c((combine_child(ChildSpec4, DefChildSpec)))};
                 {error, _Reason}=Error ->
@@ -686,6 +688,19 @@ filter_append(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
 filter_append(Other) ->
     {error, {append_type, [{append, Other}]}}.
+
+
+
+
+filter_logger(F) when erlang:is_function(F) ->
+    case erlang:fun_info(F, arity) of
+        {arity, 3} ->
+            {ok, F};
+        {arity, Other} ->
+            {error, {logger_arity, [{logger, F}, {arity, Other}]}}
+    end;
+filter_logger(F) ->
+    {error, {logger_type, [{logger, F}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->

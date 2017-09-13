@@ -72,66 +72,66 @@
 %% API functions:
 
 create(list) ->
-    director_table_list:create();
-create(ets) ->
-    director_table_ets:create().
+    director_table_list:create(list);
+create({ets, TabName}=TabType) when erlang:is_atom(TabName) ->
+    director_table_ets:create(TabType).
 
 
 delete_table(Tab, list) ->
     director_table_list:delete_table(Tab);
-delete_table(Tab, ets) ->
+delete_table(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:delete_table(Tab).
 
 
 lookup(Tab, Id, list) ->
     director_table_list:lookup(Tab, Id);
-lookup(Tab, Id, ets) ->
+lookup(Tab, Id, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:lookup(Tab, Id).
 
 
 count(Tab, list) ->
     director_table_list:count(Tab);
-count(Tab, ets) ->
+count(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:count(Tab).
 
 
 lookup_by_pid(Tab, Pid, list) ->
     director_table_list:lookup_by_pid(Tab, Pid);
-lookup_by_pid(Tab, Pid, ets) ->
+lookup_by_pid(Tab, Pid, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:lookup_by_pid(Tab, Pid).
 
 
 lookup_appended(Tab, list) ->
     director_table_list:lookup_appended(Tab);
-lookup_appended(Tab, ets) ->
+lookup_appended(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:lookup_appended(Tab).
 
 
 insert(Tab, Child, list) ->
     director_table_list:insert(Tab, Child);
-insert(Tab, Child, ets) ->
+insert(Tab, Child, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:insert(Tab, Child).
 
 
 delete(Tab, Id, list) ->
     director_table_list:delete(Tab, Id);
-delete(Tab, Id, ets) ->
+delete(Tab, Id, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:delete(Tab, Id).
 
 
 tab2list(Tab, list) ->
     director_table_list:tab2list(Tab);
-tab2list(Tab, ets) ->
+tab2list(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:tab2list(Tab).
 
 
 combine_children(DefChildSpec, Tab, list) ->
     director_table_list:combine_children(DefChildSpec, Tab);
-combine_children(DefChildSpec, Tab, ets) ->
+combine_children(DefChildSpec, Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:combine_children(DefChildSpec, Tab).
 
 
 separate_children(DefChildSpec, Tab, list) ->
     director_table_list:separate_children(DefChildSpec, Tab);
-separate_children(DefChildSpec, Tab, ets) ->
+separate_children(DefChildSpec, Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
     director_table_ets:separate_children(DefChildSpec, Tab).

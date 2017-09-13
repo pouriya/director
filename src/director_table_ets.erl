@@ -44,7 +44,7 @@
 %% Exports:
 
 %% API:
--export([create/0
+-export([create/1
         ,insert/2
         ,delete/2
         ,lookup/2
@@ -59,7 +59,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
--define(ETS_TABLE_OPTIONS, [{keypos,2}]).
+-define(ETS_TABLE_OPTIONS, [named_table, {keypos,2}]).
 
 %% Dependencies:
 %%  #?CHILD{}
@@ -68,9 +68,13 @@
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
 
-create() ->
-    Name = erlang:list_to_atom(erlang:pid_to_list(erlang:self())),
-    ets:new(Name, ?ETS_TABLE_OPTIONS).
+create({ets, TabName}=TabType) ->
+    try
+        {ok, ets:new(TabName, ?ETS_TABLE_OPTIONS)}
+    catch
+        _:Reason ->
+            {error, {create_table, [{reason, Reason}, {table_type, TabType}]}}
+    end.
 
 
 delete_table(Table) ->

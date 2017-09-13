@@ -75,7 +75,8 @@
         ,stop/2
         ,stop/3
         ,plan_element_fun/3
-        ,log_validator/2]).
+        ,log_validator/2
+        ,logger/3]).
 
 %% Previous APIs with timeout argument:
 -export([start_child/3
@@ -182,6 +183,7 @@
                                 ,Type:: {'info', 'start'}|{'warning', term()}|{'error', term()}) ->
                                    log_mode()).
 -type     log_mode() :: 'short' | 'long' | 'none'.
+-type   log_type() :: 'info' | 'error'.
 
 -export_type([childspec/0
              ,default_childspec/0
@@ -535,6 +537,16 @@ log_validator(Id::term(), Extra::term()) ->
 log_validator(_Id, _Extra) ->
     short.
 
+
+-spec
+logger(Id::term(), Type::log_type(), Extra::term()) ->
+    'short'.
+%% @doc
+%%     calls error logger with short description.
+%% @end
+logger(_Id, _Type, _Extra) ->
+    short.
+
 %% -------------------------------------------------------------------------------------------------
 %% previous APIs with Timeout argument:
 
@@ -722,32 +734,39 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     erlang:process_flag(trap_exit, true),
     case init_module(Mod, InitArg) of
         {ok, Children, DefChildSpec} ->
-            Tab = director_table:create(TabType),
-            case start_children(Name, Children, Tab, TabType, LogValidator) of
-                {ok, Tab2} ->
-                    State = #?STATE{name = Name
-                                   ,module = Mod
-                                   ,init_argument = InitArg
-                                   ,table = Tab2
-                                   ,default_childspec = DefChildSpec
-                                   ,log_validator = LogValidator
-                                   ,table_type = TabType},
-                    proc_lib:init_ack(Starter, {ok, erlang:self()}),
-%%                    exit(element(2, (catch loop(Parent, Dbg, State))));
-                    loop(Parent, Dbg, State);
-                {error, Reason}=Error ->
-                    case director_utils:run_log_validator(LogValidator
-                                                         ,?DIRECTOR_ID
-                                                         ,{error, Reason}) of
-                        none ->
-                            ok;
-                        _ ->
-                            error_logger:error_msg("** Director ~p terminating in initialize state~"
-                                                   "n** Reason for termination == ~p\n"
-                                                  ,[Name,Reason])
-                    end,
+            case director_table:create(TabType) of
+                {ok, Tab} ->
+                    io:format("TAB: ~p~n", [Tab]),
+                    case start_children(Name, Children, Tab, TabType, LogValidator) of
+                        {ok, Tab2} ->
+                            State = #?STATE{name = Name
+                                           ,module = Mod
+                                           ,init_argument = InitArg
+                                           ,table = Tab2
+                                           ,default_childspec = DefChildSpec
+                                           ,log_validator = LogValidator
+                                           ,table_type = TabType},
+                            proc_lib:init_ack(Starter, {ok, erlang:self()}),
+                    exit(element(2, (catch loop(Parent, Dbg, State))));
+%%                            loop(Parent, Dbg, State);
+                        {error, Reason}=Error ->
+                            case director_utils:run_log_validator(LogValidator
+                                                                 ,?DIRECTOR_ID
+                                                                 ,{error, Reason}) of
+                                none ->
+                                    ok;
+                                _ ->
+                                    error_logger:error_msg("** Director ~p terminating in initialize state~"
+                                    "n** Reason for termination == ~p\n"
+                                                          ,[Name,Reason])
+                            end,
+                            unregister_name(Name0),
+                            proc_lib:init_ack(Starter, Error),
+                            erlang:exit(Reason)
+                    end;
+                {error, Reason}=Err ->
                     unregister_name(Name0),
-                    proc_lib:init_ack(Starter, Error),
+                    proc_lib:init_ack(Starter, Err),
                     erlang:exit(Reason)
             end;
         Other ->
