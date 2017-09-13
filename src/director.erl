@@ -45,10 +45,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-
-
-
-
 %% supervisor-like API:
 -export([start_link/2
         ,start_link/3
@@ -60,10 +56,6 @@
         ,which_children/1
         ,get_childspec/2
         ,check_childspec/1]).
-
-
-
-
 
 %% Director Specific API:
 -export([get_pid/2
@@ -85,10 +77,6 @@
         ,plan_element_fun/3
         ,log_validator/2]).
 
-
-
-
-
 %% Previous APIs with timeout argument:
 -export([start_child/3
         ,restart_child/3
@@ -107,16 +95,8 @@
         ,change_default_childspec/3
         ,change_log_validator/3]).
 
-
-
-
-
 %% gen callback:
 -export([init_it/6]).
-
-
-
-
 
 %% sys callbacks:
 -export([system_code_change/4
@@ -125,16 +105,8 @@
         ,system_replace_state/2
         ,system_terminate/4]).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Types:
-
-
-
-
 
 %% 'id' is mandatory.
 %% If you don't set 'start' for default childspec, 'start' is mandatory.
@@ -217,10 +189,6 @@
                                    log_mode()).
 -type     log_mode() :: 'short' | 'long' | 'none'.
 
-
-
-
-
 -export_type([childspec/0
              ,default_childspec/0
              ,start_options/0
@@ -236,10 +204,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Behaviour information:
 
-
-
-
-
 -callback
 init(InitArg) ->
     {'ok', Childspecs}                   |
@@ -252,31 +216,16 @@ init(InitArg) ->
         DefaultChildspec :: default_childspec(),
         Reason :: term().
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
-
-
-
 
 %% Dependencies:
 %% all macros
 -include("internal/director_defaults.hrl").
 
-
-
-
-
 %% Dependecies:
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
-
-
-
-
 
 -define(STATE, director_state_record).
 -record(?STATE, {name
@@ -287,17 +236,8 @@ init(InitArg) ->
                 ,log_validator
                 ,table_type}).
 
-
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% supervisor-like API:
-
-
-
-
 
 -spec
 start_link(module(), InitArg::term()) ->
@@ -307,11 +247,6 @@ start_link(module(), InitArg::term()) ->
 %% @end
 start_link(Mod, InitArg) ->
     gen:start(?MODULE, link, Mod, InitArg, ?DEF_START_OPTIONS).
-
-
-
-
-
 
 
 -spec
@@ -326,11 +261,6 @@ start_link(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
     gen:start(?MODULE, link, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
 
-
-
-
-
-
 -spec
 start_child(director(), childspec()) ->
     start_return().
@@ -340,11 +270,6 @@ start_child(director(), childspec()) ->
 %% @end
 start_child(Director, ChildSpec) ->
     do_call(Director, {?START_CHILD_TAG, ChildSpec}).
-
-
-
-
-
 
 
 -spec
@@ -360,11 +285,6 @@ restart_child(Director, Id) ->
     do_call(Director, {?RESTART_CHILD_TAG, Id}).
 
 
-
-
-
-
-
 -spec
 terminate_child(director(), id() | pid()) ->
     'ok' | {'error', Reason :: 'not_found' | term()}.
@@ -375,11 +295,6 @@ terminate_child(Director, Id_or_Pid) ->
     do_call(Director, {?TERMINATE_CHILD_TAG, Id_or_Pid}).
 
 
-
-
-
-
-
 -spec
 delete_child(director(), id()) ->
     'ok' | {'error', Reason :: 'not_found' | 'running' | term()}.
@@ -388,11 +303,6 @@ delete_child(director(), id()) ->
 %% @end
 delete_child(Director, Id) ->
     do_call(Director, {?DELETE_CHILD_TAG, Id}).
-
-
-
-
-
 
 
 -spec
@@ -408,11 +318,6 @@ count_children(Director) ->
     do_call(Director, ?COUNT_CHILDREN_TAG).
 
 
-
-
-
-
-
 -spec
 which_children(director()) ->
     [{id(), type(), pid()|'restarting'|'undefined', modules()}] | [].
@@ -423,11 +328,6 @@ which_children(Director) ->
     do_call(Director, ?WHICH_CHILDREN_TAG).
 
 
-
-
-
-
-
 -spec
 get_childspec(director(), id() | pid()) ->
     {'ok', childspec()} | {'error', 'not_found'}.
@@ -436,11 +336,6 @@ get_childspec(director(), id() | pid()) ->
 %% @end
 get_childspec(Director, Name) ->
     do_call(Director, {?GET_CHILDSPEC_TAG, Name}).
-
-
-
-
-
 
 
 -spec
@@ -457,16 +352,8 @@ check_childspec(ChildSpec) ->
             Error
     end.
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Specific API:
-
-
-
-
 
 -spec
 change_plan(director(), id(), plan()) ->
@@ -480,11 +367,6 @@ change_plan(Director, Id, Plan) ->
     do_call(Director, {?CHANGE_PLAN_TAG, Id, Plan}).
 
 
-
-
-
-
-
 -spec
 change_count(director(), id(), count()) ->
     'ok' | {'error', 'not_found'|term()}.
@@ -493,11 +375,6 @@ change_count(director(), id(), count()) ->
 %% @end
 change_count(Director, Id, Count) ->
     do_call(Director, {?CHANGE_COUNT_TAG, Id, Count}).
-
-
-
-
-
 
 
 -spec
@@ -510,11 +387,6 @@ get_plan(Director, Id) ->
     do_call(Director, {?GET_PLAN_TAG, Id}).
 
 
-
-
-
-
-
 -spec
 get_count(director(), id()) ->
     'ok' | {'error', 'not_found'|term()}.
@@ -523,11 +395,6 @@ get_count(director(), id()) ->
 %% @end
 get_count(Director, Id) ->
     do_call(Director, {?GET_COUNT_TAG, Id}).
-
-
-
-
-
 
 
 -spec
@@ -540,11 +407,6 @@ get_pid(Director, Id) ->
     do_call(Director, {?GET_PID_TAG, Id}).
 
 
-
-
-
-
-
 -spec
 get_pids(director()) ->
     [{id(), pid()}] | [].
@@ -555,11 +417,6 @@ get_pids(Director) ->
     do_call(Director, ?GET_PIDS_TAG).
 
 
-
-
-
-
-
 -spec
 get_default_childspec(director()) ->
     default_childspec().
@@ -568,11 +425,6 @@ get_default_childspec(director()) ->
 %% @end
 get_default_childspec(Director) ->
     do_call(Director, ?GET_DEF_CHILDSPEC).
-
-
-
-
-
 
 
 -spec
@@ -587,11 +439,6 @@ change_default_childspec(Director, DefChildSpec) ->
     do_call(Director, {?CHANGE_DEF_CHILDSPEC, DefChildSpec}).
 
 
-
-
-
-
-
 -spec
 change_log_validator(director(), log_validator()) ->
     'ok' | {'error', term()}.
@@ -600,11 +447,6 @@ change_log_validator(director(), log_validator()) ->
 %% @end
 change_log_validator(Director, LogValidator) ->
     do_call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}).
-
-
-
-
-
 
 
 -spec
@@ -617,11 +459,6 @@ start_link(Name, Mod, InitArg, Opts) ->
     gen:start(?MODULE, link, Name, Mod, InitArg, Opts).
 
 
-
-
-
-
-
 -spec
 start(module(), InitArg::term()) ->
     start_return().
@@ -630,11 +467,6 @@ start(module(), InitArg::term()) ->
 %% @end
 start(Mod, InitArg) ->
     gen:start(?MODULE, nolink, Mod, InitArg, ?DEF_START_OPTIONS).
-
-
-
-
-
 
 
 -spec
@@ -649,11 +481,6 @@ start(Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts) ->
     gen:start(?MODULE, nolink, Name_or_Mod, Mod_or_InitArg, InitArg_or_Opts).
 
 
-
-
-
-
-
 -spec
 start(register_name(), module(), InitArg::term(), start_options()) ->
     start_return().
@@ -662,11 +489,6 @@ start(register_name(), module(), InitArg::term(), start_options()) ->
 %% @end
 start(Name, Mod, InitArg, Opts) ->
     gen:start(?MODULE, nolink, Name, Mod, InitArg, Opts).
-
-
-
-
-
 
 
 -spec
@@ -680,11 +502,6 @@ stop(Director) ->
     proc_lib:stop(Director, normal, ?DEF_STOP_TIMEOUT).
 
 
-
-
-
-
-
 -spec
 stop(director(), Reason::term()) ->
     'ok'.
@@ -693,11 +510,6 @@ stop(director(), Reason::term()) ->
 %% @end
 stop(Director, Reason) ->
     proc_lib:stop(Director, Reason, ?DEF_STOP_TIMEOUT).
-
-
-
-
-
 
 
 -spec
@@ -710,11 +522,6 @@ stop(Director, Reason, Timeout) ->
     proc_lib:stop(Director, Reason, Timeout).
 
 
-
-
-
-
-
 -spec
 plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) ->
     'restart'.
@@ -723,11 +530,6 @@ plan_element_fun(Id::term(), Reason::term(), RestartCount::non_neg_integer()) ->
 %% @end
 plan_element_fun(_Id, _Other, _Count) ->
     restart.
-
-
-
-
-
 
 
 -spec
@@ -739,18 +541,8 @@ log_validator(Id::term(), Extra::term()) ->
 log_validator(_Id, _Extra) ->
     short.
 
-
-
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% previous APIs with Timeout argument:
-
-
-
-
 
 -spec
 start_child(director(), childspec(), timeout()) ->
@@ -761,11 +553,6 @@ start_child(director(), childspec(), timeout()) ->
 %% @end
 start_child(Director, ChildSpec, Timeout) ->
     do_call(Director, {?START_CHILD_TAG, ChildSpec}, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -781,11 +568,6 @@ restart_child(Director, Id, Timeout) ->
     do_call(Director, {?RESTART_CHILD_TAG, Id}, Timeout).
 
 
-
-
-
-
-
 -spec
 terminate_child(director(), id() | pid(), timeout()) ->
     'ok' | {'error', Reason::'not_found'|term()}.
@@ -796,11 +578,6 @@ terminate_child(Director, Id_or_Pid, Timeout) ->
     do_call(Director, {?TERMINATE_CHILD_TAG, Id_or_Pid}, Timeout).
 
 
-
-
-
-
-
 -spec
 delete_child(director(), id(), timeout()) ->
     'ok' | {'error', Reason::'not_found'|'running'|term()}.
@@ -809,11 +586,6 @@ delete_child(director(), id(), timeout()) ->
 %% @end
 delete_child(Director, Id, Timeout) ->
     do_call(Director, {?DELETE_CHILD_TAG, Id}, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -829,11 +601,6 @@ count_children(Director, Timeout) ->
     do_call(Director, ?COUNT_CHILDREN_TAG, Timeout).
 
 
-
-
-
-
-
 -spec
 which_children(director(), timeout()) ->
     [{id(), type(), pid()|'restarting'|'undefined', modules()}] | [].
@@ -842,11 +609,6 @@ which_children(director(), timeout()) ->
 %% @end
 which_children(Director, Timeout) ->
     do_call(Director, ?WHICH_CHILDREN_TAG, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -859,11 +621,6 @@ get_childspec(Director, Name, Timeout) ->
     do_call(Director, {?GET_CHILDSPEC_TAG, Name}, Timeout).
 
 
-
-
-
-
-
 -spec
 get_count(director(), id(), timeout()) ->
     'ok' | {'error', 'not_found'|term()}.
@@ -872,11 +629,6 @@ get_count(director(), id(), timeout()) ->
 %% @end
 get_count(Director, Id, Timeout) ->
     do_call(Director, {?GET_COUNT_TAG, Id}, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -891,11 +643,6 @@ change_plan(Director, Id, Plan, Timeout) ->
     do_call(Director, {?CHANGE_PLAN_TAG, Id, Plan}, Timeout).
 
 
-
-
-
-
-
 -spec
 change_count(director(), id(), count(), timeout()) ->
     'ok' | {'error', 'not_found'|term()}.
@@ -904,11 +651,6 @@ change_count(director(), id(), count(), timeout()) ->
 %% @end
 change_count(Director, Id, Count, Timeout) ->
     do_call(Director, {?CHANGE_COUNT_TAG, Id, Count}, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -921,11 +663,6 @@ get_plan(Director, Id, Timeout) ->
     do_call(Director, {?GET_PLAN_TAG, Id}, Timeout).
 
 
-
-
-
-
-
 -spec
 get_pid(director(), id(), timeout()) ->
     {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'}.
@@ -934,11 +671,6 @@ get_pid(director(), id(), timeout()) ->
 %% @end
 get_pid(Director, Id, Timeout) ->
     do_call(Director, {?GET_PID_TAG, Id}, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -951,11 +683,6 @@ get_pids(Director, Timeout) ->
     do_call(Director, ?GET_PIDS_TAG, Timeout).
 
 
-
-
-
-
-
 -spec
 get_default_childspec(director(), timeout()) ->
     default_childspec().
@@ -964,11 +691,6 @@ get_default_childspec(director(), timeout()) ->
 %% @end
 get_default_childspec(Director, Timeout) ->
     do_call(Director, ?GET_DEF_CHILDSPEC, Timeout).
-
-
-
-
-
 
 
 -spec
@@ -983,11 +705,6 @@ change_default_childspec(Director, ChildSpec, Timeout) ->
     do_call(Director, {?CHANGE_DEF_CHILDSPEC, ChildSpec}, Timeout).
 
 
-
-
-
-
-
 -spec
 change_log_validator(director(), log_validator(), timeout()) ->
     'ok' | {'error', term()}.
@@ -997,16 +714,8 @@ change_log_validator(director(), log_validator(), timeout()) ->
 change_log_validator(Director, LogValidator, Timeout) ->
     do_call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}, Timeout).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% 'gen' callback:
-
-
-
-
 
 %% @hidden
 init_it(Starter, self, Name, Mod, InitArg, Opts) ->
@@ -1068,24 +777,12 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
             erlang:exit(Reason)
     end.
 
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% 'sys' callbacks:
-
-
-
-
 
 %% @hidden
 system_continue(Parent, Dbg, [State|_]) ->
     loop(Parent, Dbg, State).
-
-
-
-
-
 
 
 %% @hidden
@@ -1093,31 +790,15 @@ system_terminate(Reason, _Parent, Dbg, [State|_]) ->
     terminate(Dbg, State, Reason).
 
 
-
-
-
-
-
 %% @hidden
 system_get_state([State|_]) ->
     {ok, State}.
-
-
-
-
-
 
 
 %% @hidden
 system_replace_state(ReplaceStateFun, [State|Rest]) ->
     NewState = ReplaceStateFun(State),
     {ok, NewState, [NewState|Rest]}.
-
-
-
-
-
-
 
 
 %% @hidden
@@ -1147,18 +828,8 @@ system_code_change([#?STATE{module = Mod
             Err
     end.
 
-
-
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Process main loop and its main subcategories:
-
-
-
-
 
 loop(Parent, Dbg, State) ->
     process_message(Parent, Dbg, State, receive
@@ -1167,27 +838,19 @@ loop(Parent, Dbg, State) ->
                                         end).
 
 
-
-
-
-
 process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
                ,{?GEN_CALL_TAG, From, Request}=Msg) ->
     {Dbg3, State2} = process_request(director_utils:debug(Dbg, Name, Msg), State, From, Request),
     loop(Parent, Dbg3, State2);
-
 process_message(Parent, Dbg, #?STATE{name= Name}=State, {'EXIT', Pid, Reason}=Msg) ->
     process_exit(Parent, director_utils:debug(Dbg, Name, Msg), State, Pid, Reason);
-
 process_message(Parent, Dbg, #?STATE{name = Name}=State, {timeout, TimerRef, Id}=Msg) ->
     {Dbg2, State2} = process_timeout(director_utils:debug(Dbg, Name, Msg), State, TimerRef, Id),
     loop(Parent, Dbg2, State2);
-
 process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
     loop(Parent, Dbg, State);
-
 process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) ->
     sys:handle_system_msg(Msg
                          ,From
@@ -1210,11 +873,6 @@ process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=
     loop(Parent, Dbg, State).
 
 
-
-
-
-
-
 process_request(Dbg
                ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
@@ -1229,7 +887,6 @@ process_request(Dbg
                 {error, Other}
         end,
     {reply(Dbg, Name, From, Result), State};
-
 process_request(Dbg
                ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
@@ -1238,7 +895,6 @@ process_request(Dbg
            || #?CHILD{pid = Pid, id = Id} <- director_table:tab2list(Tab, TabType)
            ,  erlang:is_pid(Pid)],
     {reply(Dbg, Name, From, Pids), State};
-
 process_request(Dbg
                ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
@@ -1268,7 +924,6 @@ process_request(Dbg
              ,{supervisors, Sups}
              ,{workers, Workers}],
     {reply(Dbg, Name, From, Result), State};
-
 process_request(Dbg
                ,#?STATE{table = Tab, name = Name, table_type = TabType}=State
                ,From
@@ -1284,7 +939,6 @@ process_request(Dbg
                 {ok, State#?STATE{table = Tab2}}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 process_request(Dbg
                ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
@@ -1307,7 +961,6 @@ process_request(Dbg
                 {ok, director_utils:c2cs(Child)}
         end,
     {reply(Dbg, Name, From, Result), State};
-
 process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
@@ -1325,7 +978,6 @@ process_request(Dbg
                 {Error, State}
         end,
     {reply(Dbg ,Name ,From ,Result), State2};
-
 process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
@@ -1349,7 +1001,6 @@ process_request(Dbg
                 {Error, State}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
@@ -1365,7 +1016,6 @@ process_request(Dbg
                 {ok, State#?STATE{table = Tab2}}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 process_request(Dbg
                ,#?STATE{name = Name, table = Tab, table_type = TabType}=State
                ,From
@@ -1389,7 +1039,6 @@ process_request(Dbg
                 {ok, Plan}
         end,
     {reply(Dbg, Name, From, Result), State};
-
 process_request(Dbg
                ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
@@ -1419,7 +1068,6 @@ process_request(Dbg
                 {Error, State}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 process_request(Dbg
                ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
@@ -1447,7 +1095,6 @@ process_request(Dbg
                 {{error, {count_format, [{count, Count0}]}}, State}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 process_request(Dbg
                ,#?STATE{table = Table, name = Name, table_type = TabType}=State
                ,From
@@ -1466,7 +1113,6 @@ process_request(Dbg
                ,From
                ,?GET_DEF_CHILDSPEC) ->
     {reply(Dbg, Name, From, DefChildSpec), State};
-
 process_request(Dbg
                ,#?STATE{table = Tab
                        ,name = Name
@@ -1484,13 +1130,11 @@ process_request(Dbg
                 {State, Error}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 %%process_request(Dbg
 %%               ,#?STATE{name = Name, log_validator = LogValidator}=State
 %%               ,From
 %%               ,?GET_LOG_VALIDATOR) ->
 %%    {reply(Dbg, Name, From, LogValidator), State};
-
 process_request(Dbg
                ,#?STATE{name = Name}=State
                ,From
@@ -1503,7 +1147,6 @@ process_request(Dbg
                 {State, {error, {bad_log_validator, [{log_validator, LogValidator}]}}}
         end,
     {reply(Dbg, Name, From, Result), State2};
-
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, From, Other) ->
     case director_utils:run_log_validator(LogValidator
@@ -1518,11 +1161,6 @@ process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, F
                                   ,[Name, Other, From])
     end,
     {reply(Dbg, Name, From, {error, {unknown_request, Other}}), State}.
-
-
-
-
-
 
 
 process_exit(Parent, Dbg, State, Parent, Reason) ->
@@ -1551,17 +1189,12 @@ process_exit(Parent
     end.
 
 
-
-
-
-
 handle_exit(Dbg
            ,State
            ,#?CHILD{plan = []}=Child
            ,Reason) ->
     Reason2 = {empty_plan_child_terminated, [{reason, Reason}|director_utils:c_r2p(Child, long)]},
     terminate(Dbg, State, Reason2);
-
 handle_exit(Dbg
            ,State
            ,#?CHILD{count = Count
@@ -1569,7 +1202,6 @@ handle_exit(Dbg
            ,Reason) ->
     Reason2 = {reached_max_restart_plan, [{reason, Reason}|director_utils:c_r2p(Child, long)]},
     terminate(Dbg, State, Reason2);
-
 handle_exit(Dbg
            ,#?STATE{name = Name
                    ,table = Table
@@ -1661,11 +1293,6 @@ handle_exit(Dbg
     end.
 
 
-
-
-
-
-
 process_timeout(Dbg
                ,#?STATE{name = Name
                        ,table = Tab
@@ -1694,18 +1321,8 @@ process_timeout(Dbg
             {Dbg, State}
     end.
 
-
-
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Other internal functions:
-
-
-
-
 
 do_call(Name, Request) ->
     do_call(Name, Request, ?DEF_CALL_TIMEOUT).
@@ -1721,11 +1338,6 @@ do_call(Name, Request, Timeout) ->
     end.
 
 
-
-
-
-
-
 name({local, Name}) ->
     Name;
 name({global, Name}) ->
@@ -1734,15 +1346,6 @@ name({via, _Mod, Name}) ->
     Name;
 name(Other) ->
     Other.
-
-
-
-
-
-
-
-
-
 
 
 unregister_name({local,Name}) ->
@@ -1759,11 +1362,6 @@ unregister_name({via, Mod, Name}) ->
     ok;
 unregister_name(_Other) ->
     ok.
-
-
-
-
-
 
 
 init_module(Mod, InitArg) ->
@@ -1801,11 +1399,6 @@ init_module(Mod, InitArg) ->
     end.
 
 
-
-
-
-
-
 start_children(Name, [#?CHILD{id=Id}=Child|Children], Tab, TabType, LogValidator) ->
     case do_start_child(Name, Child, Tab, TabType, LogValidator) of
         {ok, _Pid, Tab2} ->
@@ -1822,12 +1415,6 @@ start_children(_Name, [], Tab, _TabType, _LogValidator) ->
     {ok, Tab}.
 
 
-
-
-
-
-
-
 do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogValidator) ->
     case director_table:lookup(Tab, Id, TabType) of
         not_found ->
@@ -1837,8 +1424,6 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,Tab, TabType, LogValidator) ->
         _Child ->
             {error, already_present}
     end.
-
-
 
 
 do_restart_child(Name, Id, Tab, TabType, LogValidator) ->
@@ -1858,8 +1443,6 @@ do_restart_child(Name, Id, Tab, TabType, LogValidator) ->
         Child ->
             start_mfa(Name, Child, Tab, TabType, LogValidator)
     end.
-
-
 
 
 start_mfa(Name
@@ -1892,11 +1475,6 @@ start_mfa(Name
     end.
 
 
-
-
-
-
-
 terminate(Dbg
          ,#?STATE{table = Tab
                  ,name = Name
@@ -1925,11 +1503,6 @@ terminate(Dbg
     erlang:exit(Reason).
 
 
-
-
-
-
-
 terminate_children(Name, Tab, TabType, LogValidator) ->
     Terminate =
         fun(Id, Tab2) ->
@@ -1941,11 +1514,6 @@ terminate_children(Name, Tab, TabType, LogValidator) ->
             end
         end,
     _Tab3 = lists:foldl(Terminate, Tab, director_table:tab2list(Tab, TabType)).
-
-
-
-
-
 
 
 do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogValidator) ->
@@ -1976,11 +1544,6 @@ do_terminate_child(Name, Id_or_Pid, Tab, TabType, LogValidator) ->
                                                        ,timer_reference = undefined}
                                          ,TabType)
     end.
-
-
-
-
-
 
 
 do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=Child, LogValidator)
@@ -2023,11 +1586,6 @@ do_terminate_child(Name, #?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=
     end.
 
 
-
-
-
-
-
 monitor_child(Pid) ->
     erlang:monitor(process, Pid),
         catch erlang:unlink(Pid),
@@ -2042,18 +1600,8 @@ monitor_child(Pid) ->
     end.
 
 
-
-
-
-
-
 restart_timer(PosInt, Id) ->
     erlang:start_timer(PosInt, erlang:self(), Id, []).
-
-
-
-
-
 
 
 reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
@@ -2061,18 +1609,8 @@ reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
     director_utils:debug(Dbg, Name, {out, Pid, Result}).
 
 
-
-
-
-
-
 check_duplicate_ids(Children) ->
     check_duplicate_ids([Id || #?CHILD{id = Id} <- Children], []).
-
-
-
-
-
 
 
 check_duplicate_ids([Id|Ids], Ids2) ->
@@ -2084,11 +1622,6 @@ check_duplicate_ids([Id|Ids], Ids2) ->
     end;
 check_duplicate_ids([], _Ids2) ->
     ok.
-
-
-
-
-
 
 
 change_old_children_pids([#?CHILD{id = Id}=Child|Children], Tab, TabType) ->

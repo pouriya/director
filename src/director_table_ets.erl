@@ -43,10 +43,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-
-
-
-
 %% API:
 -export([create/0
         ,insert/2
@@ -60,56 +56,26 @@
         ,delete_table/1
         ,tab2list/1]).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
-
-
-
-
 -define(ETS_TABLE_OPTIONS, [{keypos,2}]).
-
-
-
-
 
 %% Dependencies:
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
-
-
-
-
 
 create() ->
     Name = erlang:list_to_atom(erlang:pid_to_list(erlang:self())),
     ets:new(Name, ?ETS_TABLE_OPTIONS).
 
 
-
-
-
-
-
 delete_table(Table) ->
     ets:delete(Table),
     ok.
-
-
-
-
-
 
 
 lookup(Table, Id) ->
@@ -121,18 +87,8 @@ lookup(Table, Id) ->
     end.
 
 
-
-
-
-
-
 count(Table) ->
     ets:info(Table, size).
-
-
-
-
-
 
 
 lookup_by_pid(Table, Pid) ->
@@ -159,11 +115,6 @@ lookup_by_pid(Table, Pid) ->
     end.
 
 
-
-
-
-
-
 lookup_appended(Table) ->
     ets:match_object(Table
                     ,#?CHILD{id = '_'
@@ -184,18 +135,9 @@ lookup_appended(Table) ->
 
 
 
-
-
-
-
 insert(Tab, Child) ->
     true = ets:insert(Tab, Child),
     Tab.
-
-
-
-
-
 
 
 delete(Tab, Id) ->
@@ -203,18 +145,8 @@ delete(Tab, Id) ->
     Tab.
 
 
-
-
-
-
-
 tab2list(Table) ->
     ets:tab2list(Table).
-
-
-
-
-
 
 
 combine_children(DefChildSpec, Table) ->
@@ -222,11 +154,6 @@ combine_children(DefChildSpec, Table) ->
                        || Child <- lookup_appended(Table)],
     _ = [insert(Table, director_utils:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
     Table.
-
-
-
-
-
 
 
 separate_children(DefChildSpec, Table) ->

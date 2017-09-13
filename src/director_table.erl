@@ -48,10 +48,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-
-
-
-
 %% API:
 -export([create/1
         ,insert/3
@@ -65,41 +61,20 @@
         ,delete_table/2
         ,tab2list/2]).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
-
-
-
-
 
 %% Dependencies:
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
-
-
-
-
 
 create(list) ->
     director_table_list:create();
 create(ets) ->
     director_table_ets:create().
-
-
-
-
-
 
 
 delete_table(Tab, list) ->
@@ -108,21 +83,10 @@ delete_table(Tab, ets) ->
     director_table_ets:delete_table(Tab).
 
 
-
-
-
-
-
 lookup(Tab, Id, list) ->
     director_table_list:lookup(Tab, Id);
 lookup(Tab, Id, ets) ->
     director_table_ets:lookup(Tab, Id).
-
-
-
-
-
-
 
 
 count(Tab, list) ->
@@ -131,21 +95,10 @@ count(Tab, ets) ->
     director_table_ets:count(Tab).
 
 
-
-
-
-
-
-
 lookup_by_pid(Tab, Pid, list) ->
     director_table_list:lookup_by_pid(Tab, Pid);
 lookup_by_pid(Tab, Pid, ets) ->
     director_table_ets:lookup_by_pid(Tab, Pid).
-
-
-
-
-
 
 
 lookup_appended(Tab, list) ->
@@ -154,21 +107,10 @@ lookup_appended(Tab, ets) ->
     director_table_ets:lookup_appended(Tab).
 
 
-
-
-
-
-
-
 insert(Tab, Child, list) ->
     director_table_list:insert(Tab, Child);
 insert(Tab, Child, ets) ->
     director_table_ets:insert(Tab, Child).
-
-
-
-
-
 
 
 delete(Tab, Id, list) ->
@@ -177,31 +119,16 @@ delete(Tab, Id, ets) ->
     director_table_ets:delete(Tab, Id).
 
 
-
-
-
-
-
 tab2list(Tab, list) ->
     director_table_list:tab2list(Tab);
 tab2list(Tab, ets) ->
     director_table_ets:tab2list(Tab).
 
 
-
-
-
-
-
 combine_children(DefChildSpec, Tab, list) ->
     director_table_list:combine_children(DefChildSpec, Tab);
 combine_children(DefChildSpec, Tab, ets) ->
     director_table_ets:combine_children(DefChildSpec, Tab).
-
-
-
-
-
 
 
 separate_children(DefChildSpec, Tab, list) ->

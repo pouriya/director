@@ -43,10 +43,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-
-
-
-
 %% API:
 -export([create/0
         ,insert/2
@@ -60,48 +56,22 @@
         ,delete_table/1
         ,tab2list/1]).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
-
-
-
-
 
 %% Dependencies:
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
-
-
-
-
 
 create() ->
     [].
 
 
-
-
-
-
-
 delete_table(_Tab) ->
     ok.
-
-
-
-
-
 
 
 lookup(Tab, Id) ->
@@ -113,17 +83,8 @@ lookup(Tab, Id) ->
     end.
 
 
-
-
-
-
-
 count(Tab) ->
     erlang:length(Tab).
-
-
-
-
 
 
 lookup_by_pid(Tab, Pid) ->
@@ -135,18 +96,8 @@ lookup_by_pid(Tab, Pid) ->
     end.
 
 
-
-
-
-
-
 lookup_appended(Tab) ->
     [Child || #?CHILD{append = Append}=Child <- Tab, Append == true].
-
-
-
-
-
 
 
 insert(Tab, #?CHILD{id = Id}=Child) ->
@@ -159,12 +110,6 @@ insert(Tab, #?CHILD{id = Id}=Child) ->
     end.
 
 
-
-
-
-
-
-
 delete(Tab, Id) ->
     case lists:keyfind(Id, 2, Tab) of
         false ->
@@ -174,18 +119,8 @@ delete(Tab, Id) ->
     end.
 
 
-
-
-
-
-
 tab2list(Tab) ->
     Tab.
-
-
-
-
-
 
 
 combine_children(DefChildSpec, Tab) ->
@@ -194,11 +129,6 @@ combine_children(DefChildSpec, Tab) ->
     lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_utils:cs2c(AppendedChild)) end
                ,Tab
                ,AppendedChildren).
-
-
-
-
-
 
 
 separate_children(DefChildSpec, Tab) ->

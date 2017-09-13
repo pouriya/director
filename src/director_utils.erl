@@ -44,10 +44,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-
-
-
-
 %% API:
 -export([debug/3
         ,get_debug_options/3
@@ -69,30 +65,14 @@
         ,c_r2p/2
         ,cs2c/1]).
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
-
-
-
-
 
 -include("internal/director_child.hrl").
 -include("internal/director_defaults.hrl").
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Functions:
-
-
-
-
 
 get_debug_options(Name, Opts, Def) ->
     case lists:keyfind(debug, 1, Opts) of
@@ -110,11 +90,6 @@ get_debug_options(Name, Opts, Def) ->
     end.
 
 
-
-
-
-
-
 progress_report(Name, #?CHILD{id = Id}=Child, LogValidator) ->
     case run_log_validator(LogValidator, Id, {info, start}) of
         none ->
@@ -123,11 +98,6 @@ progress_report(Name, #?CHILD{id = Id}=Child, LogValidator) ->
             error_logger:info_report(progress, [{supervisor, Name}
                                                ,{started, c_r2p(Child, LogMode)}])
     end.
-
-
-
-
-
 
 
 error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogValidator) ->
@@ -143,29 +113,14 @@ error_report(Name, ErrorContext, Reason, #?CHILD{id = Id}=Child, LogValidator) -
     end.
 
 
-
-
-
-
-
 debug([], _Name, _MsgInfo) ->
     [];
 debug(Dbg, Name, MsgInfo) ->
     sys:handle_debug(Dbg, fun print/3, Name, MsgInfo).
 
 
-
-
-
-
-
 check_childspecs(ChildSpecs) ->
     check_childspecs(ChildSpecs, ?DEF_DEF_CHILDSPEC).
-
-
-
-
-
 
 
 check_default_childspec(ChildSpec)
@@ -181,11 +136,6 @@ check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
 
 
-
-
-
-
-
 get_log_validator(Name, Opts, Def) ->
     case lists:keyfind(log_validator, 1, Opts) of
         false ->
@@ -199,11 +149,6 @@ get_log_validator(Name, Opts, Def) ->
             error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
             Def
     end.
-
-
-
-
-
 
 
 get_table_type(Name, Opts, Def) ->
@@ -223,11 +168,6 @@ get_table_type(Name, Opts, Def) ->
     end.
 
 
-
-
-
-
-
 run_log_validator(Validator, Id, Extra) ->
     case catch Validator(Id, Extra) of
         none ->
@@ -245,11 +185,6 @@ run_log_validator(Validator, Id, Extra) ->
     end.
 
 
-
-
-
-
-
 check_childspecs([Elem|Elems], DefChildSpec, Children) ->
     case check_childspec(Elem, DefChildSpec) of
         {ok, ChildSpec} ->
@@ -265,11 +200,6 @@ check_childspecs(Other, _DefChildSpec, _Children) ->
     {error, {childspecs_type, [{childspecs, Other}]}}.
 
 
-
-
-
-
-
 separate_child(ChildSpec, DefChildSpec) ->
     case maps:get(append, ChildSpec) of
         true ->
@@ -277,11 +207,6 @@ separate_child(ChildSpec, DefChildSpec) ->
         false ->
             ChildSpec
     end.
-
-
-
-
-
 
 
 cs2c(#{id := Id
@@ -318,10 +243,6 @@ cs2c(#{id := Id
 
 
 
-
-
-
-
 c2cs(#?CHILD{id = Id
             ,start = Start
             ,plan = Plan
@@ -338,11 +259,6 @@ c2cs(#?CHILD{id = Id
     ,modules => Modules
     ,type => Type
     ,append => Append}.
-
-
-
-
-
 
 
 c_r2p(#?CHILD{pid = Pid
@@ -411,11 +327,6 @@ c_r2p(#?CHILD{pid = Pid
     ,{append, Append}].
 
 
-
-
-
-
-
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
     try maps:get(Key, ChildSpec) of
         Value ->
@@ -469,11 +380,6 @@ check_map(_ChidlSpec, [], ChildSpec2) ->
     {ok, ChildSpec2}.
 
 
-
-
-
-
-
 check_map2(ChildSpec, [{Key, Filter}|Keys], ChildSpec2) ->
     try maps:get(Key, ChildSpec) of
         Value ->
@@ -495,22 +401,12 @@ check_map2(_ChidlSpec, [], ChildSpec2) ->
     {ok, ChildSpec2}.
 
 
-
-
-
-
-
 filter_start({_Mod, _Func, _Args}=Start) ->
     {ok, Start};
 filter_start({Mod, Func}) ->
     {ok, {Mod, Func, []}};
 filter_start(Other) ->
     {error, {format, [{start, Other}]}}.
-
-
-
-
-
 
 
 combine_child(ChildSpec, DefChildSpec) ->
@@ -520,11 +416,6 @@ combine_child(ChildSpec, DefChildSpec) ->
         false ->
             ChildSpec
     end.
-
-
-
-
-
 
 
 combine_child(start
@@ -567,11 +458,6 @@ combine_child(Key, Value, Map) ->
     Map#{Key => Value}.
 
 
-
-
-
-
-
 separate_child(start
               ,{Mod, Func, Args}
               ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
@@ -612,11 +498,6 @@ separate_child(Key, Value, Map) ->
     Map#{Key => Value}.
 
 
-
-
-
-
-
 print(IODev, {in, Msg}, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got message \"~p\" ~n"
@@ -654,11 +535,6 @@ print(IODev, Other, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got debug \"~p\" ~n"
              ,[Name, Other]).
-
-
-
-
-
 
 
 check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
@@ -708,20 +584,10 @@ check_childspec(Other, _DefChildSpec) ->
     {error, {childspec_type, [{childspec, Other}]}}.
 
 
-
-
-
-
-
 filter_plan(Plan) when erlang:is_list(Plan) ->
     filter_plan(Plan, []);
 filter_plan(Other) ->
     {error, {plan_type, [{plan, Other}]}}.
-
-
-
-
-
 
 
 filter_plan_element(restart) ->
@@ -754,11 +620,6 @@ filter_plan_element(Other) ->
     {error, {plan_element_type, [{plan_element, Other}]}}.
 
 
-
-
-
-
-
 filter_plan([PlanElem|Plan], Plan2) ->
     case filter_plan_element(PlanElem) of
         {ok, PlanElem2} ->
@@ -768,11 +629,6 @@ filter_plan([PlanElem|Plan], Plan2) ->
     end;
 filter_plan([], Plan2) ->
     {ok, lists:reverse(Plan2)}.
-
-
-
-
-
 
 
 is_whole_integer(Int) when erlang:is_integer(Int) ->
@@ -786,11 +642,6 @@ is_whole_integer(_Other) ->
     false.
 
 
-
-
-
-
-
 filter_count(infinity) ->
     {ok, infinity};
 filter_count(Count) ->
@@ -800,11 +651,6 @@ filter_count(Count) ->
         false ->
             {error, {count_range_or_type, [{count, Count}]}}
     end.
-
-
-
-
-
 
 
 filter_terminate_timeout(infinity) ->
@@ -818,22 +664,12 @@ filter_terminate_timeout(TerminateTimeout) ->
     end.
 
 
-
-
-
-
-
 filter_type(worker) ->
     {ok, worker};
 filter_type(supervisor) ->
     {ok, supervisor};
 filter_type(Other) ->
     {error, {type_type, [{type, Other}]}}.
-
-
-
-
-
 
 
 filter_modules(dynamic) ->
@@ -846,20 +682,10 @@ filter_modules(Other) ->
     {error, {modules_type, [{modules, Other}]}}.
 
 
-
-
-
-
-
 filter_append(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
 filter_append(Other) ->
     {error, {append_type, [{append, Other}]}}.
-
-
-
-
-
 
 
 check_childspecs([], _DefChildSpec) ->
