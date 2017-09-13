@@ -455,7 +455,7 @@ combine_child(modules, Mods, #{modules := Mods2}=Map) ->
 combine_child(plan, Plan, #{plan := Plan2}=Map) ->
     Map#{plan => Plan2 ++ Plan};
 combine_child(Key, Value, Map) ->
-    Map#{Key => Value}.
+    maps:put(Key, Value, Map).
 
 
 separate_child(start
@@ -495,7 +495,7 @@ separate_child(modules, Mods, #{modules := Mods2}=Map) ->
 separate_child(plan, Plan, #{plan := Plan2}=Map) ->
     Map#{plan => Plan -- Plan2};
 separate_child(Key, Value, Map) ->
-    Map#{Key => Value}.
+    maps:put(Key, Value, Map).
 
 
 print(IODev, {in, Msg}, Name) ->
