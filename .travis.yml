@@ -1,8 +1,12 @@
 language: erlang
 otp_release:
+  - 17
+  - 18
+  - 18.3
   - 19.0
   - 19.3
   - 20.0
+  - 20.1
 
 
 before_script:
