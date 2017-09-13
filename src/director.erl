@@ -103,7 +103,8 @@
         ,system_continue/3
         ,system_get_state/1
         ,system_replace_state/2
-        ,system_terminate/4]).
+        ,system_terminate/4
+        ,format_status/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Types:
@@ -774,32 +775,31 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
 %% 'sys' callbacks:
 
 %% @hidden
-system_continue(Parent, Dbg, [State|_]) ->
+system_continue(Parent, Dbg, State) ->
     loop(Parent, Dbg, State).
 
 
 %% @hidden
-system_terminate(Reason, _Parent, Dbg, [State|_]) ->
+system_terminate(Reason, _Parent, Dbg, State) ->
     terminate(Dbg, State, Reason).
 
 
 %% @hidden
-system_get_state([State|_]) ->
+system_get_state(State) ->
     {ok, State}.
 
 
 %% @hidden
-system_replace_state(ReplaceStateFun, [State|Rest]) ->
+system_replace_state(ReplaceStateFun, State) ->
     NewState = ReplaceStateFun(State),
-    {ok, NewState, [NewState|Rest]}.
+    {ok, NewState, NewState}.
 
 
 %% @hidden
-system_code_change([#?STATE{module = Mod
-                           ,init_argument = InitArg
-                           ,table = Tab
-                           ,table_type = TabType}=State
-                   |Rest]
+system_code_change(#?STATE{module = Mod
+                          ,init_argument = InitArg
+                          ,table = Tab
+                          ,table_type = TabType}=State
                   ,_Module
                   ,_OldVsn
                   ,_Extra) ->
@@ -807,19 +807,45 @@ system_code_change([#?STATE{module = Mod
         {ok, Children, DefChildSpec} ->
             case check_duplicate_ids(Children) of
                 ok ->
-                    {ok, [State#?STATE{table = change_old_children_pids(Children
-                                                                       ,Tab
-                                                                       ,TabType)
-                                      ,default_childspec = DefChildSpec}
-                         |Rest]};
+                    {ok, State#?STATE{table = change_old_children_pids(Children, Tab, TabType)
+                                     ,default_childspec = DefChildSpec}};
                 {error, _}=Err ->
                     Err
             end;
         ignore ->
-            {ok, [State|Rest]};
+            {ok, State};
         {error, _}=Err ->
             Err
     end.
+
+
+%% @hidden
+format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module = Mod}=State]) ->
+    Header = {header, "Status for director " ++ io_lib:print(Name)},
+    Data = {data, [{"Status", SysState}
+                  ,{"Parent", Parent}
+                  ,{"Logged events", sys:get_debug(log, Debug, [])}]},
+    State2 =
+        case string:to_integer(erlang:system_info(otp_release)) of
+            {Ver, []} when Ver >= 19->
+                {state
+                ,name
+                ,strategy
+                ,children
+                ,dynamics
+                ,intensity
+                ,period
+                ,restarts
+                ,Mod
+                ,Mod
+                ,args};
+            _ ->
+                State
+        end,
+    Specific = [{data, [{"State", State2}]}
+               ,{supervisor, [{"Callback", Mod}]}],
+    [Header, Data, Specific].
+
 
 %% -------------------------------------------------------------------------------------------------
 %% Process main loop and its main subcategories:
@@ -844,13 +870,8 @@ process_message(Parent, Dbg, #?STATE{name = Name}=State, {timeout, TimerRef, Id}
     loop(Parent, Dbg2, State2);
 process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
     loop(Parent, Dbg, State);
-process_message(Parent, Dbg, #?STATE{module = Mod}=State, {system, From, Msg}) ->
-    sys:handle_system_msg(Msg
-                         ,From
-                         ,Parent
-                         ,?MODULE
-                         ,Dbg
-                         ,[State, {supervisor, [{"Callback", Mod}]}]);
+process_message(Parent, Dbg, State, {system, From, Msg}) ->
+    sys:handle_system_msg(Msg, From, Parent, ?MODULE, Dbg, State);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, Msg) ->
     case director_utils:run_log_validator(LogValidator
