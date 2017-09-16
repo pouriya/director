@@ -33,7 +33,8 @@
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
 %% @version  17.9.13
 %% @doc
-%%           Flexible, fast and powerful process supervisor and manager.
+%%           Director is a production-ready supervisor and manager for Erlang/Elixir processes with
+%%           focus on speed and flexibility.
 %% @end
 %% -------------------------------------------------------------------------------------------------
 

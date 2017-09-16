@@ -2,7 +2,7 @@
 
 
 # Welcome
-**Director** is fast, flexible, powerful and production-ready **supervisor** and **manager** for Erlang/Elixir processes.
+**Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes with focus on speed and flexibility.
 
 ## Synopsis
 According to the Erlang's manual documentation:  
