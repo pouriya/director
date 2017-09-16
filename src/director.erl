@@ -130,7 +130,8 @@
                       ,'terminate_timeout' => terminate_timeout()
                       ,'type' => type()
                       ,'modules' => modules()
-                      ,'append' => append()}.
+                      ,'append' => append()
+                      ,'log_validator' => log_validator()}.
 -type  id() :: term().
 -type  start() :: module() % default is {module(), start_link, []}
                 | {module(), function()} % default Args is []
@@ -140,14 +141,12 @@
                         | {'restart', pos_integer()}
                         | 'wait'
                         | 'stop'
-                        | {'stop', 'reason'}
                         | {'stop', Reason::term()}
                         | fun((Id::term(), Reason::term(), RestartCount::pos_integer()) ->
                               'restart'                  |
                               {'restart', pos_integer()} |
                               'wait'                     |
                               'stop'                     |
-                              {'stop', 'reason'}         |
                               {'stop', Reason::term()})  .
 -type  count() :: 'infinity' | non_neg_integer().
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
