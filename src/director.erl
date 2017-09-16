@@ -536,12 +536,12 @@ plan_element_fun(_Id, _Other, _Count) ->
 
 
 -spec
-log_validator(Id::term(), Extra::term()) ->
+log_validator(Type::log_type(), Extra::term()) ->
     'short'.
 %% @doc
 %%     Short description for every log.
 %% @end
-log_validator(_Id, _Extra) ->
+log_validator(_Type, _Extra) ->
     short.
 
 %% -------------------------------------------------------------------------------------------------
