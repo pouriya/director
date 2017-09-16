@@ -2,7 +2,7 @@
 
 
 # Welcome
-**Director** is fast, powerful and flexible Erlang process **supervisor** and **manager**.  
+**Director** is fast, flexible, powerful and production-ready **supervisor** and **manager** for Erlang/Elixir processes.
 
 ## Synopsis
 According to the Erlang's manual documentation:  
@@ -13,26 +13,20 @@ According to the Erlang's manual documentation:
 
 
 ## Features:  
-* Restart child if child crashed with any reason.  
-* Restart child if child crashed with some specific reasons.
-* Ignore restarting child if child crashed with any reason.  
-* Ignore restarting child if child crashed with some specific reasons.  
-* Delete child from children if child crashed with any reason.  
-* Delete child from children if child crashed with some specific reasons.
-* Restart child after spending time if child crashed with any reason.
-* Restart child after spending time if child crashed with some specific reasons.  
-* Get pid of child if child is running in separate and atomic request.  
-* Get pids of all running children.
-* Change plan of restarting child dynamically.  
-* Set some values as defaults and start children with that default values. (for example `mfa` of child, its more like `simple_one_for_one` strategy of OTP/Supervisor)  
-* Change default values for starting children dynamically.  
-* A **Director** process can give response for all API functions of OTP/Supervisor module !
-* **Director** is not a generic behavior like `gen_sever`, etc. It was written as Erlang special process and it's so fast ! (Don't worry about handling system messages, it handles)
-* **Director** has its own clean debug output for any working state (Standard OTP/sys debug).  
-* **Director** makes necessary reports to `error_logger` just like OTP/Supervisor.(So some useful libraries like `lager` can use its output and don't need to write new code for understanding **Director**'s reports)  
-* **Director** has 3 modes for giving details to `error_logger`: `short`, `long` and `none`, You can specify an Erlang fun for validating log which should returns one of these modes.
+* If a child crashed, **Director** can do following works (Depends on your childspec plan):
+    * Restart child.
+    * Restart child after time interval.
+    * Delete child from its children.
+    * Wait for calling `restart_child/2-3` for restarting.
+    * Crash itself.
+* A **Director** process can give response for all API functions of OTP/Supervisor module (for example `director:which_children(Pid)` `=:=` `supervisor:which_children(Pid)`).
+* **Director** does not write top of generic behaviors like `gen_sever`, etc. It was written as Erlang special process and it is blazingly fast.
+* **Director** has its own clean debug output for any working state (Standard OTP/sys debug).
+* In **Director** every child can has its own filter for validating its log for starting and crashing.
+* **Director** makes robust and flexible approach for starting and managing many children with one childspec.
+* **Director** gives pids of all running children in separate request called `get_pids/1-2`.
 
-If you are familiar with OTP/supervisor, by comparing **Director** and OTP/Supervisor you can understand that it's more flexible and more useful.
+All features not listed here.
 
 For more info see [**Wiki**](https://github.com/Pouriya-Jahanbakhsh/director/wiki) page.
 
