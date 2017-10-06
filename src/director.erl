@@ -184,8 +184,7 @@
 -type   log_validator_option() :: {'log_validator', log_validator()}.
 -type   table_module_option() :: {'table_module', module()}.
 -type   table_init_argument_option() :: {'table_module_init_argument', any()}.
--type   delete_table_before_terminate_option() :: {'delete_table_before_terminate_option'
-                                                  ,boolean()}.
+-type   delete_table_before_terminate_option() :: {'delete_table_before_terminate', boolean()}.
 
 -export_type([childspec/0
              ,id/0
