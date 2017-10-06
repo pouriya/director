@@ -536,7 +536,7 @@ start(register_name(), module(), InitArg::term(), start_options()) ->
 %% @doc
 %%      Starts stand-alone director.
 %% @end
-start(Name, Mod, InitArg, Opts) when erlang:is_tuple(Mod) andalso
+start(Name, Mod, InitArg, Opts) when erlang:is_tuple(Name) andalso
                                      erlang:is_atom(Mod) andalso
                                      erlang:is_list(Opts) ->
     gen:start(?MODULE, nolink, Name, Mod, InitArg, Opts).
@@ -1713,7 +1713,7 @@ start_mfa(Name
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
                     director_utils:progress_report(Name, Child2),
-                    {ok, Pid, TabState2};
+                    {ok, Pid, Extra, TabState2};
                 {error, _}=Err ->
                     Err
             end;
