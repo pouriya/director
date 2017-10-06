@@ -87,14 +87,12 @@ create(Mod, InitArg) ->
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, create}
-                                       ,{init_argument, InitArg}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{init_argument, InitArg}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, create}
-                                       ,{init_argument, InitArg}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{init_argument, InitArg}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -112,14 +110,12 @@ delete_table(Mod, State) ->
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, delete_table}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{state, State}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, delete_table}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{state, State}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -138,15 +134,13 @@ lookup_id(Mod, State, Id) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, lookup_id}
                                        ,{state, State}
-                                       ,{id, Id}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{id, Id}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, lookup_id}
                                        ,{state, State}
-                                       ,{id, Id}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{id, Id}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -165,14 +159,12 @@ count(Mod, State) ->
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, count}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{state, State}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, count}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{state, State}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -191,15 +183,13 @@ lookup_pid(Mod, State, Pid) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, lookup_pid}
                                        ,{state, State}
-                                       ,{pid, Pid}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{pid, Pid}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, lookup_pid}
                                        ,{state, State}
-                                       ,{pid, Pid}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{pid, Pid}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -221,20 +211,17 @@ lookup_appended(Mod, State) ->
                     {error, {table_bad_return, [{returned_value, Ok}
                                                ,{module, Mod}
                                                ,{function, lookup_appended}
-                                               ,{state, State}
-                                               ,{stacktrace, erlang:get_stacktrace()}]}}
+                                               ,{state, State}]}}
             end;
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, lookup_appended}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{state, State}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, lookup_appended}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{state, State}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -253,15 +240,13 @@ insert(Mod, State, Child) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, insert}
                                        ,{state, State}
-                                       ,{child, Child}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{child, Child}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, insert}
                                        ,{state, State}
-                                       ,{child, Child}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{child, Child}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -281,14 +266,12 @@ delete(Mod, State, Child) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, delete}
                                        ,{state, State}
-                                       ,{child, Child}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{child, Child}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, delete}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{state, State}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
@@ -310,27 +293,23 @@ tab2list(Mod, State) ->
                     {error, {table_bad_return, [{returned_value, Ok}
                                                ,{module, Mod}
                                                ,{function, tab2list}
-                                               ,{state, State}
-                                               ,{stacktrace, erlang:get_stacktrace()}]}}
+                                               ,{state, State}]}}
             end;
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
                                        ,{function, tab2list}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+                                       ,{state, State}]}};
         Other ->
             {error, {table_bad_return, [{returned_value, Other}
                                        ,{module, Mod}
                                        ,{function, tab2list}
-                                       ,{state, State}
-                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{state, State}]}}
     catch
         _:Rsn ->
             {error, {table_crash, [{reason, Rsn}
                                   ,{module, Mod}
                                   ,{function, tab2list}
-                                  ,{state, State}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                  ,{state, State}]}}
     end.
 
 
