@@ -177,20 +177,7 @@ count(Tab) when erlang:is_atom(Tab) ->
 
 
 lookup_pid(Tab, Pid) when erlang:is_atom(Tab) ->
-    try ets:match_object(Tab
-                        ,#?CHILD{id = '_'
-                                ,pid = Pid
-                                ,plan = '_'
-                                ,restart_count = '_'
-                                ,start = '_'
-                                ,timer_reference = '_'
-                                ,terminate_timeout = '_'
-                                ,extra = '_'
-                                ,modules = '_'
-                                ,type = '_'
-                                ,append = '_'
-                                ,log_validator = '_'
-                                ,supervisor = '_'}) of
+    try ets:match_object(Tab, #?CHILD{pid = Pid, _ = '_'}) of
         [Child] ->
             {ok, Child};
         [] ->
@@ -202,20 +189,7 @@ lookup_pid(Tab, Pid) when erlang:is_atom(Tab) ->
 
 
 lookup_appended(Tab) when erlang:is_atom(Tab) ->
-    try ets:match_object(Tab
-                        ,#?CHILD{id = '_'
-                                ,pid = '_'
-                                ,plan = '_'
-                                ,restart_count = '_'
-                                ,start = '_'
-                                ,timer_reference = '_'
-                                ,terminate_timeout = '_'
-                                ,extra = '_'
-                                ,modules = '_'
-                                ,type = '_'
-                                ,append = true
-                                ,log_validator = '_'
-                                ,supervisor = '_'}) of
+    try ets:match_object(Tab, #?CHILD{append = true, _ = '_'}) of
         Children ->
             {ok, Children}
     catch

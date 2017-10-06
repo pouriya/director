@@ -75,6 +75,7 @@
 -define(DEF_APPEND, false).
 -define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
 -define(DEF_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
+-define(DEF_PASS_IF_STARTED, false).
 
 
 

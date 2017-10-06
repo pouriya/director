@@ -1640,13 +1640,20 @@ init_module(Name, Mod, InitArg, Opts) ->
 
 
 
-start_children(Name, [#?CHILD{id=Id}=Child|Children], TabMod, TabState) ->
+start_children(Name
+              ,[#?CHILD{id=Id, pass_if_started = PassIfStarted}=Child|Children]
+              ,TabMod
+              ,TabState) ->
     case do_start_child(Name, Child, TabMod, TabState) of
         {ok, _Pid, TabState2} ->
             start_children(Name, Children, TabMod, TabState2);
-        {error, already_present} ->
+        {error, TabState2, already_present} when PassIfStarted ->
+            start_children(Name, Children, TabMod, TabState2);
+        {error, TabState2, {already_started, _}} when PassIfStarted ->
+            start_children(Name, Children, TabMod, TabState2);
+        {error, _TabState2, already_present} ->
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
-        {error, {already_started, _}} ->
+        {error, _TabState2, {already_started, _}} ->
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {error, _Reason}=Error ->
             _ = terminate_children(Name, TabMod, TabState),

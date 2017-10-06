@@ -255,7 +255,8 @@ cs2c(#{id := Id
      ,modules := Mods
      ,type := Type
      ,append := Append
-     ,log_validator := LogValidator}) ->
+     ,log_validator := LogValidator
+     ,pass_if_started := PassIfStarted}) ->
     #?CHILD{id = Id
            ,pid = undefined
            ,plan = Plan
@@ -268,7 +269,8 @@ cs2c(#{id := Id
            ,type = Type
            ,append = Append
            ,log_validator = LogValidator
-           ,supervisor = erlang:self()}.
+           ,supervisor = erlang:self()
+           ,pass_if_started = PassIfStarted}.
 
 
 
@@ -279,7 +281,8 @@ c2cs(#?CHILD{id = Id
             ,modules = Modules
             ,type = Type
             ,append = Append
-            ,log_validator = LogValidator}) ->
+            ,log_validator = LogValidator
+            ,pass_if_started = PassifStarted}) ->
     #{id => Id
     ,start => Start
     ,plan => Plan
@@ -287,7 +290,8 @@ c2cs(#?CHILD{id = Id
     ,modules => Modules
     ,type => Type
     ,append => Append
-    ,log_validator => LogValidator}.
+    ,log_validator => LogValidator
+    ,pass_if_started => PassifStarted}.
 
 
 c_r2p(#?CHILD{pid = Pid
@@ -327,7 +331,8 @@ c_r2p(#?CHILD{pid = Pid
              ,type = Type
              ,append = Append
              ,log_validator = LogValidator
-             ,supervisor = Sup}
+             ,supervisor = Sup
+             ,pass_if_started = PassIfStarted}
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
@@ -347,7 +352,8 @@ c_r2p(#?CHILD{pid = Pid
     ,{modules, Mods}
     ,{append, Append}
     ,{log_validator, LogValidator}
-    ,{supervisor, Sup}].
+    ,{supervisor, Sup}
+    ,{pass_if_started, PassIfStarted}].
 
 
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
@@ -557,7 +563,8 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,StartKey
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{type, fun filter_type/1, ?DEF_TYPE}
-            ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}],
+            ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}
+            ,{pass_if_started, fun filter_pass_if_started/1, ?DEF_PASS_IF_STARTED}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
         {ok, ChildSpec3} ->
             DefTerminateTimeout =
@@ -657,6 +664,12 @@ filter_log_validator(F) when erlang:is_function(F) ->
     end;
 filter_log_validator(F) ->
     {error, {log_validator_type, [{log_validator, F}]}}.
+
+
+filter_pass_if_started(Bool) when erlang:is_boolean(Bool) ->
+    {ok, Bool};
+filter_pass_if_started(Other) ->
+    {error, {pas_if_started_type, [{pass_if_started, Other}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->

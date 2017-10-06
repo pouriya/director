@@ -82,9 +82,10 @@
                                      ,modules
                                      ,type
                                      ,log_validator
-                                     ,supervisor]}
+                                     ,supervisor
+                                     ,pass_if_started]}
                        ,{type, ordered_set}
-                       ,{record_name, director_child}
+                       ,{record_name, ?CHILD}
                        ,{storage_properties, [{ets, [{read_concurrency, true}
                                                     ,{write_concurrency, true}]}]}]).
 

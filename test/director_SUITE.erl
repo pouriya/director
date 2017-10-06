@@ -60,7 +60,8 @@
         ,'5'/1
         ,'6'/1
         ,'7'/1
-        ,'8'/1]).
+        ,'8'/1
+        ,'9'/1]).
 
 
 
@@ -173,7 +174,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,modules => Mods
                 ,append => false
                 ,type => worker
-                ,log_validator => fun(_, _) -> short end},
+                ,log_validator => fun(_, _) -> short end
+                ,pass_if_started => false},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, State, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
@@ -267,7 +269,8 @@ end_per_testcase(_TestCase, _Config) ->
                 ,modules => Mods
                 ,append => false
                 ,type => supervisor
-                ,log_validator => fun(_, _) -> long end},
+                ,log_validator => fun(_, _) -> long end
+                ,pass_if_started => false},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, undefined, []} end,
 
@@ -450,7 +453,8 @@ end_per_testcase(_TestCase, _Config) ->
                  ,modules => [?CHILD_MODULE]
                  ,append => false
                  ,type => worker
-                 ,log_validator => fun director:log_validator/2},
+                 ,log_validator => fun director:log_validator/2
+                 ,pass_if_started => false},
     F2 = fun() -> {ok, undefined, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -492,6 +496,30 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
     ?assertEqual(ok, sys:resume(?DIRECTOR)),
     ?assertEqual(ok, file:write_file(ModFile, Src)).
+
+
+
+'9'(_Config) ->
+    TabMod = director_table_mnesia,
+    Id = foo,
+    F = fun() -> {ok, undefined} end,
+    ChildSpec = #{id => Id
+                 ,start => {?CHILD_MODULE, start_link, [F]}
+                 ,pass_if_started => true},
+    F2 = fun() -> {ok, undefined, [ChildSpec]} end,
+    Res = director:start_link(?CALLBACK, F2, [{table_module, TabMod}|?START_OPTIONS]),
+    ?assertMatch({ok, _Pid}, Res),
+    {ok, Pid} = Res,
+
+    Res2 = director:start_link(?CALLBACK, F2, [{table_module, TabMod}|?START_OPTIONS]),
+    ?assertMatch({ok, _Pid}, Res2),
+    {ok, Pid2} = Res2,
+
+    ?assertMatch({ok, _Pid}, director:get_pid(Pid, Id)),
+    ?assertMatch({ok, _Pid}, director:get_pid(Pid2, Id)),
+    ?assertEqual(ok, director:terminate_and_delete_child(Pid, Id)),
+    ?assertEqual({error, not_found}, director:get_pid(Pid2, Id)).
+
 
 
 

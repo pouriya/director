@@ -44,4 +44,5 @@
                 ,modules
                 ,type
                 ,log_validator
-                ,supervisor}).
+                ,supervisor
+                ,pass_if_started}).
