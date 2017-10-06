@@ -176,13 +176,16 @@
                        | timeout_option()
                        | log_validator_option()
                        | table_module_option()
-                       | table_init_argument_option().
+                       | table_init_argument_option()
+                       | delete_table_before_terminate_option().
 -type   debug_option() :: {'debug', ['trace'|'log'|'statistics'|'debug'] | []}.
 -type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
 -type   timeout_option() :: {'timeout', timeout()}.
 -type   log_validator_option() :: {'log_validator', log_validator()}.
 -type   table_module_option() :: {'table_module', module()}.
 -type   table_init_argument_option() :: {'table_module_init_argument', any()}.
+-type   delete_table_before_terminate_option() :: {'delete_table_before_terminate_option'
+                                                  ,boolean()}.
 
 -export_type([childspec/0
              ,id/0
@@ -212,11 +215,11 @@
 
 -callback
 init(InitArg) ->
-    {'ok', State, Childspecs}                    |
-    {'ok', State, Childspecs, DefaultChildspec}  |
-    {'ok', State, Childspec, Opts}               |
+    {'ok', State, Childspecs}                        |
+    {'ok', State, Childspecs, DefaultChildspec}      |
+    {'ok', State, Childspec, Opts}                   |
     {'ok', State, Childspec, DefaultChildspec, Opts} |
-    'ignore'                                     |
+    'ignore'                                         |
     {'stop', Reason}
     when
         State :: any(),
