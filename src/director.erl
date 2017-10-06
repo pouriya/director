@@ -1647,6 +1647,8 @@ start_children(Name
     case do_start_child(Name, Child, TabMod, TabState) of
         {ok, _Pid, TabState2} ->
             start_children(Name, Children, TabMod, TabState2);
+        {ok, _Pid, _Extra, TabState2} ->
+            start_children(Name, Children, TabMod, TabState2);
         {error, TabState2, already_present} when PassIfStarted ->
             start_children(Name, Children, TabMod, TabState2);
         {error, TabState2, {already_started, _}} when PassIfStarted ->
@@ -1657,10 +1659,7 @@ start_children(Name
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {error, _Reason}=Error ->
             _ = terminate_children(Name, TabMod, TabState),
-            Error;
-        {error, TabState2, Rsn} ->
-            _ = terminate_children(Name, TabMod, TabState2),
-            {error, Rsn}
+            Error
     end;
 start_children(_, [], _, TabState) ->
     {ok, TabState}.
