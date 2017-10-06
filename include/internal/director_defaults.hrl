@@ -53,23 +53,24 @@
 -define(CHANGE_PLAN_TAG, 'change_plan').
 -define(CHANGE_COUNT_TAG, 'change_count').
 -define(GET_PLAN_TAG, 'get_plan').
--define(GET_COUNT_TAG, 'get_count').
+-define(GET_RESTART_COUNT_TAG, 'get_restart_count').
 -define(GET_DEF_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEF_CHILDSPEC, 'change_default_childspec').
 -define(CHANGE_LOG_VALIDATOR, 'change_log_validator').
+-define(TERMINATE_AND_DELETE_CHILD_TAG, 'terminate_and_delete_child').
 %%-define(GET_LOG_VALIDATOR, 'get_log_validator').
 -define(DEF_LOG_VALIDATOR, fun director:log_validator/2).
 -define(DEF_LOG_MODE, 'short').
--define(DEF_TABLE_TYPE, 'list').
+-define(DEF_TABLE_MOD, 'director_table_list').
+-define(DEF_TABLE_INIT_ARG, 'undefined').
+-define(DEF_DELETE_TABLE_BEFORE_TERMINATE, true).
 
 
 
 
 
 
--define(DEF_PLAN_ELEMENT, fun director:plan_element_fun/3).
--define(DEF_PLAN, [?DEF_PLAN_ELEMENT]).
--define(DEF_COUNT, 3).
+-define(DEF_PLAN, fun director:plan/4).
 -define(DEF_TYPE, worker).
 -define(DEF_APPEND, false).
 -define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
@@ -80,11 +81,9 @@
 
 
 
--define(DEF_DEF_CHILDSPEC_PLAN, []).
--define(DEF_DEF_CHILDSPEC_COUNT, 0).
+-define(DEF_DEF_CHILDSPEC_PLAN, fun director:plan/4).
 -define(DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT, 0).
 -define(DEF_DEF_CHILDSPEC_MODULES, []).
 -define(DEF_DEF_CHILDSPEC, #{plan => ?DEF_DEF_CHILDSPEC_PLAN
-                            ,count => ?DEF_DEF_CHILDSPEC_COUNT
                             ,terminate_timeout => ?DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT
                             ,modules => ?DEF_DEF_CHILDSPEC_MODULES}).

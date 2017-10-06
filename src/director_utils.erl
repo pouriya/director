@@ -45,8 +45,9 @@
 %% Exports:
 
 %% API:
--export([debug/3
-        ,get_debug_options/3
+-export([concat/2
+        ,debug/3
+        ,get_debug_options/2
         ,progress_report/2
         ,error_report/4
         ,run_log_validator/3
@@ -55,15 +56,16 @@
         ,check_childspec/2
         ,check_default_childspec/1
         ,filter_plan/1
-        ,filter_plan_element/1
         ,is_whole_integer/1
-        ,get_log_validator/3
-        ,get_table_type/3
+        ,get_log_validator/2
+        ,get_table_module/2
+        ,get_table_init_argument/2
         ,combine_child/2
         ,separate_child/2
         ,c2cs/1
         ,c_r2p/2
-        ,cs2c/1]).
+        ,cs2c/1
+        ,get_delete_table_before_terminate/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -74,19 +76,46 @@
 %% -------------------------------------------------------------------------------------------------
 %% Functions:
 
-get_debug_options(Name, Opts, Def) ->
+concat(List1, List2) ->
+    concat2(lists:reverse(List1), List2).
+
+concat2([Item|List1], List2) ->
+    concat2(List1, [Item|List2]);
+concat2([], List) ->
+    List.
+
+get_debug_options(Name, Opts) ->
     case lists:keyfind(debug, 1, Opts) of
         {_, DbgOpts} ->
-            try sys:debug_options(DbgOpts)
-            catch _:_ ->
-                error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, DbgOpts]),
-                Def
+            try
+                sys:debug_options(DbgOpts)
+            catch
+                _:_ ->
+                    error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, DbgOpts]),
+                    ?DEF_DEBUG_OPTIONS
             end;
         false ->
-            Def;
+            ?DEF_DEBUG_OPTIONS;
         Other ->
             error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, Other]),
-            Def
+            ?DEF_DEBUG_OPTIONS
+    end.
+
+
+get_delete_table_before_terminate(Name, Opts) ->
+    case lists:keyfind(delete_table_before_terminate, 1, Opts) of
+        false ->
+            ?DEF_DELETE_TABLE_BEFORE_TERMINATE;
+        {_, Bool} when erlang:is_boolean(Bool) ->
+            Bool;
+        {_, Other} ->
+            error_logger:format("~p: ignoring erroneous value flag deleting table before"
+                                "termination: ~p~n", [Name, Other]),
+            ?DEF_LOG_VALIDATOR;
+        Other ->
+            error_logger:format("~p: ignoring erroneous value flag deleting table before"
+                                "termination: ~p~n", [Name, Other]),
+            ?DEF_LOG_VALIDATOR
     end.
 
 
@@ -136,38 +165,45 @@ check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
 
 
-get_log_validator(Name, Opts, Def) ->
+get_log_validator(Name, Opts) ->
     case lists:keyfind(log_validator, 1, Opts) of
         false ->
-            Def;
+            ?DEF_LOG_VALIDATOR;
         {_, Fun} when erlang:is_function(Fun, 2) ->
             Fun;
         {_, Other} ->
             error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
-            Def;
+            ?DEF_LOG_VALIDATOR;
         Other ->
             error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
-            Def
+            ?DEF_LOG_VALIDATOR
     end.
 
 
-get_table_type(Name, Opts, Def) ->
-    case lists:keyfind(table_type, 1, Opts) of
+get_table_module(Name, Opts) ->
+    case lists:keyfind(table_module, 1, Opts) of
         false ->
-            Def;
-        {_, list} ->
-            list;
-        {_, {ets, TabName}=TabType} when erlang:is_atom(TabName) ->
-            TabType;
-        {_, {ets, TabName}} ->
-            error_logger:format("~p: ignoring erroneous ETS table name: ~p~n", [Name, TabName]),
-            Def;
-        {_, Mode} ->
-            error_logger:format("~p: ignoring erroneous table type: ~p~n", [Name, Mode]),
-            Def;
-        Mode ->
-            error_logger:format("~p: ignoring erroneous table type: ~p~n", [Name, Mode]),
-            Def
+            ?DEF_TABLE_MOD;
+        {_, Mod} when erlang:is_atom(Mod) ->
+            Mod;
+        {_, Other} ->
+            error_logger:format("~p: ignoring erroneous table module: ~p~n", [Name, Other]),
+            ?DEF_TABLE_MOD;
+        Other ->
+            error_logger:format("~p: ignoring erroneous table module: ~p~n", [Name, Other]),
+            ?DEF_TABLE_MOD
+    end.
+
+
+get_table_init_argument(Name, Opts) ->
+    case lists:keyfind(table_init_argument, 1, Opts) of
+        false ->
+            ?DEF_TABLE_INIT_ARG;
+        {_, InitArg}  ->
+            {value, InitArg};
+        Other ->
+            error_logger:format("~p: ignoring erroneous table init argument: ~p~n", [Name, Other]),
+            ?DEF_TABLE_INIT_ARG
     end.
 
 
@@ -214,44 +250,31 @@ separate_child(ChildSpec, DefChildSpec) ->
 
 cs2c(#{id := Id
      ,plan := Plan
-     ,count := Count
      ,start := Start
      ,terminate_timeout := TerminateTimeout
      ,modules := Mods
      ,type := Type
      ,append := Append
      ,log_validator := LogValidator}) ->
-    PlanLen = erlang:length(Plan),
-    PlanElemIndex =
-        if
-            PlanLen =:= 0 ->
-                0;
-            true ->
-                1
-        end,
     #?CHILD{id = Id
            ,pid = undefined
            ,plan = Plan
-           ,count = Count
-           ,count2 = 0
            ,restart_count = 0
            ,start = Start
-           ,plan_element_index = PlanElemIndex
-           ,plan_length = PlanLen
            ,timer_reference = undefined
            ,terminate_timeout = TerminateTimeout
-           ,extra = undeined
+           ,extra = undefined
            ,modules = Mods
            ,type = Type
            ,append = Append
-           ,log_validator = LogValidator}.
+           ,log_validator = LogValidator
+           ,supervisor = erlang:self()}.
 
 
 
 c2cs(#?CHILD{id = Id
             ,start = Start
             ,plan = Plan
-            ,count = Count
             ,terminate_timeout = TerminateTimeout
             ,modules = Modules
             ,type = Type
@@ -260,7 +283,6 @@ c2cs(#?CHILD{id = Id
     #{id => Id
     ,start => Start
     ,plan => Plan
-    ,count => Count
     ,terminate_timeout => TerminateTimeout
     ,modules => Modules
     ,type => Type
@@ -271,7 +293,6 @@ c2cs(#?CHILD{id = Id
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
              ,plan = Plan
-             ,count = Count
              ,restart_count = ResCount
              ,start = Start
              ,terminate_timeout = TerminateTimeout
@@ -282,7 +303,6 @@ c_r2p(#?CHILD{pid = Pid
     [{id, Id}
     ,{pid, Pid}
     ,{plan, Plan}
-    ,{count, Count}
     ,{restart_count, ResCount}
     ,{mfargs, Start}
     ,{restart_type, temporary}
@@ -298,29 +318,22 @@ c_r2p(#?CHILD{pid = Pid
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
              ,plan = Plan
-             ,count = Count
-             ,count2 = Count2
              ,restart_count = ResCount
              ,start = Start
-             ,plan_element_index = PlanElemIndex
-             ,plan_length = PlanLen
              ,timer_reference = TimerRef
              ,terminate_timeout = TerminateTimeout
              ,extra = Extra
              ,modules = Mods
              ,type = Type
              ,append = Append
-             ,log_validator = LogValidator}
+             ,log_validator = LogValidator
+             ,supervisor = Sup}
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
     ,{plan, Plan}
-    ,{count, Count}
-    ,{count2, Count2}
     ,{restart_count, ResCount}
     ,{mfargs, Start}
-    ,{plan_element_index, PlanElemIndex}
-    ,{plan_length, PlanLen}
     ,{timer_reference, TimerRef}
     ,{restart_type, temporary}
     ,{shutdown, case TerminateTimeout of
@@ -333,7 +346,8 @@ c_r2p(#?CHILD{pid = Pid
     ,{extra, Extra}
     ,{modules, Mods}
     ,{append, Append}
-    ,{log_validator, LogValidator}].
+    ,{log_validator, LogValidator}
+    ,{supervisor, Sup}].
 
 
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
@@ -430,16 +444,7 @@ combine_child(ChildSpec, DefChildSpec) ->
 combine_child(start
              ,{Mod, Func, Args}
              ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-    Map#{start => {Mod, Func, Args2 ++ Args}};
-combine_child(count, infinity, Map) ->
-    Map#{count => infinity};
-combine_child(count, Count, #{count := Count2}=Map) ->
-    if
-        Count2 =:= infinity ->
-            Map#{count => Count};
-        true ->
-            Map#{count => Count + Count2}
-    end;
+    Map#{start => {Mod, Func, concat(Args2, Args)}};
 combine_child(terminate_timeout, infinity, Map) ->
     Map#{terminate_timeout => infinity};
 combine_child(terminate_timeout
@@ -461,8 +466,6 @@ combine_child(modules, Mods, #{modules := Mods2}=Map) ->
         true ->
             Map#{modules => Mods2 ++ Mods}
     end;
-combine_child(plan, Plan, #{plan := Plan2}=Map) ->
-    Map#{plan => Plan2 ++ Plan};
 combine_child(Key, Value, Map) ->
     maps:put(Key, Value, Map).
 
@@ -471,15 +474,6 @@ separate_child(start
               ,{Mod, Func, Args}
               ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
     Map#{start => {Mod, Func, Args -- Args2}};
-separate_child(count, infinity, Map) ->
-    Map#{count => infinity};
-separate_child(count, Count, #{count := Count2}=Map) ->
-    if
-        Count2 =:= infinity ->
-            Map#{count => Count};
-        true ->
-            Map#{count => Count - Count2}
-    end;
 separate_child(terminate_timeout, infinity, Map) ->
     Map#{terminate_timeout => infinity};
 separate_child(terminate_timeout
@@ -501,8 +495,6 @@ separate_child(modules, Mods, #{modules := Mods2}=Map) ->
         true ->
             Map#{modules => Mods -- Mods2}
     end;
-separate_child(plan, Plan, #{plan := Plan2}=Map) ->
-    Map#{plan => Plan -- Plan2};
 separate_child(Key, Value, Map) ->
     maps:put(Key, Value, Map).
 
@@ -564,7 +556,6 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
     Keys2 = [id
             ,StartKey
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
-            ,{count, fun filter_count/1, ?DEF_COUNT}
             ,{type, fun filter_type/1, ?DEF_TYPE}
             ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
@@ -592,51 +583,10 @@ check_childspec(Other, _DefChildSpec) ->
     {error, {childspec_type, [{childspec, Other}]}}.
 
 
-filter_plan(Plan) when erlang:is_list(Plan) ->
-    filter_plan(Plan, []);
+filter_plan(Plan) when erlang:is_function(Plan, 4) ->
+    {ok, Plan};
 filter_plan(Other) ->
-    {error, {plan_type, [{plan, Other}]}}.
-
-
-filter_plan_element(restart) ->
-    {ok, restart};
-filter_plan_element({restart, WholeInt}=PlanElem) ->
-    case is_whole_integer(WholeInt) of
-        true ->
-            {ok, PlanElem};
-        false ->
-            {error, {plan_restart_time_integer, [{plan_element, PlanElem}]}}
-    end;
-filter_plan_element(delete) ->
-    {ok, delete};
-filter_plan_element({stop, reason}) ->
-    {ok, {stop, reason}};
-filter_plan_element({stop, _Reason}=PlanElem) ->
-    {ok, PlanElem};
-filter_plan_element(stop) ->
-    {ok, stop};
-filter_plan_element(wait) ->
-    {ok, wait};
-filter_plan_element(Fun) when erlang:is_function(Fun) ->
-    case erlang:fun_info(Fun, arity) of
-        {arity, 3} ->
-            {ok, Fun};
-        {arity, Other} ->
-            {error, {plan_fun_arity, [{'fun', Fun}, {arity, Other}]}}
-    end;
-filter_plan_element(Other) ->
-    {error, {plan_element_type, [{plan_element, Other}]}}.
-
-
-filter_plan([PlanElem|Plan], Plan2) ->
-    case filter_plan_element(PlanElem) of
-        {ok, PlanElem2} ->
-            filter_plan(Plan, [PlanElem2|Plan2]);
-        {error, _Reason}=Error ->
-            Error
-    end;
-filter_plan([], Plan2) ->
-    {ok, lists:reverse(Plan2)}.
+    {error, {plan_type_or_arity, [{plan, Other}]}}.
 
 
 is_whole_integer(Int) when erlang:is_integer(Int) ->

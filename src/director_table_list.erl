@@ -47,11 +47,9 @@
 -export([create/1
         ,insert/2
         ,delete/2
-        ,lookup/2
-        ,lookup_by_pid/2
+        ,lookup_id/2
+        ,lookup_pid/2
         ,lookup_appended/1
-        ,combine_children/2
-        ,separate_children/2
         ,count/1
         ,delete_table/1
         ,tab2list/1]).
@@ -66,7 +64,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
 
-create(list) ->
+create(_Arg) ->
     {ok, []}.
 
 
@@ -74,66 +72,45 @@ delete_table(_Tab) ->
     ok.
 
 
-lookup(Tab, Id) ->
+lookup_id(Tab, Id) ->
     case lists:keyfind(Id, 2, Tab) of
         false ->
-            not_found;
+            {ok, not_found};
         Child ->
-            Child
+            {ok, Child}
     end.
 
 
 count(Tab) ->
-    erlang:length(Tab).
+    {ok, erlang:length(Tab)}.
 
 
-lookup_by_pid(Tab, Pid) ->
+lookup_pid(Tab, Pid) ->
     case lists:keyfind(Pid, 3, Tab) of
         false ->
-            not_found;
+            {ok, not_found};
         Child ->
-            Child
+            {ok, Child}
     end.
 
 
 lookup_appended(Tab) ->
-    [Child || #?CHILD{append = Append}=Child <- Tab, Append == true].
+    {ok, [Child || #?CHILD{append = Append}=Child <- Tab, Append == true]}.
 
 
 insert(Tab, #?CHILD{id = Id}=Child) ->
     case lists:keyfind(Id, 2, Tab) of
         false ->
-            [Child|Tab];
+            {ok, [Child|Tab]};
         _ ->
             {value, _, Tab2} = lists:keytake(Id, 2, Tab),
-            [Child|Tab2]
+            {ok, [Child|Tab2]}
     end.
 
 
-delete(Tab, Id) ->
-    case lists:keyfind(Id, 2, Tab) of
-        false ->
-            Tab;
-        _ ->
-            lists:keydelete(Id, 2, Tab)
-    end.
+delete(Tab, Child) ->
+    {ok, lists:delete(Child, Tab)}.
 
 
 tab2list(Tab) ->
-    Tab.
-
-
-combine_children(DefChildSpec, Tab) ->
-    AppendedChildren = [director_utils:combine_child(director_utils:c2cs(Child), DefChildSpec)
-                       || Child <- lookup_appended(Tab)],
-    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_utils:cs2c(AppendedChild)) end
-               ,Tab
-               ,AppendedChildren).
-
-
-separate_children(DefChildSpec, Tab) ->
-    AppendedChildren = [director_utils:separate_child(director_utils:c2cs(Child), DefChildSpec)
-                       || Child <- lookup_appended(Tab)],
-    lists:foldl(fun(AppendedChild, Tab2) ->  insert(Tab2, director_utils:cs2c(AppendedChild)) end
-               ,Tab
-               ,AppendedChildren).
+    {ok, Tab}.

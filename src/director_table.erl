@@ -48,18 +48,27 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-%% API:
--export([create/1
+%% Director's API:
+-export([create/2
         ,insert/3
         ,delete/3
-        ,lookup/3
-        ,lookup_by_pid/3
+        ,lookup_id/3
+        ,lookup_pid/3
         ,lookup_appended/2
         ,combine_children/3
         ,separate_children/3
         ,count/2
         ,delete_table/2
         ,tab2list/2]).
+
+%% Callback module API:
+-export([count_children/2
+        ,which_children/2
+        ,get_childspec/3
+        ,get_pid/3
+        ,get_pids/2
+        ,get_plan/3
+        ,get_restart_count/3]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -71,67 +80,411 @@
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
 
-create(list) ->
-    director_table_list:create(list);
-create({ets, TabName}=TabType) when erlang:is_atom(TabName) ->
-    director_table_ets:create(TabType).
+create(Mod, InitArg) ->
+    try Mod:create(InitArg) of
+        {ok, _}=Ok ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, create}
+                                       ,{init_argument, InitArg}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, create}
+                                       ,{init_argument, InitArg}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, create}
+                                  ,{init_argument, InitArg}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-delete_table(Tab, list) ->
-    director_table_list:delete_table(Tab);
-delete_table(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:delete_table(Tab).
+delete_table(Mod, State) ->
+    try Mod:delete_table(State) of
+        ok ->
+            ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, delete_table}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, delete_table}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, delete_table}
+                                  ,{state, State}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-lookup(Tab, Id, list) ->
-    director_table_list:lookup(Tab, Id);
-lookup(Tab, Id, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:lookup(Tab, Id).
+lookup_id(Mod, State, Id) ->
+    try Mod:lookup_id(State, Id) of
+        {ok, Rslt}=Ok when erlang:is_record(Rslt, director_child) orelse Rslt =:= not_found ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, lookup_id}
+                                       ,{state, State}
+                                       ,{id, Id}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, lookup_id}
+                                       ,{state, State}
+                                       ,{id, Id}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, lookup_id}
+                                  ,{state, State}
+                                  ,{id, Id}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-count(Tab, list) ->
-    director_table_list:count(Tab);
-count(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:count(Tab).
+count(Mod, State) ->
+    try Mod:count(State) of
+        {ok, Count}=Ok when erlang:is_integer(Count) ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, count}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, count}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, count}
+                                  ,{state, State}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-lookup_by_pid(Tab, Pid, list) ->
-    director_table_list:lookup_by_pid(Tab, Pid);
-lookup_by_pid(Tab, Pid, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:lookup_by_pid(Tab, Pid).
+lookup_pid(Mod, State, Pid) ->
+    try Mod:lookup_pid(State, Pid) of
+        {ok, Rslt}=Ok when erlang:is_record(Rslt, director_child) orelse Rslt =:= not_found ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, lookup_pid}
+                                       ,{state, State}
+                                       ,{pid, Pid}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, lookup_pid}
+                                       ,{state, State}
+                                       ,{pid, Pid}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, lookup_pid}
+                                  ,{state, State}
+                                  ,{pid, Pid}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-lookup_appended(Tab, list) ->
-    director_table_list:lookup_appended(Tab);
-lookup_appended(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:lookup_appended(Tab).
+lookup_appended(Mod, State) ->
+    try Mod:lookup_appended(State) of
+        {ok, List}=Ok when erlang:is_list(List) ->
+            case validate_children(List) of
+                true ->
+                    Ok;
+                false ->
+                    {error, {table_bad_return, [{returned_value, Ok}
+                                               ,{module, Mod}
+                                               ,{function, lookup_appended}
+                                               ,{state, State}
+                                               ,{stacktrace, erlang:get_stacktrace()}]}}
+            end;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, lookup_appended}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, lookup_appended}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, lookup_appended}
+                                  ,{state, State}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-insert(Tab, Child, list) ->
-    director_table_list:insert(Tab, Child);
-insert(Tab, Child, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:insert(Tab, Child).
+insert(Mod, State, Child) ->
+    try Mod:insert(State, Child) of
+        {ok, _}=Ok ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, insert}
+                                       ,{state, State}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, insert}
+                                       ,{state, State}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, insert}
+                                  ,{state, State}
+                                  ,{child, Child}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-delete(Tab, Id, list) ->
-    director_table_list:delete(Tab, Id);
-delete(Tab, Id, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:delete(Tab, Id).
+delete(Mod, State, Child) ->
+    try Mod:delete(State, Child) of
+        {ok, _}=Ok ->
+            Ok;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, delete}
+                                       ,{state, State}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, delete}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, delete}
+                                  ,{state, State}
+                                  ,{child, Child}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-tab2list(Tab, list) ->
-    director_table_list:tab2list(Tab);
-tab2list(Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:tab2list(Tab).
+tab2list(Mod, State) ->
+    try Mod:tab2list(State) of
+        {ok, List}=Ok when erlang:is_list(List) ->
+            case validate_children(List) of
+                true ->
+                    Ok;
+                false ->
+                    {error, {table_bad_return, [{returned_value, Ok}
+                                               ,{module, Mod}
+                                               ,{function, tab2list}
+                                               ,{state, State}
+                                               ,{stacktrace, erlang:get_stacktrace()}]}}
+            end;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, tab2list}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, tab2list}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, tab2list}
+                                  ,{state, State}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 
-combine_children(DefChildSpec, Tab, list) ->
-    director_table_list:combine_children(DefChildSpec, Tab);
-combine_children(DefChildSpec, Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:combine_children(DefChildSpec, Tab).
+combine_children(Mod, State, DefChildSpec) ->
+    case lookup_appended(Mod, State) of
+        {ok, Appended} ->
+            AppendedChildren = [director_utils:cs2c(director_utils:combine_child(director_utils:c2cs(Child), DefChildSpec))
+                               || Child <- Appended],
+            case insert_children(Mod, State, AppendedChildren) of
+                {ok, _}=Ok ->
+                    Ok;
+                {error, {Rsn, ErrParams}} ->
+                    {error, {Rsn, lists:keyreplace(function
+                                                  ,1
+                                                  ,ErrParams
+                                                  ,{function, combine_children})}}
+            end;
+        {error, _}=Err ->
+            Err
+    end.
 
 
-separate_children(DefChildSpec, Tab, list) ->
-    director_table_list:separate_children(DefChildSpec, Tab);
-separate_children(DefChildSpec, Tab, {ets, TabName}) when erlang:is_atom(TabName) ->
-    director_table_ets:separate_children(DefChildSpec, Tab).
+
+
+
+insert_children(Mod, State, [Child|Children]) ->
+    case insert(Mod, State, Child) of
+        {ok, State2} ->
+            insert_children(Mod, State2, Children);
+        {error, _}=Err ->
+            Err
+    end;
+insert_children(_, State, []) ->
+    {ok, State}.
+
+
+
+
+
+
+separate_children(Mod, State, DefChildSpec) ->
+    case lookup_appended(Mod, State) of
+        {ok, Appended} ->
+            AppendedChildren = [director_utils:cs2c(director_utils:separate_child(director_utils:c2cs(Child), DefChildSpec))
+                || Child <- Appended],
+            case insert_children(Mod, State, AppendedChildren) of
+                {ok, _}=Ok ->
+                    Ok;
+                {error, {Rsn, ErrParams}} ->
+                    {error, {Rsn, lists:keyreplace(function
+                                                  ,1
+                                                  ,ErrParams
+                                                  ,{function, separate_children})}}
+            end;
+        {error, _}=Err ->
+            Err
+    end.
+
+
+validate_children(Children) ->
+    lists:all(fun(Child) -> erlang:is_record(Child, director_child) end, Children).
+
+
+%% -------------------------------------------------------------------------------------------------
+%% Callback module API:
+
+count_children(Mod, State) ->
+    case tab2list(Mod, State) of
+        {ok, Children} ->
+            Fun =
+                fun(#?CHILD{pid = Pid, type = Type}, {Specs, Actives, Sups, Workers}) ->
+                    Actives2 =
+                        if
+                            erlang:is_pid(Pid) ->
+                                Actives+1;
+                            true ->
+                                Actives
+                        end,
+                    {Sups2, Workers2} =
+                        if
+                            Type =:= supervisor ->
+                                {Sups+1, Workers};
+                            Type =:= worker ->
+                                {Sups, Workers+1}
+                        end,
+                    {Specs+1, Actives2, Sups2, Workers2}
+                end,
+            {Specs, Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0, 0}, Children),
+            [{specs, Specs}, {active, Actives}, {supervisors, Sups}, {workers, Workers}];
+        {error, _}=Err ->
+            Err
+    end.
+
+
+which_children(Mod, State) ->
+    case director_table:tab2list(Mod, State) of
+        {ok, Children} ->
+            [{Id, Pid, Type, Mods} || #?CHILD{id = Id
+                                             ,pid = Pid
+                                             ,type = Type
+                                             ,modules = Mods} <- Children];
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_childspec(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, Child} ->
+            {ok, director_utils:c2cs(Child)};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_pid(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{pid = Pid}} ->
+            {ok, Pid};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_pids(Mod, State) ->
+    case director_table:tab2list(Mod, State) of
+        {ok, Children} ->
+            {ok, [{Id, Pid} || #?CHILD{id = Id, pid = Pid} <- Children, erlang:is_pid(Pid)]};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_plan(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{plan = Plan}} ->
+            {ok, Plan};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_restart_count(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{restart_count = ResCount}} ->
+            {ok, ResCount};
+        {error, _}=Err ->
+            Err
+    end.

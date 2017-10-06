@@ -31,20 +31,17 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 
--define(CHILD, director_child_record).
+-define(CHILD, director_child).
 -record(?CHILD, {id
                 ,pid
                 ,append
                 ,plan
-                ,count
-                ,count2
                 ,restart_count
                 ,start
-                ,plan_element_index
-                ,plan_length
                 ,timer_reference
                 ,terminate_timeout
                 ,extra
                 ,modules
                 ,type
-                ,log_validator}).
+                ,log_validator
+                ,supervisor}).

@@ -44,14 +44,21 @@
 %% Exports:
 
 %% API:
+-export([count_children/1
+        ,which_children/1
+        ,get_childspec/2
+        ,get_pid/2
+        ,get_pids/1
+        ,get_plan/2
+        ,get_restart_count/2]).
+
+%% director's API:
 -export([create/1
         ,insert/2
         ,delete/2
-        ,lookup/2
-        ,lookup_by_pid/2
+        ,lookup_id/2
+        ,lookup_pid/2
         ,lookup_appended/1
-        ,combine_children/2
-        ,separate_children/2
         ,count/1
         ,delete_table/1
         ,tab2list/1]).
@@ -59,111 +66,205 @@
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
--define(ETS_TABLE_OPTIONS, [private, named_table, {keypos,2}]).
+-define(ETS_TABLE_OPTIONS, [public
+                           ,named_table
+                           ,ordered_set
+                           ,{keypos, 2}
+                           ,{read_concurrency, true}
+                           ,{write_concurrency, true}]).
 
 %% Dependencies:
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
 
+-define(is_valid_type(Type), (Type =:= set orelse Type =:= ordered_set)).
+
 %% -------------------------------------------------------------------------------------------------
-%% API functions:
+%% API:
 
-create({ets, TabName}=TabType) ->
-    try
-        {ok, ets:new(TabName, ?ETS_TABLE_OPTIONS)}
+count_children(Tab) ->
+    director_table:count_children(?MODULE, Tab).
+
+
+which_children(Tab) ->
+    director_table:which_children(?MODULE, Tab).
+
+
+get_childspec(Tab, Id) ->
+    director_table:get_childspec(?MODULE, Tab, Id).
+
+
+get_pid(Tab, Id) ->
+    director_table:get_pid(?MODULE, Tab, Id).
+
+
+get_pids(Tab) ->
+    director_table:get_pids(?MODULE, Tab).
+
+
+get_plan(Tab, Id) ->
+    director_table:get_plan(?MODULE, Tab, Id).
+
+
+get_restart_count(Tab, Id) ->
+    director_table:get_restart_count(?MODULE, Tab, Id).
+
+%% -------------------------------------------------------------------------------------------------
+%% Director's API functions:
+
+create({value, TabName}) when erlang:is_atom(TabName) ->
+    case is_table(TabName) of
+        true ->
+            Self = erlang:self(),
+            case {ets:info(TabName, protection)
+                 ,ets:info(TabName, owner)
+                 ,ets:info(TabName, type)} of
+                {public, _, Type} when ?is_valid_type(Type) ->
+                    {ok, TabName};
+                {public, _, Type} ->
+                    {error, {table_type, [{type, Type}, {init_argument, TabName}]}};
+                {_, Self, Type} when ?is_valid_type(Type) ->
+                    {ok, TabName};
+                {_, Self, Type} ->
+                    {error, {table_type, [{type, Type}, {init_argument, TabName}]}};
+                {Protection, Pid, _Type} ->
+                    {error, {table_protection_and_owner, [{protection, Protection}
+                                                         ,{owner, Pid}
+                                                         ,{self, Self}
+                                                         ,{init_argument, TabName}]}}
+            end;
+        false ->
+            try
+                {ok, ets:new(TabName, ?ETS_TABLE_OPTIONS)}
+            catch
+                _:Reason ->
+                    {error, {table_create, [{reason, Reason}, {init_argument, TabName}]}}
+            end
+    end;
+create(undefined) ->
+    {error, {table_init_argument, []}}.
+
+
+delete_table(Tab) when erlang:is_atom(Tab) ->
+    try ets:delete(Tab) of
+        _ ->
+            ok
     catch
-        _:Reason ->
-            {error, {create_table, [{reason, Reason}, {table_type, TabType}]}}
+        _:_ ->
+            table_error(Tab)
     end.
 
 
-delete_table(Table) ->
-    ets:delete(Table),
-    ok.
-
-
-lookup(Table, Id) ->
-    case ets:lookup(Table, Id) of
+lookup_id(Tab, Id) when erlang:is_atom(Tab) ->
+    try ets:lookup(Tab, Id) of
         [Child] ->
-            Child;
+            {ok, Child};
         [] ->
-            not_found
+            {ok, not_found}
+    catch
+        _:_ ->
+            table_error(Tab)
     end.
 
 
-count(Table) ->
-    ets:info(Table, size).
+count(Tab) when erlang:is_atom(Tab) ->
+    case ets:info(Tab, size) of
+        undefined ->
+            {error, {table_existence, [{table, Tab}]}};
+        Size ->
+            {ok, Size}
+    end.
 
 
-lookup_by_pid(Table, Pid) ->
-    case ets:match_object(Table
-                         ,#?CHILD{id = '_'
-                                 ,pid = Pid
-                                 ,plan = '_'
-                                 ,count = '_'
-                                 ,count2 = '_'
-                                 ,restart_count = '_'
-                                 ,start = '_'
-                                 ,plan_element_index = '_'
-                                 ,plan_length = '_'
-                                 ,timer_reference = '_'
-                                 ,terminate_timeout = '_'
-                                 ,extra = '_'
-                                 ,modules = '_'
-                                 ,type = '_'
-                                 ,append = '_'
-                                 ,log_validator = '_'}) of
+lookup_pid(Tab, Pid) when erlang:is_atom(Tab) ->
+    try ets:match_object(Tab
+                        ,#?CHILD{id = '_'
+                                ,pid = Pid
+                                ,plan = '_'
+                                ,restart_count = '_'
+                                ,start = '_'
+                                ,timer_reference = '_'
+                                ,terminate_timeout = '_'
+                                ,extra = '_'
+                                ,modules = '_'
+                                ,type = '_'
+                                ,append = '_'
+                                ,log_validator = '_'
+                                ,supervisor = '_'}) of
         [Child] ->
-            Child;
+            {ok, Child};
         [] ->
-            not_found
+            {ok, not_found}
+    catch
+        _:_ ->
+            table_error(Tab)
     end.
 
 
-lookup_appended(Table) ->
-    ets:match_object(Table
-                    ,#?CHILD{id = '_'
-                            ,pid = '_'
-                            ,plan = '_'
-                            ,count = '_'
-                            ,count2 = '_'
-                            ,restart_count = '_'
-                            ,start = '_'
-                            ,plan_element_index = '_'
-                            ,plan_length = '_'
-                            ,timer_reference = '_'
-                            ,terminate_timeout = '_'
-                            ,extra = '_'
-                            ,modules = '_'
-                            ,type = '_'
-                            ,append = true
-                            ,log_validator = '_'}).
+lookup_appended(Tab) when erlang:is_atom(Tab) ->
+    try ets:match_object(Tab
+                        ,#?CHILD{id = '_'
+                                ,pid = '_'
+                                ,plan = '_'
+                                ,restart_count = '_'
+                                ,start = '_'
+                                ,timer_reference = '_'
+                                ,terminate_timeout = '_'
+                                ,extra = '_'
+                                ,modules = '_'
+                                ,type = '_'
+                                ,append = true
+                                ,log_validator = '_'
+                                ,supervisor = '_'}) of
+        Children ->
+            {ok, Children}
+    catch
+        _:_ ->
+            table_error(Tab)
+    end.
 
 
-
-insert(Tab, Child) ->
-    true = ets:insert(Tab, Child),
-    Tab.
-
-
-delete(Tab, Id) ->
-    true = ets:delete(Tab, Id),
-    Tab.
-
-
-tab2list(Table) ->
-    ets:tab2list(Table).
+insert(Tab, Child) when erlang:is_atom(Tab) ->
+    try ets:insert(Tab, Child) of
+        _ ->
+            {ok, Tab}
+    catch
+        _:_ ->
+            table_error(Tab)
+    end.
 
 
-combine_children(DefChildSpec, Table) ->
-    AppendedChildren = [director_utils:combine_child(director_utils:c2cs(Child), DefChildSpec)
-                       || Child <- lookup_appended(Table)],
-    _ = [insert(Table, director_utils:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
-    Table.
+delete(Tab, #?CHILD{id=Id}) when erlang:is_atom(Tab) ->
+    try ets:delete(Tab, Id) of
+        _ ->
+            {ok, Tab}
+    catch
+        _:_ ->
+            table_error(Tab)
+    end.
 
 
-separate_children(DefChildSpec, Table) ->
-    AppendedChildren = [director_utils:separate_child(director_utils:c2cs(Child), DefChildSpec)
-                       || Child <- lookup_appended(Table)],
-    _ = [insert(Table, director_utils:cs2c(AppendedChild)) || AppendedChild <- AppendedChildren],
-    Table.
+tab2list(Tab) when erlang:is_atom(Tab) ->
+    try
+        {ok, ets:tab2list(Tab)}
+    catch
+        _:_ ->
+            table_error(Tab)
+    end.
+
+%% -------------------------------------------------------------------------------------------------
+%% Internal functions:
+
+table_error(Tab) ->
+    case is_table(Tab) of
+        true ->
+            {error, {table_protection_and_owner, [{protection, ets:info(Tab, protection)}
+                                                 ,{owner, ets:info(Tab, owner)}
+                                                 ,{table, Tab}]}};
+        false ->
+            {error, {table_existence, [{table, Tab}]}}
+    end.
+
+
+is_table(Tab) ->
+    lists:member(Tab, ets:all()).

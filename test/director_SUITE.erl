@@ -60,9 +60,7 @@
         ,'5'/1
         ,'6'/1
         ,'7'/1
-        ,'8'/1
-        ,'9'/1
-        ,'10'/1]).
+        ,'8'/1]).
 
 
 
@@ -77,7 +75,8 @@
 -define(CHILD_MODULE, director_child).
 -define(START_OPTIONS, [{debug, [trace]}
                        ,{log_validator, fun log_validator/2}
-                       ,{table_type, list}]).
+                       ,{table_module, director_table_mnesia}
+                       ,{table_init_argument, director_table}]).
 
 
 -include_lib("common_test/include/ct.hrl").
@@ -102,12 +101,14 @@ all() ->
 
 init_per_suite(Config) ->
     application:start(sasl),
+    application:start(mnesia),
     Config.
 
 
 
 end_per_suite(Config) ->
     application:stop(sasl),
+    application:stop(mnesia),
     Config.
 
 
@@ -141,32 +142,40 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ignore, director:start_link(?CALLBACK, fun() -> ignore end)),
     ?assertMatch({error, {init_bad_return, [{returned_value, bar}|_]}}
                 ,director:start_link(?CALLBACK, fun()-> bar end)),
-    ?assertEqual({error, baz}, director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
+    ?assertMatch({error, {init_crash, [{reason, baz}|_]}}, director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
 
-    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, []} end)
+    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, []} end)
                 ,{ok, erlang:whereis(?DIRECTOR)}),
     ?assertEqual(ok, director:stop(?DIRECTOR)),
-    ?assertEqual(undefined, erlang:whereis(?DIRECTOR)).
-
+    ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
+    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], #{}} end)
+                ,{ok, erlang:whereis(?DIRECTOR)}),
+    ?assertEqual(ok, director:stop(?DIRECTOR)),
+    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], []} end)
+                ,{ok, erlang:whereis(?DIRECTOR)}),
+    ?assertEqual(ok, director:stop(?DIRECTOR)),
+    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], #{}, []} end)
+                ,{ok, erlang:whereis(?DIRECTOR)}),
+    ?assertEqual(ok, director:stop(?DIRECTOR)).
 
 
 
 
 '2'(_Config) ->
     Id = foo,
-    Plan = [restart],
+    State = state,
+    Plan = fun(_, killed, _, St) when St == State -> {restart, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
-                ,count => infinity
                 ,terminate_timeout => 0
                 ,modules => Mods
                 ,append => false
                 ,type => worker
-                ,log_validator => fun(_, _) -> none end},
+                ,log_validator => fun(_, _) -> short end},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
-    F = fun() -> {ok, [ChildSpec]} end,
+    F = fun() -> {ok, State, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
                                                 ,F
@@ -176,7 +185,7 @@ end_per_testcase(_TestCase, _Config) ->
     count_children(?DIRECTOR, 1,1,1,0),
     ?assertEqual({ok, Plan}, director:get_plan(?DIRECTOR, Id)),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
     ?assertEqual({error, running}, director:delete_child(?DIRECTOR, Id)),
     ?assert(erlang:is_process_alive(erlang:whereis(?CHILD))),
 
@@ -190,21 +199,45 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch([{Id, undefined, worker, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,1,0),
     ?assertEqual({error, undefined}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)),
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
 
     ?assertMatch({ok, _Pid}, director:restart_child(?DIRECTOR, Id)),
     ?assert(erlang:is_process_alive(erlang:whereis(?CHILD))),
     ?assertMatch([{Id, _Pid, worker, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,1,1,0),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
 
     ?assertEqual(ok, director:terminate_child(?DIRECTOR, erlang:whereis(?CHILD))),
     ?assertEqual(ok, director:delete_child(?DIRECTOR, Id)),
     ?assertEqual([], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 0,0,0,0),
     ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)).
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
+    ?assertEqual(ok, director:stop(?DIRECTOR)),
+
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F
+                                                ,?START_OPTIONS)),
+    ?assertEqual(ok, director:terminate_and_delete_child(?DIRECTOR, Id)),
+    ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
+    ?assertEqual(ok, director:stop(?DIRECTOR)),
+
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F
+                                                ,?START_OPTIONS)),
+    ?assertEqual(ok, director:terminate_child(?DIRECTOR, Id)),
+    ?assertEqual(ok, director:terminate_and_delete_child(?DIRECTOR, Id)),
+    ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
+    ?assertEqual(ok, director:stop(?DIRECTOR)).
+
+
+
+
 
 
 
@@ -215,19 +248,28 @@ end_per_testcase(_TestCase, _Config) ->
 '3'(_Config) ->
     Id = foo,
     RestartTimeout = 100,
-    Plan = [restart, {restart, RestartTimeout}, wait, delete],
+    Plan =
+        fun
+            (_, killed ,1, St) ->
+                {restart, St};
+            (_, killed ,2, St) ->
+                {{restart, RestartTimeout}, St};
+            (_, killed ,3, St) ->
+                {wait, St};
+            (_, killed ,4, St) ->
+                {delete, St}
+        end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
-                ,count => infinity
                 ,terminate_timeout => infinity
                 ,modules => Mods
                 ,append => false
                 ,type => supervisor
                 ,log_validator => fun(_, _) -> long end},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
-    F = fun() -> {ok, []} end,
+    F = fun() -> {ok, undefined, []} end,
 
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -239,7 +281,7 @@ end_per_testcase(_TestCase, _Config) ->
     count_children(?DIRECTOR, 1,1,0,1),
     ?assertEqual({ok, Plan}, director:get_plan(?DIRECTOR, Id)),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
     ?assertEqual({error, running}, director:delete_child(?DIRECTOR, Id)),
     ?assert(erlang:is_process_alive(erlang:whereis(?CHILD))),
 
@@ -248,7 +290,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,1,0,1),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
 
     % plan: {restart, Timeout}
     erlang:exit(erlang:whereis(?CHILD), kill),
@@ -256,12 +298,12 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch([{Id, restarting, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,0,1),
     ?assertEqual({error, restarting}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)),
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
     timer:sleep(RestartTimeout),
     ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,1,0,1),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
 
     % plan: wait
     erlang:exit(erlang:whereis(?CHILD), kill),
@@ -269,21 +311,21 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch([{Id, undefined, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,0,1),
     ?assertEqual({error, undefined}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)),
+    ?assertEqual({ok, []}, director:get_pids(?DIRECTOR)),
 
     % plan: delete
     ?assertMatch({ok, _Pid}, director:restart_child(?DIRECTOR,  Id)),
     ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,1,0,1),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{Id, _Pid}]}, director:get_pids(?DIRECTOR)),
 
     erlang:exit(erlang:whereis(?CHILD), kill),
     timer:sleep(1),
     ?assertEqual([], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 0,0,0,0),
     ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([], director:get_pids(?DIRECTOR)).
+    ?assertMatch({ok, []}, director:get_pids(?DIRECTOR)).
 
 
 
@@ -292,18 +334,17 @@ end_per_testcase(_TestCase, _Config) ->
 
 '4'(_Config) ->
     Id = foo,
-    Plan = [stop],
+    Plan = fun(_, killed, _, St) -> {stop, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
-                ,count => infinity
                 ,terminate_timeout => 0
                 ,modules => Mods
                 ,default_arguments => []
                 ,type => worker},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
-    F = fun() -> {ok, [ChildSpec]} end,
+    F = fun() -> {ok, undefined, [ChildSpec]} end,
 
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -326,18 +367,17 @@ end_per_testcase(_TestCase, _Config) ->
 '5'(_Config) ->
     Reason = oops,
     Id = foo,
-    Plan = [{stop, Reason}],
+    Plan = fun(_, _, _, St) -> {{stop, Reason}, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
-                ,count => infinity
                 ,terminate_timeout => 0
                 ,modules => Mods
                 ,default_arguments => []
                 ,type => worker},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
-    F = fun() -> {ok, [ChildSpec]} end,
+    F = fun() -> {ok, undefined, [ChildSpec]} end,
 
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -356,128 +396,38 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-
 '6'(_Config) ->
-    RestartTimeout = 100,
-    Id = foo,
-    Fun =
-        fun
-            (foo, killed, 1) ->
-                restart;
-            (foo, killed, 2) ->
-                {restart, RestartTimeout};
-            (foo, killed, 3) ->
-                wait;
-            (foo, killed, 4) ->
-                delete
-        end,
-    RestartTimeout = 100,
-    Plan = [Fun],
-    Mods = [?CHILD_MODULE],
-    ChildSpec = #{id => Id
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
-                ,plan => Plan
-                ,count => 4
-                ,terminate_timeout => infinity
-                ,modules => Mods
-                ,append => false
-                ,type => supervisor
-                ,log_validator => fun(_, _) -> long end},
-    ?assertEqual(ok, director:check_childspec(ChildSpec)),
-    F = fun() -> {ok, [ChildSpec]} end,
-
-    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-                                                ,?CALLBACK
-                                                ,F
-                                                ,?START_OPTIONS)),
-    ?assertEqual({ok, ChildSpec}, director:get_childspec(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,1,0,1),
-    ?assertEqual({ok, Plan}, director:get_plan(?DIRECTOR, Id)),
-    ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
-    ?assertEqual({error, running}, director:delete_child(?DIRECTOR, Id)),
-
-    % plan: restart
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
-    ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,1,0,1),
-    ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
-
-    % plan: {restart, Timeout}
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
-    ?assertMatch([{Id, restarting, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,0,0,1),
-    ?assertEqual({error, restarting}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)),
-    timer:sleep(RestartTimeout),
-    ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,1,0,1),
-    ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
-
-    % plan: wait
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
-    ?assertEqual([{Id, undefined, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,0,0,1),
-    ?assertEqual({error, undefined}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)),
-
-    % plan: delete
-    ?assertMatch({ok, _Pid}, director:restart_child(?DIRECTOR,  Id)),
-    ?assertMatch([{Id, _Pid, supervisor, Mods}], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 1,1,0,1),
-    ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
-    ?assertMatch([{Id, _Pid}], director:get_pids(?DIRECTOR)),
-
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
-    ?assertEqual([], director:which_children(?DIRECTOR)),
-    count_children(?DIRECTOR, 0,0,0,0),
-    ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
-    ?assertEqual([], director:get_pids(?DIRECTOR)).
-
-
-
-
-
-'7'(_Config) ->
     Start = {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]},
     Mods = [?CHILD_MODULE],
+    Plan = fun(_, _ ,1, St) -> {restart, St} end,
     DefChildSpec = #{start => Start
-                   ,plan => [restart]
-                   ,count => 1
+                   ,plan => Plan
                    ,terminate_timeout => 1000
                    ,modules => Mods},
-    F = fun() -> {ok, [], DefChildSpec} end,
+    F = fun() -> {ok, undefined, [], DefChildSpec} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
                                                 ,F
                                                 ,?START_OPTIONS)),
     ?assertEqual(DefChildSpec, director:get_default_childspec(?DIRECTOR)),
     Id = foo,
-    ChildSpec = #{id => Id, append => true, plan => [{restart, 1000}], modules => []},
+    Plan2 = fun(_, _, _, St) -> {stop, St} end,
+    ChildSpec = #{id => Id, append => true, plan => Plan2, modules => []},
     ?assertMatch({ok, _Pid}, director:start_child(?DIRECTOR,  ChildSpec)),
     {ok, ChildSpec2} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start, maps:get(start, ChildSpec2)),
-    ?assertEqual([restart, {restart, 1000}], maps:get(plan, ChildSpec2)),
-    ?assertEqual(4, maps:get(count, ChildSpec2)),
+    ?assertEqual(Plan2, maps:get(plan, ChildSpec2)),
     ?assertEqual(2000, maps:get(terminate_timeout, ChildSpec2)),
     ?assertEqual(Mods, maps:get(modules, ChildSpec2)),
 
     Start2 = {?CHILD_MODULE, start_link, [fun() -> {ok, undefined} end]},
     DefChildSpec2 = #{start => Start2
-                   ,plan => [restart, wait]
-                   ,modules => [?CHILD_MODULE]},
+                     ,plan => Plan
+                     ,modules => [?CHILD_MODULE]},
     ?assertEqual(ok, director:change_default_childspec(?DIRECTOR, DefChildSpec2)),
     {ok, ChildSpec3} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start2, maps:get(start, ChildSpec3)),
-    ?assertEqual([restart, wait, {restart, 1000}], maps:get(plan, ChildSpec3)),
-    ?assertEqual(3, maps:get(count, ChildSpec3)),
+    ?assertEqual(Plan2, maps:get(plan, ChildSpec2)),
     ?assertEqual(1000, maps:get(terminate_timeout, ChildSpec3)),
     ?assertEqual([?CHILD_MODULE], maps:get(modules, ChildSpec3)).
 
@@ -488,70 +438,20 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-'8'(_config) ->
-    ChildSpec = #{id => foo
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
-                ,plan => []
-                ,count => 0
-                ,terminate_timeout => 0
-                ,modules => [?CHILD_MODULE]
-                ,default_arguments => []
-                ,type => worker},
-    F = fun() -> {ok, [ChildSpec]} end,
-    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-                                                ,?CALLBACK
-                                                ,F
-                                                ,?START_OPTIONS)),
-    Pid = erlang:whereis(?DIRECTOR),
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    ?assertEqual(pass
-                ,receive
-                     {'EXIT'
-                     ,Pid
-                     ,{empty_plan_child_terminated
-                      ,[{reason, killed}|_]}} ->
-                         pass
-                 end),
-
-    ChildSpec2 = ChildSpec#{plan => [restart]},
-    F2 = fun() -> {ok, [ChildSpec2]} end,
-    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-                                                ,?CALLBACK
-                                                ,F2
-                                                ,?START_OPTIONS)),
-    Pid2 = erlang:whereis(?DIRECTOR),
-    erlang:exit(erlang:whereis(?CHILD), kill),
-    ?assertEqual(pass
-                ,receive
-                     {'EXIT'
-                         ,Pid2
-                         ,{reached_max_restart_plan
-                          ,[{reason, killed}|_]}} ->
-                         pass
-                 end).
-
-
-
-
-
-
-
-
-'9'(_config) ->
+'7'(_config) ->
     Id = foo,
     F = fun() -> {ok, undefined} end,
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
     ChildSpec2 = #{id => Id
                  ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}
-                 ,plan => [fun director:plan_element_fun/3]
-                 ,count => 3
+                 ,plan => fun director:plan/4
                  ,terminate_timeout => 1000
                  ,modules => [?CHILD_MODULE]
                  ,append => false
                  ,type => worker
                  ,log_validator => fun director:log_validator/2},
-    F2 = fun() -> {ok, [ChildSpec]} end,
+    F2 = fun() -> {ok, undefined, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
                                                 ,F2
@@ -571,16 +471,16 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 
-'10'(Config) ->
+'8'(Config) ->
     F = F = fun() -> {ok, undefined} end,
     Id = foo,
     ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
-    F1 = fun() -> io:format("TEST~n"), {ok, [ChildSpec]} end, %% will see this twice in ct log
+    F1 = fun() -> io:format("TEST~n"), {ok, undefined, [ChildSpec]} end, %% will see this twice in ct log
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
                                                 ,F1
                                                 ,?START_OPTIONS)),
-    ?assertMatch([{foo, _}], director:get_pids(?DIRECTOR)),
+    ?assertMatch({ok, [{foo, _}]}, director:get_pids(?DIRECTOR)),
     {_, _Pid} = director:get_pid(?DIRECTOR, Id),
     DataDir = ?config(data_dir, Config),
     ModFile = filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ ".erl"]),
