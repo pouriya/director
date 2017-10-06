@@ -121,7 +121,8 @@
 %%   ,type => worker
 %%   ,modules => [Module] % Will get from value of 'start' key
 %%   ,append => false
-%%   ,log_validator => fun director:log_validator/2}
+%%   ,log_validator => fun director:log_validator/2
+%%   ,pass_if_started => false}
 -type childspec() :: #{'id' => id()
                       ,'start' => start()
                       ,'plan' => plan()
@@ -129,7 +130,8 @@
                       ,'type' => type()
                       ,'modules' => modules()
                       ,'append' => append()
-                      ,'log_validator' => log_validator()}.
+                      ,'log_validator' => log_validator()
+                      ,'pass_if_started' => pass_if_started()}.
 -type  id() :: term().
 -type  start() :: module() % default is {module(), start_link, []}
                 | {module(), function()} % default Args is []
@@ -147,6 +149,7 @@
 -type  log_validator() :: fun((Type:: log_type(), Extra::term()) -> log_mode()).
 -type   log_type() :: 'info' | 'error' | 'warning'.
 -type   log_mode() :: 'short' | 'long' | 'none'.
+-type  pass_if_started() :: boolean().
 
 %% Default is:
 %% #{plan => fun director:plan/4
@@ -197,7 +200,8 @@
              ,register_name/0
              ,director/0
              ,start_options/0
-             ,start_option/0]).
+             ,start_option/0
+             ,pass_if_started/0]).
 
 
 
