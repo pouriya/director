@@ -61,7 +61,8 @@
         ,lookup_appended/1
         ,count/1
         ,delete_table/1
-        ,tab2list/1]).
+        ,tab2list/1
+        ,handle_message/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -225,6 +226,9 @@ tab2list(Tab) when erlang:is_atom(Tab) ->
         _:_ ->
             table_error(Tab)
     end.
+
+handle_message(_, _) ->
+    unknown.
 
 %% -------------------------------------------------------------------------------------------------
 %% Internal functions:

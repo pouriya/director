@@ -59,7 +59,8 @@
         ,separate_children/3
         ,count/2
         ,delete_table/2
-        ,tab2list/2]).
+        ,tab2list/2
+        ,handle_message/3]).
 
 %% Callback module API:
 -export([count_children/2
@@ -335,20 +336,6 @@ combine_children(Mod, State, DefChildSpec) ->
 
 
 
-insert_children(Mod, State, [Child|Children]) ->
-    case insert(Mod, State, Child) of
-        {ok, State2} ->
-            insert_children(Mod, State2, Children);
-        {error, _}=Err ->
-            Err
-    end;
-insert_children(_, State, []) ->
-    {ok, State}.
-
-
-
-
-
 
 separate_children(Mod, State, DefChildSpec) ->
     case lookup_appended(Mod, State) of
@@ -369,9 +356,32 @@ separate_children(Mod, State, DefChildSpec) ->
     end.
 
 
-validate_children(Children) ->
-    lists:all(fun(Child) -> erlang:is_record(Child, director_child) end, Children).
-
+handle_message(Mod, State, Msg) ->
+    try Mod:handle_message(State, Msg) of
+        {ok, _}=Ok ->
+            Ok;
+        unknown ->
+            unknown;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, handle_message}
+                                       ,{state, State}
+                                       ,{message, Msg}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, handle_message}
+                                       ,{state, State}
+                                       ,{message, Msg}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, handle_message}
+                                  ,{state, State}
+                                  ,{message, Msg}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
 
 %% -------------------------------------------------------------------------------------------------
 %% Callback module API:
@@ -467,3 +477,22 @@ get_restart_count(Mod, State, Id) ->
         {error, _}=Err ->
             Err
     end.
+
+%% -------------------------------------------------------------------------------------------------
+%% Internal functuon
+
+
+
+insert_children(Mod, State, [Child|Children]) ->
+    case insert(Mod, State, Child) of
+        {ok, State2} ->
+            insert_children(Mod, State2, Children);
+        {error, _}=Err ->
+            Err
+    end;
+insert_children(_, State, []) ->
+    {ok, State}.
+
+
+validate_children(Children) ->
+    lists:all(fun(Child) -> erlang:is_record(Child, director_child) end, Children).

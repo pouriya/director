@@ -52,7 +52,8 @@
         ,lookup_appended/1
         ,count/1
         ,delete_table/1
-        ,tab2list/1]).
+        ,tab2list/1
+        ,handle_message/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -114,3 +115,6 @@ delete(Tab, Child) ->
 
 tab2list(Tab) ->
     {ok, Tab}.
+
+handle_message(_, _) ->
+    unknown.

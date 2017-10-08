@@ -1007,18 +1007,29 @@ process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
 process_message(Parent, Dbg, State, {system, From, Msg}) ->
     sys:handle_system_msg(Msg, From, Parent, ?MODULE, Dbg, State);
 %% Catch clause:
-process_message(Parent, Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, Msg) ->
-    case director_utils:run_log_validator(LogValidator
-                                         ,warning
-                                         ,{receive_unexpected_message, Msg}) of
-        short ->
-            error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
-        none ->
-            ok;
-        long ->
-            error_logger:error_msg("Director ~p received unexpected message: ~p~n", [Name, Msg])
-    end,
-    loop(Parent, Dbg, State).
+process_message(Parent, Dbg, #?STATE{name = Name
+                                    ,table_module = TabMod
+                                    ,table_state = TabState
+                                    ,log_validator = LogValidator}=State, Msg) ->
+    case director_table:handle_message(TabMod, TabState, Msg) of
+        {ok, TabState2} ->
+            loop(Parent, Dbg, State#?STATE{table_state = TabState2});
+        unknown ->
+            case director_utils:run_log_validator(LogValidator
+                                                 ,warning
+                                                 ,{receive_unexpected_message, Msg}) of
+                short ->
+                    error_logger:error_msg("Director ~p received an unexpected message~n", [Name]);
+                none ->
+                    ok;
+                long ->
+                    error_logger:error_msg("Director ~p received unexpected message: ~p~n"
+                                          ,[Name, Msg])
+            end,
+            loop(Parent, Dbg, State);
+        {error, Rsn} ->
+            terminate(Dbg, State, Rsn)
+    end.
 
 
 process_request(Dbg
