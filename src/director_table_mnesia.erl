@@ -131,7 +131,7 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                  ,mnesia:table_info(TabName, type)} of
                 {read_write, Size, Type} when ?is_valid_type(Type) andalso
                                               erlang:tuple_size(#?CHILD{}) =:= Size ->
-                    {ok, _} = mnesia:subscribe(system),
+                    _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {read_only, _, _} ->
                     {error, {table_access_mode, [{access_mode, read_only}
@@ -145,7 +145,7 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
         false ->
             try mnesia:create_table(TabName, ?TABLE_OPTIONS) of
                 {atomic, ok} ->
-                    {ok, _} = mnesia:subscribe(system),
+                    _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {aborted, Rsn} ->
                     {error, {table_create, [{reason, Rsn}, {init_argument, TabName}]}}
@@ -163,6 +163,7 @@ create(undefined) ->
 delete_table(Tab) ->
     try mnesia:delete_table(Tab) of
         {atomic, ok} ->
+            _ = mnesia:unsubscribe(system),
             ok;
         {aborted, Rsn} ->
             {error, {delete_table, [{reason, Rsn}, {table, Tab}]}}
