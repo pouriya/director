@@ -68,12 +68,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
--define(ETS_TABLE_OPTIONS, [public
-                           ,named_table
-                           ,ordered_set
-                           ,{keypos, 2}
-                           ,{read_concurrency, true}
-                           ,{write_concurrency, true}]).
+-define(ETS_TABLE_OPTIONS, [public, named_table, set, {keypos, 2}]).
 
 %% Dependencies:
 %%  #?CHILD{}
