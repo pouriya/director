@@ -981,6 +981,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
                      ,intensity
                      ,period
                      ,restarts
+                     ,dynamic_restarts
                      ,Mod
                      ,ags},
             Specific = {data, [{"State", State2}]},
