@@ -430,12 +430,16 @@ check_map2(_ChidlSpec, [], ChildSpec2) ->
     {ok, ChildSpec2}.
 
 
-filter_start({_Mod, _Func, _Args}=Start) ->
+filter_start({Mod, Func, Args}=Start)when erlang:is_atom(Mod) andalso
+    erlang:is_atom(Func) andalso
+    erlang:is_list(Args) ->
     {ok, Start};
-filter_start({Mod, Func}) ->
+filter_start({Mod, Func}) when erlang:is_atom(Mod) andalso erlang:is_atom(Func) ->
     {ok, {Mod, Func, []}};
+filter_start(Mod) when erlang:is_atom(Mod) ->
+    {ok, {Mod, start_link, []}};
 filter_start(Other) ->
-    {error, {format, [{start, Other}]}}.
+    {error, {start_format_or_type, [{start, Other}]}}.
 
 
 combine_child(ChildSpec, DefChildSpec) ->
