@@ -84,59 +84,72 @@
 
 -callback
 create({'value', InitArgument::any()} | 'undefined') ->
-    {'ok', State::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', State::any()} | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 insert(State::any(), Child::#?CHILD{}) ->
-    {'ok', NewState::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', NewState::any()} | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 delete(State::any(), Child::#?CHILD{}) ->
-    {'ok', NewState::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', NewState::any()}                              |
+    {'soft_error', Reason::'not_found'}                  |
+    {'soft_error', NewState::any(), Reason::'not_found'} |
+    {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 lookup_id(State::any(), Id::any()) ->
-    {'ok', Child::#?CHILD{}} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', Child::#?CHILD{}}                             |
+    {'soft_error', Reason::'not_found'}                  |
+    {'soft_error', NewState::any(), Reason::'not_found'} |
+    {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 lookup_pid(State::any(), Pid::pid()) ->
-    {'ok', Child::#?CHILD{}} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', Child::#?CHILD{}}                             |
+    {'soft_error', Reason::'not_found'}                  |
+    {'soft_error', NewState::any(), Reason::'not_found'} |
+    {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 lookup_appended(State::any()) ->
-    {'ok', [Child::#?CHILD{}] | []} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', [Child::#?CHILD{}] | []} | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 count(State::any()) ->
-    {'ok', Count::non_neg_integer()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', Count::non_neg_integer()} | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 tab2list(State::any()) ->
-    {'ok', [Child::#?CHILD{}] | []} | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', [Child::#?CHILD{}] | []} | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 delete_table(State::any()) ->
-    'ok' | {'error', {Reason::atom(), ErrorParams::list()}}.
+    'ok' | {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 handle_message(State::any(), Msg::any()) ->
-    {'ok', NewState::any()} | 'unknown' | {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', Child::#?CHILD{}}                             |
+    {'soft_error', Reason::'unknown'}                    |
+    {'soft_error', NewState::any(), Reason::'unknown'}   |
+    {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 
 -callback
 parent_insert(State::any(), Child::#?CHILD{}) ->
-    {'ok', NewState::any()}                         |
-    {'error', NewState::any(), 'not_parent'}         |
-    {'error', {Reason::atom(), ErrorParams::list()}}.
+    {'ok', NewState::any()}                              |
+    {'soft_error', Reason::'not_parent'}                 |
+    {'soft_error', NewState::any(), Reason::'not_parent'}|
+    {'hard_error', {Reason::atom(), ErrorParams::list()}}.
 
 %% -------------------------------------------------------------------------------------------------
 %% Callback module API:
@@ -164,8 +177,8 @@ count_children(Mod, State) ->
                 end,
             {Specs, Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0, 0}, Children),
             [{specs, Specs}, {active, Actives}, {supervisors, Sups}, {workers, Workers}];
-        {error, _}=Err ->
-            Err
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
@@ -176,30 +189,30 @@ which_children(Mod, State) ->
                                              ,pid = Pid
                                              ,type = Type
                                              ,modules = Mods} <- Children];
-        {error, _}=Err ->
-            Err
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
 get_childspec(Mod, State, Id) ->
     case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
         {ok, Child} ->
             {ok, director_utils:c2cs(Child)};
-        {error, _}=Err ->
-            Err
+        {soft_error, _, Rsn} ->
+            {error, Rsn};
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
 get_pid(Mod, State, Id) ->
     case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
         {ok, #?CHILD{pid = Pid}} ->
             {ok, Pid};
-        {error, _}=Err ->
-            Err
+        {soft_error, _, Rsn} ->
+            {error, Rsn};
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
@@ -207,30 +220,30 @@ get_pids(Mod, State) ->
     case director_table:tab2list(Mod, State) of
         {ok, Children} ->
             {ok, [{Id, Pid} || #?CHILD{id = Id, pid = Pid} <- Children, erlang:is_pid(Pid)]};
-        {error, _}=Err ->
-            Err
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
 get_plan(Mod, State, Id) ->
     case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
         {ok, #?CHILD{plan = Plan}} ->
             {ok, Plan};
-        {error, _}=Err ->
-            Err
+        {soft_error, _, Rsn} ->
+            {error, Rsn};
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 
 get_restart_count(Mod, State, Id) ->
     case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
         {ok, #?CHILD{restart_count = ResCount}} ->
             {ok, ResCount};
-        {error, _}=Err ->
-            Err
+        {soft_error, _, Rsn} ->
+            {error, Rsn};
+        {hard_error, Rsn} ->
+            {error, Rsn}
     end.
 
 %% -------------------------------------------------------------------------------------------------
@@ -240,22 +253,22 @@ create(Mod, InitArg) ->
     try Mod:create(InitArg) of
         {ok, _}=Ok ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, create}
-                                       ,{init_argument, InitArg}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, create}
+                                            ,{init_argument, InitArg}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, create}
-                                       ,{init_argument, InitArg}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, create}
+                                            ,{init_argument, InitArg}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, create}
-                                  ,{init_argument, InitArg}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, create}
+                                       ,{init_argument, InitArg}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
@@ -263,97 +276,105 @@ delete_table(Mod, State) ->
     try Mod:delete_table(State) of
         ok ->
             ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, delete_table}
-                                       ,{state, State}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, delete_table}
+                                            ,{state, State}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, delete_table}
-                                       ,{state, State}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, delete_table}
+                                            ,{state, State}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, delete_table}
-                                  ,{state, State}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, delete_table}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
 lookup_id(Mod, State, Id) ->
     try Mod:lookup_id(State, Id) of
-        {ok, Rslt}=Ok when erlang:is_record(Rslt, ?CHILD) orelse Rslt =:= not_found ->
+        {ok, #?CHILD{}}=Ok ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, lookup_id}
-                                       ,{state, State}
-                                       ,{id, Id}]}};
+        {soft_error, not_found} ->
+            {soft_error, State, not_found};
+        {soft_error, _, not_found}=SErr ->
+            SErr;
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, lookup_id}
+                                            ,{state, State}
+                                            ,{id, Id}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, lookup_id}
+                                            ,{state, State}
+                                            ,{id, Id}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {table_crash, [{reason, Rsn}
                                        ,{module, Mod}
                                        ,{function, lookup_id}
                                        ,{state, State}
-                                       ,{id, Id}]}}
-    catch
-        _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, lookup_id}
-                                  ,{state, State}
-                                  ,{id, Id}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{id, Id}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
 count(Mod, State) ->
     try Mod:count(State) of
-        {ok, Count}=Ok when erlang:is_integer(Count) ->
+        {ok, Count}=Ok when erlang:is_integer(Count) andalso Count < -1 ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, count}
-                                       ,{state, State}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, count}
+                                            ,{state, State}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, count}
-                                       ,{state, State}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, count}
+                                            ,{state, State}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, count}
-                                  ,{state, State}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, count}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
 lookup_pid(Mod, State, Pid) ->
     try Mod:lookup_pid(State, Pid) of
-        {ok, Rslt}=Ok when erlang:is_record(Rslt, ?CHILD) orelse Rslt =:= not_found ->
+        {ok, #?CHILD{}}=Ok ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, lookup_pid}
-                                       ,{state, State}
-                                       ,{pid, Pid}]}};
+        {soft_error, not_found} ->
+            {soft_error, State, not_found};
+        {soft_error, _, not_found}=SErr ->
+            SErr;
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, lookup_pid}
+                                            ,{state, State}
+                                            ,{pid, Pid}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, lookup_pid}
+                                            ,{state, State}
+                                            ,{pid, Pid}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {table_crash, [{reason, Rsn}
                                        ,{module, Mod}
                                        ,{function, lookup_pid}
                                        ,{state, State}
-                                       ,{pid, Pid}]}}
-    catch
-        _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, lookup_pid}
-                                  ,{state, State}
-                                  ,{pid, Pid}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{pid, Pid}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
@@ -364,27 +385,27 @@ lookup_appended(Mod, State) ->
                 true ->
                     Ok;
                 false ->
-                    {error, {table_bad_return, [{returned_value, Ok}
-                                               ,{module, Mod}
-                                               ,{function, lookup_appended}
-                                               ,{state, State}]}}
+                    {hard_error, {table_bad_return, [{returned_value, Ok}
+                                                    ,{module, Mod}
+                                                    ,{function, lookup_appended}
+                                                    ,{state, State}]}}
             end;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, lookup_appended}
-                                       ,{state, State}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, lookup_appended}
+                                            ,{state, State}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, lookup_appended}
-                                       ,{state, State}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, lookup_appended}
+                                            ,{state, State}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, lookup_appended}
-                                  ,{state, State}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, lookup_appended}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
@@ -392,25 +413,25 @@ insert(Mod, State, Child) ->
     try Mod:insert(State, Child) of
         {ok, _}=Ok ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, insert}
-                                       ,{state, State}
-                                       ,{child, Child}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, insert}
+                                            ,{state, State}
+                                            ,{child, Child}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, insert}
+                                            ,{state, State}
+                                            ,{child, Child}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {table_crash, [{reason, Rsn}
                                        ,{module, Mod}
                                        ,{function, insert}
                                        ,{state, State}
-                                       ,{child, Child}]}}
-    catch
-        _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, insert}
-                                  ,{state, State}
-                                  ,{child, Child}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
