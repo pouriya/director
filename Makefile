@@ -1,7 +1,7 @@
 BUILD_PATH := _build
 LIB_PATH := $(BUILD_PATH)/default/lib
 
-.PHONY: all deps compile shell docs test clean distclean
+.PHONY: all deps compile compile-examples shell docs test clean distclean
 
 all: compile
 
@@ -22,7 +22,7 @@ docs:
 	@./rebar3 edoc
 
 test: compile-examples
-	@./rebar3 ct && ./rebar3 dialyzer
+	./rebar3 ct && ./rebar3 dialyzer
 
 clean:
 	@./rebar3 clean
