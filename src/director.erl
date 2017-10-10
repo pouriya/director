@@ -1427,93 +1427,78 @@ handle_exit(Parent
                    ,restart_count = ResCount}=Child
            ,Reason) ->
     ResCount2 = ResCount + 1,
-    Child2 = Child#?CHILD{restart_count = ResCount2},
-    case director_table:insert(TabMod, TabState, Child2) of
-        {ok, TabState2} ->
-            Strategy =
-                try
-                    {value, Plan(Id, Reason, ResCount2, Data)}
-                catch
-                    _:Rsn ->
-                        {error, {plan_crash, [{reason, Rsn}
-                                             ,{plan, Plan}
-                                             ,{id, Id}
-                                             ,{reason_argument, Reason}
-                                             ,{restart_count, ResCount2}
-                                             ,{state, Data}
-                                             ,{stacktrace, erlang:get_stacktrace()}]}}
-                end,
-            _ = director_utils:debug(Dbg, Name, {plan, Id, Strategy}),
-            case Strategy of
-                {value, {restart, Data2}} ->
-                    case do_restart_child(Name, Id, TabMod, TabState2) of
-                        {error, Rsn2} ->
-                            terminate(Dbg
-                                     ,State#?STATE{table_state = TabState2, data = Data2}
-                                     ,Rsn2);
-                        {error, TabState3, _Reason3} ->
-                            TimeRef = restart_timer(0, Id),
-                            case director_table:insert(TabMod
-                                                      ,TabState3
-                                                      ,Child2#?CHILD{pid = restarting
-                                                                    ,timer_reference = TimeRef}) of
-                                {ok, TabState4} ->
-                                    loop(Parent
-                                        ,Dbg
-                                        ,State#?STATE{table_state = TabState4, data = Data2});
-                                {error, Rsn3} ->
-                                    terminate(Dbg
-                                             ,State#?STATE{table_state = TabState3, data = Data2}
-                                             ,Rsn3)
-                            end;
-                        {ok, _Pid, TabState3} ->
-                            loop(Parent, Dbg, State#?STATE{table_state = TabState3, data = Data2});
-                        {ok, _Pid, _Extra, TabState3} ->
-                            loop(Parent, Dbg, State#?STATE{table_state = TabState3, data = Data2})
-                    end;
-                {value, {stop, Data2}} ->
-                    terminate(Dbg, State#?STATE{table_state = TabState2, data = Data2}, Reason);
-                {value, {{stop, Reason3}, Data2}} ->
-                    terminate(Dbg, State#?STATE{table_state = TabState2, data = Data2}, Reason3);
-                {value, {delete, Data2}} ->
-                    case director_table:delete(TabMod, TabState2, Child2) of
-                        {ok, TabState3} ->
-                            loop(Parent, Dbg, State#?STATE{table_state = TabState3, data = Data2});
-                        {error, Rsn2} ->
-                            terminate(Dbg
-                                     ,State#?STATE{table_state = TabState2, data = Data2}
-                                     ,Rsn2)
-                    end;
-                {value, {wait, Data2}} ->
-                    loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = Data2});
-                {value, {{restart, PosInt}, Data2}} when erlang:is_integer(PosInt) andalso PosInt >= 0 ->
-                    TimeRef = restart_timer(PosInt, Id),
+    Strategy =
+        try
+            {value, Plan(Id, Reason, ResCount2, Data)}
+        catch
+            _:Rsn ->
+                {error, {plan_crash, [{reason, Rsn}
+                                     ,{plan, Plan}
+                                     ,{id, Id}
+                                     ,{reason_argument, Reason}
+                                     ,{restart_count, ResCount2}
+                                     ,{state, Data}
+                                     ,{stacktrace, erlang:get_stacktrace()}]}}
+        end,
+    _ = director_utils:debug(Dbg, Name, {plan, Id, Strategy}),
+    case Strategy of
+        {value, {restart, Data2}} ->
+            case do_restart_child(Name, Id, TabMod, TabState) of
+                {error, Rsn2} ->
+                    terminate(Dbg, State#?STATE{data = Data2}, Rsn2);
+                {error, TabState2, _Reason3} ->
+                    TimeRef = restart_timer(0, Id),
                     case director_table:insert(TabMod
                                               ,TabState2
-                                              ,Child2#?CHILD{pid = restarting
-                                                            ,timer_reference = TimeRef}) of
+                                              ,Child#?CHILD{pid = restarting
+                                                           ,timer_reference = TimeRef}) of
                         {ok, TabState3} ->
-                            loop(Parent, Dbg, State#?STATE{table_state = TabState3, data = Data2});
-                        {error, Rsn2} ->
+                            loop(Parent
+                                ,Dbg
+                                ,State#?STATE{table_state = TabState3, data = Data2});
+                        {error, Rsn3} ->
                             terminate(Dbg
                                      ,State#?STATE{table_state = TabState2, data = Data2}
-                                     ,Rsn2)
+                                     ,Rsn3)
                     end;
-                {error, Reason3} ->
-                    terminate(Dbg
-                             ,State#?STATE{table_state = TabState2}
-                             ,Reason3);
-                {value, Other} ->
-                    terminate(Dbg
-                             ,State#?STATE{table_state = TabState2}
-                             ,{plan_return, [{returned_value, Other}
-                                            ,{plan, Plan}
-                                            ,{id, Id}
-                                            ,{reason_argument, Reason}
-                                            ,{restart_count, ResCount2}]})
+                {ok, _Pid, TabState2} ->
+                    loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = Data2});
+                {ok, _Pid, _Extra, TabState2} ->
+                    loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = Data2})
             end;
-        {error, Rsn} ->
-            terminate(Dbg, State, Rsn)
+        {value, {stop, Data2}} ->
+            terminate(Dbg, State#?STATE{data = Data2}, Reason);
+        {value, {{stop, Reason3}, Data2}} ->
+            terminate(Dbg, State#?STATE{data = Data2}, Reason3);
+        {value, {delete, Data2}} ->
+            case director_table:delete(TabMod, TabState, Child) of
+                {ok, TabState2} ->
+                    loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = Data2});
+                {error, Rsn2} ->
+                    terminate(Dbg, State#?STATE{data = Data2}, Rsn2)
+            end;
+        {value, {wait, Data2}} ->
+            loop(Parent, Dbg, State#?STATE{data = Data2});
+        {value, {{restart, PosInt}, Data2}} when erlang:is_integer(PosInt) andalso PosInt >= 0 ->
+            TimeRef = restart_timer(PosInt, Id),
+            case director_table:insert(TabMod
+                                      ,TabState
+                                      ,Child#?CHILD{pid = restarting, timer_reference = TimeRef}) of
+                {ok, TabState2} ->
+                    loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = Data2});
+                {error, Rsn2} ->
+                    terminate(Dbg, State#?STATE{data = Data2}, Rsn2)
+            end;
+        {error, Reason3} ->
+            terminate(Dbg, State, Reason3);
+        {value, Other} ->
+            terminate(Dbg
+                     ,State
+                     ,{plan_return, [{returned_value, Other}
+                                    ,{plan, Plan}
+                                    ,{id, Id}
+                                    ,{reason_argument, Reason}
+                                    ,{restart_count, ResCount2}]})
     end.
 
 
@@ -1713,15 +1698,16 @@ do_restart_child(Name, Id, TabMod, TabState) ->
             {error, TabState, running};
         {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
             {error, TabState, not_owner};
-        {ok, #?CHILD{pid = restarting, timer_reference = Ref}=Child} ->
+        {ok, #?CHILD{pid = restarting, timer_reference = Ref, restart_count = RstrtCount}=Child} ->
             _ = erlang:cancel_timer(Ref, [{async, true}]),
             start_mfa(Name
                      ,Child#?CHILD{pid = undefined
-                                  ,timer_reference = undefined}
+                                  ,timer_reference = undefined
+                                  ,restart_count = RstrtCount + 1}
                      ,TabMod
                      ,TabState);
-        {ok, Child} ->
-            start_mfa(Name, Child, TabMod, TabState);
+        {ok, #?CHILD{restart_count = RstrtCount}=Child} ->
+            start_mfa(Name, Child#?CHILD{restart_count = RstrtCount + 1}, TabMod, TabState);
         {error, Rsn} ->
             {error, Rsn}
     end.
