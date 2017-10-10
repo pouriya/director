@@ -232,7 +232,7 @@ handle_message(_, _) ->
 parent_insert(Tab, #?CHILD{id = Id}=Child) when erlang:is_atom(Tab) ->
     try ets:lookup(Tab, Id) of
         [#?CHILD{supervisor = Pid}] when erlang:self() =/= Pid ->
-            {error, Tab, not_owner};
+            {error, Tab, not_parent};
         _ ->
             _ = ets:insert(Tab, Child),
             {ok, Tab}

@@ -135,7 +135,7 @@ handle_message(State::any(), Msg::any()) ->
 -callback
 parent_insert(State::any(), Child::#?CHILD{}) ->
     {'ok', NewState::any()}                         |
-    {'error', NewState::any(), 'not_owner'}         |
+    {'error', NewState::any(), 'not_parent'}         |
     {'error', {Reason::atom(), ErrorParams::list()}}.
 
 %% -------------------------------------------------------------------------------------------------
@@ -540,7 +540,7 @@ parent_insert(Mod, State, Child) ->
     try Mod:insert(State, Child) of
         {ok, _}=Ok ->
             Ok;
-        {error, _, not_owner}=Err ->
+        {error, _, not_parent}=Err ->
             Err;
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}

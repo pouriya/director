@@ -301,12 +301,12 @@ start_child(Director, ChildSpec) when ?is_director(Director) andalso erlang:is_m
 restart_child(director(), id()) ->
     {'ok', pid()}                 |
     {'ok', pid(), Extra::term()} |
-    {'error', Reason::'running'|'restarting'|'not_found'|'not_owner'|term()}.
+    {'error', Reason::'running'|'restarting'|'not_found'|'not_parent'|term()}.
 %% @doc
 %%      Restarts a terminated or waited child using child id.
 %%      Reason of error may be for starting process or table.
 %%      If this supervisor is not owner of child and has access to children table, it cannot restart
-%%      child and {error, not_owner} error will occur.
+%%      child and {error, not_parent} error will occur.
 %% @end
 restart_child(Director, Id) when ?is_director(Director) ->
     gen_server:call(Director, {?RESTART_CHILD_TAG, Id}).
@@ -314,11 +314,11 @@ restart_child(Director, Id) when ?is_director(Director) ->
 
 -spec
 terminate_child(director(), id() | pid()) ->
-    'ok' | {'error', Reason :: 'not_found' | 'not_owner' | term()}.
+    'ok' | {'error', Reason :: 'not_found' | 'not_parent' | term()}.
 %% @doc
 %%      terminates a child using child id or child pid.
 %%      If this supervisor is not owner of child and has access to children table, it cannot
-%%      terminate child and {error, not_owner} error will occur.
+%%      terminate child and {error, not_parent} error will occur.
 %% @end
 terminate_child(Director, Id_or_Pid) when ?is_director(Director) ->
     gen_server:call(Director, {?TERMINATE_CHILD_TAG, Id_or_Pid}).
@@ -326,11 +326,11 @@ terminate_child(Director, Id_or_Pid) when ?is_director(Director) ->
 
 -spec
 delete_child(director(), id()) ->
-    'ok' | {'error', Reason :: 'not_found' | 'running' | 'not_owner' | term()}.
+    'ok' | {'error', Reason :: 'not_found' | 'running' | 'not_parent' | term()}.
 %% @doc
 %%      Deletes a terminated or waited child using child id.
 %%      If this supervisor is not owner of child and has access to children table, it cannot delete
-%%      child and {error, not_owner} error will occur.
+%%      child and {error, not_parent} error will occur.
 %% @end
 delete_child(Director, Id) when ?is_director(Director) ->
     gen_server:call(Director, {?DELETE_CHILD_TAG, Id}).
@@ -392,12 +392,12 @@ check_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
 
 -spec
 change_plan(director(), id(), plan()) ->
-    'ok' | {'error', 'not_found' | 'not_owner' | term()}.
+    'ok' | {'error', 'not_found' | 'not_parent' | term()}.
 %% @doc
 %%      Changes the plan of running or waited or terminated child.
 %%      Be careful about using this, because in next crash of child you may see different behavior.
 %%      If this supervisor is not owner of child and has access to children table, it cannot change
-%%      plan and {error, not_owner} error will occur.
+%%      plan and {error, not_parent} error will occur.
 %% @end
 change_plan(Director, Id, Plan) when ?is_director(Director) andalso erlang:is_function(Plan, 4) ->
     gen_server:call(Director, {?CHANGE_PLAN_TAG, Id, Plan}).
@@ -616,11 +616,11 @@ log_validator(_Type, _Extra) ->
 
 -spec
 terminate_and_delete_child(director(), id()|pid()) ->
-    'ok' | {'error', 'not_found'|'not_owner'|term()}.
+    'ok' | {'error', 'not_found'|'not_parent'|term()}.
 %% @doc
 %%      Terminates running child and deletes it using child id or child pid.
 %%      If this supervisor is not owner of child and has access to children table, it cannot delete
-%%      child and error {error, not_owner} will occur.
+%%      child and error {error, not_parent} will occur.
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
 terminate_and_delete_child(Director, Id) when ?is_director(Director) ->
@@ -657,12 +657,12 @@ start_child(Director, ChildSpec, Timeout) when ?is_director(Director) andalso
 restart_child(director(), id(), timeout()) ->
     {'ok', pid()}                                               |
     {'ok', pid(), Extra::term()}                                |
-    {'error', Reason::'running'|'restarting'|'not_found'|'not_owner'|term()}.
+    {'error', Reason::'running'|'restarting'|'not_found'|'not_parent'|term()}.
 %% @doc
 %%      Restarts a terminated or waited child using child id.
 %%      Reason of error may be for starting process.
 %%      If this supervisor is not owner of child and has access to children table, it cannot restart
-%%      child and error {error, not_owner} will occur.
+%%      child and error {error, not_parent} will occur.
 %% @end
 restart_child(Director, Id, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) ->
     gen_server:call(Director, {?RESTART_CHILD_TAG, Id}, Timeout).
@@ -670,11 +670,11 @@ restart_child(Director, Id, Timeout) when ?is_director(Director) andalso ?is_tim
 
 -spec
 terminate_child(director(), id() | pid(), timeout()) ->
-    'ok' | {'error', Reason::'not_found'|'not_owner'|term()}.
+    'ok' | {'error', Reason::'not_found'|'not_parent'|term()}.
 %% @doc
 %%      Terminates running child using child id or child pid.
 %%      If this supervisor is not owner of child and has access to children table, it cannot delete
-%%      child and error {error, not_owner} will occur.
+%%      child and error {error, not_parent} will occur.
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
 terminate_child(Director, Id_or_Pid, Timeout) when ?is_director(Director) andalso
@@ -684,11 +684,11 @@ terminate_child(Director, Id_or_Pid, Timeout) when ?is_director(Director) andals
 
 -spec
 delete_child(director(), id(), timeout()) ->
-    'ok' | {'error', Reason::'not_found'|'running'|'not_owner'|term()}.
+    'ok' | {'error', Reason::'not_found'|'running'|'not_parent'|term()}.
 %% @doc
 %%      Deletes terminated or waited child using child id.
 %%      If this supervisor is not owner of child and has access to children table, it cannot delete
-%%      child and error {error, not_owner} will occur.
+%%      child and error {error, not_parent} will occur.
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
 delete_child(Director, Id, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) ->
@@ -745,12 +745,12 @@ get_restart_count(Director, Id, Timeout) when ?is_director(Director) andalso ?is
 
 -spec
 change_plan(director(), id(), plan(), timeout()) ->
-    'ok' | {'error', 'not_found' | 'not_owner' | term()}.
+    'ok' | {'error', 'not_found' | 'not_parent' | term()}.
 %% @doc
 %%      Changes the plan of running or waited or terminated child.
 %%      Be careful about using this, because in next crash of child you may see different behavior.
 %%      If this supervisor is not owner of child and has access to children table, it cannot change
-%%      plan and {error, not_owner} error will occur.
+%%      plan and {error, not_parent} error will occur.
 %% @end
 change_plan(Director, Id, Plan, Timeout) when ?is_director(Director) andalso
                                               erlang:is_function(Plan, 4) andalso
@@ -817,11 +817,11 @@ change_default_childspec(Director, ChildSpec, Timeout) when ?is_director(Directo
 
 -spec
 terminate_and_delete_child(director(), id()|pid(), timeout()) ->
-    'ok' | {'error', 'not_found'|'not_owner'|term()}.
+    'ok' | {'error', 'not_found'|'not_parent'|term()}.
 %% @doc
 %%      Terminates running child and deletes it using child id or child pid.
 %%      If this supervisor is not owner of child and has access to children table, it cannot delete
-%%      child and error {error, not_owner} will occur.
+%%      child and error {error, not_parent} will occur.
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
 terminate_and_delete_child(Director, Id, Timeout) when ?is_director(Director) andalso
@@ -1114,7 +1114,7 @@ process_request(Dbg
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
             {reply(Dbg, Name, From, {error, running}), State};
         {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-            {reply(Dbg, Name, From, {error, not_owner}), State};
+            {reply(Dbg, Name, From, {error, not_parent}), State};
         {ok, Child} ->
             case director_table:delete(TabMod, TabState, Child) of
                 {ok, TabState2} ->
@@ -1188,8 +1188,8 @@ process_request(Dbg
             terminate(Dbg2, State, Rsn);
         not_found ->
             {reply(Dbg, Name, From, {error, not_found}), State};
-        not_owner ->
-            {reply(Dbg, Name, From, {error, not_owner}), State}
+        not_parent ->
+            {reply(Dbg, Name, From, {error, not_parent}), State}
     end;
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
@@ -1230,7 +1230,7 @@ process_request(Dbg
                 {ok, not_found} ->
                     {reply(Dbg, Name, From, {error, not_found}), State};
                 {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_owner}), State};
+                    {reply(Dbg, Name, From, {error, not_parent}), State};
                 {ok, Child} ->
                     Child2 = Child#?CHILD{plan = Plan2},
                     case director_table:insert(TabMod, TabState, Child2) of
@@ -1317,7 +1317,7 @@ process_request(Dbg
                 {ok, not_found} ->
                     {reply(Dbg, Name, From, {error, not_found}), State};
                 {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_owner}), State};
+                    {reply(Dbg, Name, From, {error, not_parent}), State};
                 {ok, Child} ->
                     case director_table:insert(TabMod
                                               ,TabState
@@ -1353,7 +1353,7 @@ process_request(Dbg
                 {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
                     {reply(Dbg, Name, From, {error, running}), State};
                 {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_owner}), State};
+                    {reply(Dbg, Name, From, {error, not_parent}), State};
                 {ok, Child} ->
                     case director_table:delete(TabMod, TabState2, Child) of
                         {ok, TabState3} ->
@@ -1368,8 +1368,8 @@ process_request(Dbg
             terminate(Dbg2, State, Rsn);
         not_found ->
             {reply(Dbg, Name, From, {error, not_found}), State};
-        not_owner ->
-            {reply(Dbg, Name, From, {error, not_owner}), State}
+        not_parent ->
+            {reply(Dbg, Name, From, {error, not_parent}), State}
     end;
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator}=State, From, Other) ->
@@ -1516,7 +1516,7 @@ process_timeout(Parent
                     terminate(Dbg, State, Rsn);
                 {error, TabState2, not_found} ->
                     loop(Parent, Dbg, State#?STATE{table_state = TabState2});
-                {error, TabState2, not_owner} ->
+                {error, TabState2, not_parent} ->
                     loop(Parent, Dbg, State#?STATE{table_state = TabState2});
                 {error, TabState2, Reason} ->
                     case director_table:lookup_id(TabMod, TabState2, Id) of
@@ -1697,7 +1697,7 @@ do_restart_child(Name, Id, TabMod, TabState) ->
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
             {error, TabState, running};
         {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup andalso erlang:is_pid(Sup) ->
-            {error, TabState, not_owner};
+            {error, TabState, not_parent};
         {ok, #?CHILD{pid = restarting
                     ,timer_reference = Ref
                     ,supervisor = undefined
@@ -1710,8 +1710,8 @@ do_restart_child(Name, Id, TabMod, TabState) ->
                              ,Child2#?CHILD{restart_count = RstrtCount + 1}
                              ,TabMod
                              ,TabState2);
-                {error, TabState2, not_owner} ->
-                    {error, TabState2, not_owner};
+                {error, TabState2, not_parent} ->
+                    {error, TabState2, not_parent};
                 {error, _}=Err ->
                     Err
             end;
@@ -1878,7 +1878,7 @@ terminate_children(Name, TabMod, TabState, Children) ->
                     {TabState2, [Err|Errs]};
                 not_found ->
                     {TabState2, Errs};
-                not_owner ->
+                not_parent ->
                     {TabState2, Errs}
             end
         end,
@@ -1924,7 +1924,7 @@ do_terminate_child(Name, Id_or_Pid, TabMod, TabState) ->
                     Err2
             end;
         {ok, _} ->
-            not_owner;
+            not_parent;
         {error, _}=Err2 ->
             Err2
     end.

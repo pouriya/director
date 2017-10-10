@@ -271,7 +271,7 @@ parent_insert(Tab, #?CHILD{id = Id}=Child) ->
         fun() ->
             case mnesia:read(Tab, Id, write) of
                 [#?CHILD{supervisor = Pid}] when Pid =/= Self ->
-                    {error, Tab, not_owner};
+                    {error, Tab, not_parent};
                 _ ->
                     _ = mnesia:write(Tab, Child, write),
                     {ok, Tab}
