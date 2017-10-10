@@ -974,8 +974,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
             _ ->
                 State
         end,
-    Specific = [{data, [{"State", State2}]}
-               ,{supervisor, [{"Callback", Mod}]}],
+    Specific = [{data, [{"State", State2}]}],
     [Header, Data ,{supervisor, [{"Callback", Mod}]}, Specific].
 
 
