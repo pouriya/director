@@ -1,7 +1,7 @@
 BUILD_PATH := _build
 LIB_PATH := $(BUILD_PATH)/default/lib
 
-.PHONY: all deps compile compile-examples shell docs test clean distclean
+.PHONY: all deps compile compile-examples shell docs test clean distclean push
 
 all: compile
 
@@ -31,3 +31,6 @@ clean:
 distclean:
 	@rm -rf $(BUILD_PATH)
 	@rm -rf examples/*/$(BUILD_PATH)
+
+push: test
+	@git push origin master
