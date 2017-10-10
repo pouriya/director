@@ -957,7 +957,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
     Data = {data, [{"Status", SysState}
                   ,{"Parent", Parent}
                   ,{"Logged events", sys:get_debug(log, Debug, [])}]},
-    case file:consult(code:root_dir() ++ "/releases/RELEASES") of
+    case erlang:list_to_integer(erlang:system_info(otp_release)) of
         Ver when Ver < 19 ->
             State2 = {state
                      ,name
