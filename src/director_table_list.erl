@@ -54,7 +54,8 @@
         ,count/1
         ,delete_table/1
         ,tab2list/1
-        ,handle_message/2]).
+        ,handle_message/2
+        ,parent_insert/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -120,3 +121,13 @@ tab2list(Tab) ->
 
 handle_message(_, _) ->
     unknown.
+
+
+parent_insert(Tab, #?CHILD{id = Id}=Child) ->
+    case lists:keyfind(Id, 2, Tab) of
+        false ->
+            {ok, [Child|Tab]};
+        _ ->
+            {value, _, Tab2} = lists:keytake(Id, 2, Tab),
+            {ok, [Child|Tab2]}
+    end.

@@ -465,7 +465,7 @@ change_default_childspec(director(), default_childspec()) ->
 %%      Be careful about using this. This may change all children behavior with append => true in
 %%      their next restart.
 %% @end
-change_default_childspec(Director, DefChildSpec) when ?is_director(Director) andalso 
+change_default_childspec(Director, DefChildSpec) when ?is_director(Director) andalso
                                                       erlang:is_map(DefChildSpec) ->
     gen_server:call(Director, {?CHANGE_DEF_CHILDSPEC, DefChildSpec}).
 
@@ -476,7 +476,7 @@ change_log_validator(director(), log_validator()) ->
 %% @doc
 %%      Changes log validator fun for director itself.
 %% @end
-change_log_validator(Director, LogValidator) when ?is_director(Director) andalso 
+change_log_validator(Director, LogValidator) when ?is_director(Director) andalso
                                                   erlang:is_function(LogValidator, 2) ->
     gen_server:call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}).
 
@@ -644,10 +644,10 @@ start_child(director(), childspec(), timeout()) ->
     start_return().
 %% @doc
 %%      Starts child using childspec.
-%%      Reason of error may be for childspec not starting process or reading from or inserting to 
+%%      Reason of error may be for childspec not starting process or reading from or inserting to
 %%      table.
 %% @end
-start_child(Director, ChildSpec, Timeout) when ?is_director(Director) andalso 
+start_child(Director, ChildSpec, Timeout) when ?is_director(Director) andalso
                                                erlang:is_map(ChildSpec) andalso
                                                ?is_timeout(Timeout) ->
     gen_server:call(Director, {?START_CHILD_TAG, ChildSpec}, Timeout).
@@ -677,7 +677,7 @@ terminate_child(director(), id() | pid(), timeout()) ->
 %%      child and error {error, not_owner} will occur.
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
-terminate_child(Director, Id_or_Pid, Timeout) when ?is_director(Director) andalso 
+terminate_child(Director, Id_or_Pid, Timeout) when ?is_director(Director) andalso
                                                    ?is_timeout(Timeout) ->
     gen_server:call(Director, {?TERMINATE_CHILD_TAG, Id_or_Pid}, Timeout).
 
@@ -717,7 +717,7 @@ which_children(director(), timeout()) ->
 %%      Returns information about each children.
 %%      Error is for reading from table.
 %% @end
-which_children(Director, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) -> 
+which_children(Director, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) ->
     gen_server:call(Director, ?WHICH_CHILDREN_TAG, Timeout).
 
 
@@ -1696,13 +1696,29 @@ do_restart_child(Name, Id, TabMod, TabState) ->
             {error, TabState, not_found};
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
             {error, TabState, running};
-        {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
+        {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup andalso erlang:is_pid(Sup) ->
             {error, TabState, not_owner};
+        {ok, #?CHILD{pid = restarting
+                    ,timer_reference = Ref
+                    ,supervisor = undefined
+                    ,restart_count = RstrtCount}=Child} ->
+            Child2 = Child#?CHILD{supervisor = erlang:self(), timer_reference = undefined},
+            case director_table:parent_insert(TabMod, TabState, Child2) of
+                {ok, TabState2} ->
+                    _ = erlang:cancel_timer(Ref, [{async, true}]),
+                    start_mfa(Name
+                             ,Child2#?CHILD{restart_count = RstrtCount + 1}
+                             ,TabMod
+                             ,TabState2);
+                {error, TabState2, not_owner} ->
+                    {error, TabState2, not_owner};
+                {error, _}=Err ->
+                    Err
+            end;
         {ok, #?CHILD{pid = restarting, timer_reference = Ref, restart_count = RstrtCount}=Child} ->
             _ = erlang:cancel_timer(Ref, [{async, true}]),
             start_mfa(Name
-                     ,Child#?CHILD{pid = undefined
-                                  ,timer_reference = undefined
+                     ,Child#?CHILD{timer_reference = undefined
                                   ,restart_count = RstrtCount + 1}
                      ,TabMod
                      ,TabState);

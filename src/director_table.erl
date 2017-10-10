@@ -60,7 +60,8 @@
         ,count/2
         ,delete_table/2
         ,tab2list/2
-        ,handle_message/3]).
+        ,handle_message/3
+        ,parent_insert/3]).
 
 %% Callback module API:
 -export([count_children/2
@@ -129,6 +130,13 @@ delete_table(State::any()) ->
 -callback
 handle_message(State::any(), Msg::any()) ->
     {'ok', NewState::any()} | 'unknown' | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+parent_insert(State::any(), Child::#?CHILD{}) ->
+    {'ok', NewState::any()}                         |
+    {'error', NewState::any(), 'not_owner'}         |
+    {'error', {Reason::atom(), ErrorParams::list()}}.
 
 %% -------------------------------------------------------------------------------------------------
 %% Callback module API:
@@ -524,6 +532,34 @@ handle_message(Mod, State, Msg) ->
                                   ,{function, handle_message}
                                   ,{state, State}
                                   ,{message, Msg}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+    end.
+
+
+parent_insert(Mod, State, Child) ->
+    try Mod:insert(State, Child) of
+        {ok, _}=Ok ->
+            Ok;
+        {error, _, not_owner}=Err ->
+            Err;
+        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {error, {Rsn, ErrParams ++ [{module, Mod}
+                                       ,{function, parent_insert}
+                                       ,{state, State}
+                                       ,{child, Child}]}};
+        Other ->
+            {error, {table_bad_return, [{returned_value, Other}
+                                       ,{module, Mod}
+                                       ,{function, parent_insert}
+                                       ,{state, State}
+                                       ,{child, Child}]}}
+    catch
+        _:Rsn ->
+            {error, {table_crash, [{reason, Rsn}
+                                  ,{module, Mod}
+                                  ,{function, parent_insert}
+                                  ,{state, State}
+                                  ,{child, Child}
                                   ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 

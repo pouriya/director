@@ -63,7 +63,8 @@
         ,count/1
         ,delete_table/1
         ,tab2list/1
-        ,handle_message/2]).
+        ,handle_message/2
+        ,parent_insert/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -263,6 +264,20 @@ handle_message(Tab, {mnesia_system_event, _}) ->
     {ok, Tab};
 handle_message(_, _) ->
     unknown.
+
+parent_insert(Tab, #?CHILD{id = Id}=Child) ->
+    Self = erlang:self(),
+    TA =
+        fun() ->
+            case mnesia:read(Tab, Id, write) of
+                [#?CHILD{supervisor = Pid}] when Pid =/= Self ->
+                    {error, Tab, not_owner};
+                _ ->
+                    _ = mnesia:write(Tab, Child, write),
+                    {ok, Tab}
+            end
+        end,
+    transaction(Tab, TA).
 
 %% -------------------------------------------------------------------------------------------------
 %% Internal functions:

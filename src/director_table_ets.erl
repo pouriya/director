@@ -63,7 +63,8 @@
         ,count/1
         ,delete_table/1
         ,tab2list/1
-        ,handle_message/2]).
+        ,handle_message/2
+        ,parent_insert/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -226,6 +227,19 @@ tab2list(Tab) when erlang:is_atom(Tab) ->
 
 handle_message(_, _) ->
     unknown.
+
+
+parent_insert(Tab, #?CHILD{id = Id}=Child) when erlang:is_atom(Tab) ->
+    try ets:lookup(Tab, Id) of
+        [#?CHILD{supervisor = Pid}] when erlang:self() =/= Pid ->
+            {error, Tab, not_owner};
+        _ ->
+            _ = ets:insert(Tab, Child),
+            {ok, Tab}
+    catch
+        _:_ ->
+            table_error(Tab)
+    end.
 
 %% -------------------------------------------------------------------------------------------------
 %% Internal functions:
