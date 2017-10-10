@@ -38,6 +38,7 @@
 
 -module(director_table_ets).
 -author("pouriya.jahanbakhsh@gmail.com").
+-behaviour(director_table).
 
 
 %% -------------------------------------------------------------------------------------------------

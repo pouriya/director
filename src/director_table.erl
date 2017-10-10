@@ -72,6 +72,58 @@
         ,get_restart_count/3]).
 
 %% -------------------------------------------------------------------------------------------------
+%% Behavior information:
+
+-callback
+create({'value', InitArgument::any()} | 'undefined') ->
+    {'ok', State::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+insert(State::any(), Child::#?CHILD{}) ->
+    {'ok', NewState::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+delete(State::any(), Child::#?CHILD{}) ->
+    {'ok', NewState::any()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+lookup_id(State::any(), Id::any()) ->
+    {'ok', Child::#?CHILD{}} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+lookup_pid(State::any(), Pid::pid()) ->
+    {'ok', Child::#?CHILD{}} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+lookup_appended(State::any()) ->
+    {'ok', [Child::#?CHILD{}] | []} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+count(State::any()) ->
+    {'ok', Count::non_neg_integer()} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+tab2list(State::any()) ->
+    {'ok', [Child::#?CHILD{}] | []} | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+delete_table(State::any()) ->
+    'ok' | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+
+-callback
+handle_message(State::any(), Msg::any()) ->
+    {'ok', NewState::any()} | 'unknown' | {'error', {Reason::atom(), ErrorParams::list()}}.
+
+%% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
 %% Dependencies:
