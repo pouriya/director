@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.9.16
+%% @version  17.10.10
 %% @doc
 %%           Director is a production-ready supervisor and manager for Erlang/Elixir processes with
 %%           focus on speed and flexibility.
@@ -976,7 +976,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
         end,
     Specific = [{data, [{"State", State2}]}
                ,{supervisor, [{"Callback", Mod}]}],
-    [Header, Data, Specific].
+    [Header, Data ,{supervisor, [{"Callback", Mod}]}, Specific].
 
 
 %% -------------------------------------------------------------------------------------------------
