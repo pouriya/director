@@ -523,6 +523,11 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '10'(_Config) ->
+    F = fun() -> {ok, undefined} end,
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F
+                                                ,?START_OPTIONS)),
     ?CALLBACK = supervisor:get_callback_module(?DIRECTOR).
 
 
