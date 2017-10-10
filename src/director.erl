@@ -958,7 +958,10 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
                   ,{"Parent", Parent}
                   ,{"Logged events", sys:get_debug(log, Debug, [])}]},
     case erlang:list_to_integer(erlang:system_info(otp_release)) of
-        Ver when Ver < 19 ->
+        Ver when Ver >= 19 ->
+            Specific = [{data, [{"State", State}]}],
+            [Header, Data , {supervisor, [{"Callback", Mod}]}, Specific];
+        _ ->
             State2 = {state
                      ,name
                      ,strategy
@@ -970,10 +973,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
                      ,Mod
                      ,ags},
             Specific = [{data, [{"State", State2}]}],
-            [Header, Data , Specific];
-        _ ->
-            Specific = [{data, [{"State", State}]}],
-            [Header, Data , {supervisor, [{"Callback", Mod}]}, Specific]
+            [Header, Data , Specific]
     end.
 
 
