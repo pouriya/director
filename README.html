@@ -56,7 +56,7 @@
                 <p><a href="https://camo.githubusercontent.com/a8c976da0413a08d32f4f329218e4a6ded633d81/68747470733a2f2f7472617669732d63692e6f72672f506f75726979612d4a6168616e62616b6873682f6469726563746f722e706e673f6272616e63683d6d6173746572" target="_blank"><img src="https://camo.githubusercontent.com/a8c976da0413a08d32f4f329218e4a6ded633d81/68747470733a2f2f7472617669732d63692e6f72672f506f75726979612d4a6168616e62616b6873682f6469726563746f722e706e673f6272616e63683d6d6173746572" alt="directror travis test status" data-canonical-src="https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master" style="max-width:100%;"></a> <a href="https://hex.pm/packages/director"><img src="https://camo.githubusercontent.com/405d5495700841e21cec7eef2187850fcebe25ab/68747470733a2f2f696d672e736869656c64732e696f2f686578706d2f762f6469726563746f722e737667" alt="Hex version" title="Hex version" data-canonical-src="https://img.shields.io/hexpm/v/director.svg" style="max-width:100%;"></a></p>
 <h1>
 <a id="user-content-welcome" class="anchor" href="#welcome" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Welcome</h1>
-<p><strong>Director</strong> is a production-ready <strong>supervisor</strong> and <strong>manager</strong> for Erlang/Elixir processes with focus on speed and flexibility.</p>
+<p><strong>Director</strong> is a production-ready <strong>supervisor</strong> and <strong>manager</strong> for Erlang/Elixir processes with focus on speed, performance and flexibility.</p>
 <h2>
 <a id="user-content-synopsis" class="anchor" href="#synopsis" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Synopsis</h2>
 <p>According to the Erlang's manual documentation:</p>
@@ -64,40 +64,48 @@
 <p>A supervisor is a process that supervises other processes called child processes.<br>
 A child process can either be another supervisor or a worker process.<br>
 Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.<br>
-In Erlang/Elixir we tell supervisors to start other processes and restart them if they crash, etc.</p>
+In Erlang we tell supervisors to start other processes. Every process has its own options called childspec and its supervisor maybe restart it if it crashed based these options, etc.</p>
 </blockquote>
 <h2>
 <a id="user-content-features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features:</h2>
 <ul>
-<li>If a child crashed, <strong>Director</strong> can do following works (Depends on your childspec plan):
+<li>If a child process crashed, <strong>Director</strong> can do followings (Depends on childspec):
 <ul>
 <li>Restart child.</li>
 <li>Restart child after time interval.</li>
 <li>Delete child from its children.</li>
 <li>Wait for calling <code>restart_child/2-3</code> for restarting.</li>
-<li>Crash itself.</li>
+<li>Crash entire supervision tree.</li>
 </ul>
 </li>
-<li>A <strong>Director</strong> process can give response for all API functions of OTP/Supervisor module (for example <code>director:which_children(Pid)</code> <code>=:=</code> <code>supervisor:which_children(Pid)</code>).</li>
 <li>
-<strong>Director</strong> does not write top of generic behaviors like <code>gen_sever</code>, etc. It was written as Erlang special process and it is blazingly fast.</li>
+<strong>Director</strong> has three database modules for keeping children:
+<ul>
+<li>
+<code>director_table_list</code>: An Erlang list. You have to get all children information directly from <strong>Director</strong> process.</li>
+<li>
+<code>director_table_ets</code>: Many <strong>Director</strong> processes can share a table for keeping their children. You can get all information of children directly from table instead of message passing with <strong>Director</strong> process.</li>
+<li>
+<code>director_table_mnesia</code>: Many <strong>Director</strong> processes in one node or cluster of nodes can share a table for keeping their children. You can get all information of children directly from table in any node that has a copy of table.</li>
+</ul>
+</li>
+<li>Since <strong>Director</strong> is modular, You can write your own backend table for keeping children and give it to <strong>Director</strong> for using by implementing <code>director_table</code> behavior. Some test cases are ready for testing your table in <code>/test</code> directory too.</li>
+<li>In <strong>Director</strong>, your callback module which should give childspecs from its <code>init/1</code> function, should return an <code>State</code> value too. In termination <strong>Director</strong> calls <code>YourCallback:terminate(Reason, State)</code>.</li>
+<li>A <strong>Director</strong> process can give response for all API functions of OTP/Supervisor module (for example <code>director:which_children(Pid) =:= supervisor:which_children(Pid)</code>). It has its own interesting API too.</li>
+<li>
+<strong>Director</strong> does not write on top of generic behaviors like <code>gen_sever</code>, etc. It was written as Erlang special process and it is blazingly fast.</li>
 <li>
 <strong>Director</strong> has its own clean debug output for any working state (Standard OTP/sys debug).</li>
 <li>In <strong>Director</strong> every child can has its own filter for validating its log for starting and crashing.</li>
 <li>
-<strong>Director</strong> makes robust and flexible approach for starting and managing many children with one childspec.</li>
-<li>
-<strong>Director</strong> gives pids of all running children in separate request called <code>get_pids/1-2</code>.</li>
+<strong>Director</strong> provides robust and flexible approach for starting and managing many children with one childspec. (Like <code>simple_one_for_one</code> strategy of OTP/Supervisor but better)</li>
+<li>Backend table modules <code>director_table_ets</code> and <code>director_table_mnesia</code> have some useful API for getting children information directly from table.</li>
 </ul>
 <p>All features not listed here.</p>
 <p>For more info see <a href="https://github.com/Pouriya-Jahanbakhsh/director/wiki"><strong>Wiki</strong></a> page.</p>
 <h3>
 <a id="user-content-license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h3>
 <p><code>BSD 3-Clause</code></p>
-<h3>
-<a id="user-content-links" class="anchor" href="#links" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Links</h3>
-<p><a href="https://github.com/Pouriya-Jahanbakhsh/director"><strong>Github</strong></a><br>
-This documentation is availible in <a href="http://docs.codefather.org/director">http://docs.codefather.org/director</a> too.</p>
 
               </article>
             </div>
