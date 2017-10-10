@@ -11,4 +11,4 @@ before_script:
     - kerl list installations
 
 script:
-  - ./rebar3 ct && rebar3 dialyzer
+  - ./make test
