@@ -457,7 +457,8 @@ tab2list(Mod, State) ->
             {error, {table_crash, [{reason, Rsn}
                                   ,{module, Mod}
                                   ,{function, tab2list}
-                                  ,{state, State}]}}
+                                  ,{state, State}
+                                  ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
