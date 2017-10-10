@@ -44,7 +44,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
 
-%% API:
+%% Director's API:
 -export([create/1
         ,insert/2
         ,delete/2
@@ -116,6 +116,7 @@ delete(Tab, Child) ->
 
 tab2list(Tab) ->
     {ok, Tab}.
+
 
 handle_message(_, _) ->
     unknown.

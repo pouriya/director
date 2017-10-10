@@ -91,7 +91,8 @@ get_debug_options(Name, Opts) ->
                 sys:debug_options(DbgOpts)
             catch
                 _:_ ->
-                    error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, DbgOpts]),
+                    error_logger:format("~p: ignoring erroneous debug options: ~p~n"
+                                       ,[Name, DbgOpts]),
                     ?DEF_DEBUG_OPTIONS
             end;
         false ->
@@ -109,11 +110,11 @@ get_delete_table_before_terminate(Name, Opts) ->
         {_, Bool} when erlang:is_boolean(Bool) ->
             Bool;
         {_, Other} ->
-            error_logger:format("~p: ignoring erroneous value flag deleting table before"
+            error_logger:format("~p: ignoring erroneous flag for deleting table before"
                                 "termination: ~p~n", [Name, Other]),
             ?DEF_LOG_VALIDATOR;
         Other ->
-            error_logger:format("~p: ignoring erroneous value flag deleting table before"
+            error_logger:format("~p: ignoring erroneous flag for deleting table before"
                                 "termination: ~p~n", [Name, Other]),
             ?DEF_LOG_VALIDATOR
     end.
@@ -517,19 +518,19 @@ print(IODev, {in, Msg}, Name) ->
 print(IODev, {?GEN_CALL_TAG, {Pid, Tag}, Request}, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got request \"~p\" from \"~p\" wit"
-        "h tag \"~p\" ~n"
+              "h tag \"~p\" ~n"
              ,[Name, Request, Pid, Tag]);
 
 print(IODev, {'EXIT', Pid, Reason}, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got exit signal for pid \"~p\" wit"
-        "h reason \"~p\"~n"
+              "h reason \"~p\"~n"
              ,[Name, Pid, Reason]);
 
 print(IODev, {timeout, Ref, Id}, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got restart event for child-id \"~"
-        "p\" with timer reference \"~p\"~n"
+              "p\" with timer reference \"~p\"~n"
              ,[Name, Id, Ref]);
 
 print(IODev, {out, To, Msg}, Name) ->

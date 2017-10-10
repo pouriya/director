@@ -72,20 +72,7 @@
 %%  #?CHILD{}
 -include("internal/director_child.hrl").
 
--define(TABLE_OPTIONS, [{attributes, [id
-                                     ,pid
-                                     ,append
-                                     ,plan
-                                     ,restart_count
-                                     ,start
-                                     ,timer_reference
-                                     ,terminate_timeout
-                                     ,extra
-                                     ,modules
-                                     ,type
-                                     ,log_validator
-                                     ,supervisor
-                                     ,pass_if_started]}
+-define(TABLE_OPTIONS, [{attributes, record_info(fields, ?CHILD)}
                        ,{type, set}
                        ,{record_name, ?CHILD}]).
 
@@ -252,6 +239,7 @@ tab2list(Tab) ->
         end,
     transaction(Tab, TA).
 
+
 handle_message(Tab, {mnesia_system_event, {mnesia_down, Node}}) ->
     TA =
         fun() ->
@@ -299,7 +287,6 @@ is_table(Tab) ->
         _:_ ->
             error
     end.
-
 
 
 transaction(Tab, TA) ->

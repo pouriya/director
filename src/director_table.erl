@@ -72,6 +72,13 @@
         ,get_restart_count/3]).
 
 %% -------------------------------------------------------------------------------------------------
+%% Records & Macros & Includes:
+
+%% Dependencies:
+%%  #?CHILD{}
+-include("internal/director_child.hrl").
+
+%% -------------------------------------------------------------------------------------------------
 %% Behavior information:
 
 -callback
@@ -124,11 +131,99 @@ handle_message(State::any(), Msg::any()) ->
     {'ok', NewState::any()} | 'unknown' | {'error', {Reason::atom(), ErrorParams::list()}}.
 
 %% -------------------------------------------------------------------------------------------------
-%% Records & Macros & Includes:
+%% Callback module API:
 
-%% Dependencies:
-%%  #?CHILD{}
--include("internal/director_child.hrl").
+count_children(Mod, State) ->
+    case tab2list(Mod, State) of
+        {ok, Children} ->
+            Fun =
+                fun(#?CHILD{pid = Pid, type = Type}, {Specs, Actives, Sups, Workers}) ->
+                    Actives2 =
+                        if
+                            erlang:is_pid(Pid) ->
+                                Actives+1;
+                            true ->
+                                Actives
+                        end,
+                    {Sups2, Workers2} =
+                        if
+                            Type =:= supervisor ->
+                                {Sups+1, Workers};
+                            Type =:= worker ->
+                                {Sups, Workers+1}
+                        end,
+                    {Specs+1, Actives2, Sups2, Workers2}
+                end,
+            {Specs, Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0, 0}, Children),
+            [{specs, Specs}, {active, Actives}, {supervisors, Sups}, {workers, Workers}];
+        {error, _}=Err ->
+            Err
+    end.
+
+
+which_children(Mod, State) ->
+    case director_table:tab2list(Mod, State) of
+        {ok, Children} ->
+            [{Id, Pid, Type, Mods} || #?CHILD{id = Id
+                                             ,pid = Pid
+                                             ,type = Type
+                                             ,modules = Mods} <- Children];
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_childspec(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, Child} ->
+            {ok, director_utils:c2cs(Child)};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_pid(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{pid = Pid}} ->
+            {ok, Pid};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_pids(Mod, State) ->
+    case director_table:tab2list(Mod, State) of
+        {ok, Children} ->
+            {ok, [{Id, Pid} || #?CHILD{id = Id, pid = Pid} <- Children, erlang:is_pid(Pid)]};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_plan(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{plan = Plan}} ->
+            {ok, Plan};
+        {error, _}=Err ->
+            Err
+    end.
+
+
+get_restart_count(Mod, State, Id) ->
+    case lookup_id(Mod, State, Id) of
+        {ok, not_found} ->
+            {error, not_found};
+        {ok, #?CHILD{restart_count = ResCount}} ->
+            {ok, ResCount};
+        {error, _}=Err ->
+            Err
+    end.
 
 %% -------------------------------------------------------------------------------------------------
 %% API functions:
@@ -181,7 +276,7 @@ delete_table(Mod, State) ->
 
 lookup_id(Mod, State, Id) ->
     try Mod:lookup_id(State, Id) of
-        {ok, Rslt}=Ok when erlang:is_record(Rslt, director_child) orelse Rslt =:= not_found ->
+        {ok, Rslt}=Ok when erlang:is_record(Rslt, ?CHILD) orelse Rslt =:= not_found ->
             Ok;
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
@@ -230,7 +325,7 @@ count(Mod, State) ->
 
 lookup_pid(Mod, State, Pid) ->
     try Mod:lookup_pid(State, Pid) of
-        {ok, Rslt}=Ok when erlang:is_record(Rslt, director_child) orelse Rslt =:= not_found ->
+        {ok, Rslt}=Ok when erlang:is_record(Rslt, ?CHILD) orelse Rslt =:= not_found ->
             Ok;
         {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {error, {Rsn, ErrParams ++ [{module, Mod}
@@ -385,10 +480,6 @@ combine_children(Mod, State, DefChildSpec) ->
     end.
 
 
-
-
-
-
 separate_children(Mod, State, DefChildSpec) ->
     case lookup_appended(Mod, State) of
         {ok, Appended} ->
@@ -436,104 +527,7 @@ handle_message(Mod, State, Msg) ->
     end.
 
 %% -------------------------------------------------------------------------------------------------
-%% Callback module API:
-
-count_children(Mod, State) ->
-    case tab2list(Mod, State) of
-        {ok, Children} ->
-            Fun =
-                fun(#?CHILD{pid = Pid, type = Type}, {Specs, Actives, Sups, Workers}) ->
-                    Actives2 =
-                        if
-                            erlang:is_pid(Pid) ->
-                                Actives+1;
-                            true ->
-                                Actives
-                        end,
-                    {Sups2, Workers2} =
-                        if
-                            Type =:= supervisor ->
-                                {Sups+1, Workers};
-                            Type =:= worker ->
-                                {Sups, Workers+1}
-                        end,
-                    {Specs+1, Actives2, Sups2, Workers2}
-                end,
-            {Specs, Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0, 0}, Children),
-            [{specs, Specs}, {active, Actives}, {supervisors, Sups}, {workers, Workers}];
-        {error, _}=Err ->
-            Err
-    end.
-
-
-which_children(Mod, State) ->
-    case director_table:tab2list(Mod, State) of
-        {ok, Children} ->
-            [{Id, Pid, Type, Mods} || #?CHILD{id = Id
-                                             ,pid = Pid
-                                             ,type = Type
-                                             ,modules = Mods} <- Children];
-        {error, _}=Err ->
-            Err
-    end.
-
-
-get_childspec(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
-        {ok, Child} ->
-            {ok, director_utils:c2cs(Child)};
-        {error, _}=Err ->
-            Err
-    end.
-
-
-get_pid(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
-        {ok, #?CHILD{pid = Pid}} ->
-            {ok, Pid};
-        {error, _}=Err ->
-            Err
-    end.
-
-
-get_pids(Mod, State) ->
-    case director_table:tab2list(Mod, State) of
-        {ok, Children} ->
-            {ok, [{Id, Pid} || #?CHILD{id = Id, pid = Pid} <- Children, erlang:is_pid(Pid)]};
-        {error, _}=Err ->
-            Err
-    end.
-
-
-get_plan(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
-        {ok, #?CHILD{plan = Plan}} ->
-            {ok, Plan};
-        {error, _}=Err ->
-            Err
-    end.
-
-
-get_restart_count(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
-        {ok, not_found} ->
-            {error, not_found};
-        {ok, #?CHILD{restart_count = ResCount}} ->
-            {ok, ResCount};
-        {error, _}=Err ->
-            Err
-    end.
-
-%% -------------------------------------------------------------------------------------------------
-%% Internal functuon
-
-
+%% Internal functions:
 
 insert_children(Mod, State, [Child|Children]) ->
     case insert(Mod, State, Child) of
@@ -547,4 +541,4 @@ insert_children(_, State, []) ->
 
 
 validate_children(Children) ->
-    lists:all(fun(Child) -> erlang:is_record(Child, director_child) end, Children).
+    lists:all(fun(Child) -> erlang:is_record(Child, ?CHILD) end, Children).

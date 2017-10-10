@@ -220,7 +220,7 @@ init(InitArg) ->
     {'ok', State, Childspec, DefaultChildspec, Opts} |
     'ignore'                                         |
     {'stop', Reason}
-    when
+when
         State :: any(),
         InitArg :: any(),
         Childspecs :: [childspec()] | [],
