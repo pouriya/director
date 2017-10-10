@@ -969,8 +969,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
                 ,period
                 ,restarts
                 ,Mod
-                ,Mod
-                ,args};
+                ,ags};
             _ ->
                 State
         end,
