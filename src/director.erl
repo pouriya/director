@@ -1827,7 +1827,7 @@ terminate(Dbg
 
 
 call_terminate(Mod, Data, Rsn) ->
-    try Mod:terminate(Data, Rsn) of
+    try Mod:terminate(Rsn, Data) of
         {error, _}=Err ->
             Err;
         _ ->
@@ -1836,6 +1836,7 @@ call_terminate(Mod, Data, Rsn) ->
         _:Rsn2 ->
             {crash, {terminate_crash, [{reason, Rsn2}
                                       ,{module, Mod}
+                                      ,{reason_argument, Rsn}
                                       ,{state, Data}
                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
