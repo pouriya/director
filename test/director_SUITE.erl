@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.9.16
+%% @version  17.10.10
 %% -------------------------------------------------------------------------------------------------
 
 
@@ -61,7 +61,8 @@
         ,'6'/1
         ,'7'/1
         ,'8'/1
-        ,'9'/1]).
+        ,'9'/1
+        ,'10'/1]).
 
 
 
@@ -519,6 +520,10 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch({ok, _Pid}, director:get_pid(Pid2, Id)),
     ?assertEqual(ok, director:terminate_and_delete_child(Pid, Id)),
     ?assertEqual({error, not_found}, director:get_pid(Pid2, Id)).
+
+
+'10'(_Config) ->
+    ?CALLBACK = supervisor:get_callback_module(?DIRECTOR).
 
 
 
