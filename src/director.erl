@@ -952,15 +952,26 @@ system_code_change(#?STATE{name = Name
 
 
 %% @hidden
-format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module = Mod}=State]) ->
+format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module = Mod}=_State]) ->
     Header = {header, "Status for director " ++ io_lib:print(Name)},
     Data = {data, [{"Status", SysState}
                   ,{"Parent", Parent}
                   ,{"Logged events", sys:get_debug(log, Debug, [])}]},
     case erlang:list_to_integer(erlang:system_info(otp_release)) of
         Ver when Ver >= 19 ->
-            Specific = [{data, [{"State", State}]}],
-            [Header, Data , {supervisor, [{"Callback", Mod}]}, Specific];
+            State2 = {state
+                     ,name
+                     ,strategy
+                     ,children
+                     ,dynamics
+                     ,intensity
+                     ,period
+                     ,restarts
+                     ,Mod
+                     ,Mod
+                     ,ags},
+            Specific = {data, [{"State", State2}]},
+            [Header, Data, Specific, {supervisor, [{"Callback", Mod}]}];
         _ ->
             State2 = {state
                      ,name
@@ -972,7 +983,7 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
                      ,restarts
                      ,Mod
                      ,ags},
-            Specific = [{data, [{"State", State2}]}],
+            Specific = {data, [{"State", State2}]},
             [Header, Data , Specific]
     end.
 
