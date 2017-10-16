@@ -55,7 +55,7 @@
         ,delete_table/1
         ,tab2list/1
         ,handle_message/2
-        ,parent_insert/2]).
+        ,change_parent/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -78,7 +78,7 @@ delete_table(_Tab) ->
 lookup_id(Tab, Id) ->
     case lists:keyfind(Id, 2, Tab) of
         false ->
-            {ok, not_found};
+            {soft_error, not_found};
         Child ->
             {ok, Child}
     end.
@@ -91,7 +91,7 @@ count(Tab) ->
 lookup_pid(Tab, Pid) ->
     case lists:keyfind(Pid, 3, Tab) of
         false ->
-            {ok, not_found};
+            {soft_error, not_found};
         Child ->
             {ok, Child}
     end.
@@ -120,10 +120,10 @@ tab2list(Tab) ->
 
 
 handle_message(_, _) ->
-    unknown.
+    {soft_error, unknown}.
 
 
-parent_insert(Tab, #?CHILD{id = Id}=Child) ->
+change_parent(Tab, #?CHILD{id = Id}=Child) ->
     case lists:keyfind(Id, 2, Tab) of
         false ->
             {ok, [Child|Tab]};

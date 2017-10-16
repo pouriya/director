@@ -64,7 +64,7 @@
         ,delete_table/1
         ,tab2list/1
         ,handle_message/2
-        ,parent_insert/2]).
+        ,change_parent/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -123,13 +123,13 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                     _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {read_only, _, _} ->
-                    {error, {table_access_mode, [{access_mode, read_only}
-                                                ,{init_argument, TabName}]}};
+                    {hard_error, {table_access_mode, [{access_mode, read_only}
+                                                     ,{init_argument, TabName}]}};
                 {_, Size, _} when erlang:tuple_size(#?CHILD{}) =:= Size ->
-                    {error, {table_record_size, [{record_size, Size}
-                                                ,{init_argument, TabName}]}};
+                    {hard_error, {table_record_size, [{record_size, Size}
+                                                     ,{init_argument, TabName}]}};
                 {_, _, Type} ->
-                    {error, {table_type, [{type, Type}, {init_argument, TabName}]}}
+                    {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}}
             end;
         false ->
             try mnesia:create_table(TabName, ?TABLE_OPTIONS) of
@@ -137,16 +137,16 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                     _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {aborted, Rsn} ->
-                    {error, {table_create, [{reason, Rsn}, {init_argument, TabName}]}}
+                    {hard_error, {table_create, [{reason, Rsn}, {init_argument, TabName}]}}
             catch
                 _:Reason ->
-                    {error, {table_create, [{reason, Reason}, {init_argument, TabName}]}}
+                    {hard_error, {table_create, [{reason, Reason}, {init_argument, TabName}]}}
             end;
         error ->
-            {error, {table_create, [{reason, mnesia_not_started}]}}
+            {hard_error, {table_create, [{reason, mnesia_not_started}]}}
     end;
 create(undefined) ->
-    {error, {table_init_argument, []}}.
+    {hard_error, {table_init_argument, []}}.
 
 
 delete_table(Tab) ->
@@ -155,7 +155,7 @@ delete_table(Tab) ->
             _ = mnesia:unsubscribe(system),
             ok;
         {aborted, Rsn} ->
-            {error, {delete_table, [{reason, Rsn}, {table, Tab}]}}
+            {hard_error, {delete_table, [{reason, Rsn}, {table, Tab}]}}
     catch
         _:Rsn ->
             table_error(Tab, Rsn)
@@ -169,7 +169,7 @@ lookup_id(Tab, Id) ->
                 [Child] ->
                     {ok, Child};
                 [] ->
-                    {ok, not_found}
+                    {soft_error, not_found}
             end
         end,
     transaction(Tab, TA).
@@ -191,7 +191,7 @@ lookup_pid(Tab, Pid) ->
                 [Child] ->
                     {ok, Child};
                 [] ->
-                    {ok, not_found}
+                    {soft_error, not_found}
             end
         end,
     transaction(Tab, TA).
@@ -200,8 +200,8 @@ lookup_pid(Tab, Pid) ->
 lookup_appended(Tab) ->
     TA =
         fun() ->
-            {ok, mnesia:select(Tab
-                              ,[{#?CHILD{append = '$1', _='_'}, [{'=:=', '$1', true}], ['$_']}])}
+            {ok
+            ,mnesia:select(Tab, [{#?CHILD{append = '$1', _='_'}, [{'=:=', '$1', true}], ['$_']}])}
         end,
     transaction(Tab, TA).
 
@@ -223,7 +223,7 @@ delete(Tab, #?CHILD{id=Id}) ->
                     mnesia:delete_object(Tab, Child, write),
                     {ok, Tab};
                 [] ->
-                    {ok, not_found}
+                    {soft_error, not_found}
             end
         end,
     transaction(Tab, TA).
@@ -263,15 +263,15 @@ handle_message(Tab, {mnesia_system_event, {mnesia_down, Node}}) ->
 handle_message(Tab, {mnesia_system_event, _}) ->
     {ok, Tab};
 handle_message(_, _) ->
-    unknown.
+    {soft_error, unknown}.
 
-parent_insert(Tab, #?CHILD{id = Id}=Child) ->
+change_parent(Tab, #?CHILD{id = Id}=Child) ->
     Self = erlang:self(),
     TA =
         fun() ->
             case mnesia:read(Tab, Id, write) of
                 [#?CHILD{supervisor = Pid}] when Pid =/= Self ->
-                    {error, Tab, not_parent};
+                    {soft_error, Tab, not_parent};
                 _ ->
                     _ = mnesia:write(Tab, Child, write),
                     {ok, Tab}
@@ -285,13 +285,13 @@ parent_insert(Tab, #?CHILD{id = Id}=Child) ->
 table_error(Tab, Rsn) ->
     case is_table(Tab) of
         true ->
-            {error, {table_error, [{access_mode, mnesia:table_info(Tab, access_mode)}
-                                  ,{arity, mnesia:table_info(Tab, arity)}
-                                  ,{type, mnesia:table_info(Tab, type)}]}};
+            {hard_error, {table_error, [{access_mode, mnesia:table_info(Tab, access_mode)}
+                                       ,{arity, mnesia:table_info(Tab, arity)}
+                                       ,{type, mnesia:table_info(Tab, type)}]}};
         false ->
-            {error, {table_existence, [{table, Tab}]}};
+            {hard_error, {table_existence, [{table, Tab}]}};
         error ->
-            {error, {table_error, [{reason, Rsn}]}}
+            {hard_error, {table_error, [{reason, Rsn}]}}
     end.
 
 
@@ -309,7 +309,7 @@ transaction(Tab, TA) ->
         {atomic, Rslt} ->
             Rslt;
         {aborted, Rsn} ->
-            {error, {transaction_error, [{reason, Rsn}]}}
+            {hard_error, {transaction_error, [{reason, Rsn}]}}
     catch
         _:Rsn ->
             table_error(Tab, Rsn)

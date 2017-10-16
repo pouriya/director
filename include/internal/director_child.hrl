@@ -45,4 +45,5 @@
                 ,type
                 ,log_validator
                 ,supervisor
-                ,pass_if_started}).
+                ,state
+                ,delete_before_terminate}).

@@ -127,7 +127,7 @@
 '6'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
     Count = 100,
-    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self()} | [#?CHILD{id = Int, append = true, modules = []} || Int <- lists:seq(1, Count)]],
+    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self()} | [#?CHILD{id = Int, append = true, modules = [], supervisor = erlang:self()} || Int <- lists:seq(1, Count)]],
     Fold =
         fun(Child, TabState2) ->
             insert(Mod, TabState2, Child)

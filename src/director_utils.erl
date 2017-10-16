@@ -50,7 +50,7 @@
         ,get_debug_options/2
         ,progress_report/2
         ,error_report/4
-        ,run_log_validator/3
+        ,run_log_validator/5
         ,check_childspecs/1
         ,check_childspecs/2
         ,check_childspec/2
@@ -120,26 +120,28 @@ get_delete_table_before_terminate(Name, Opts) ->
     end.
 
 
-progress_report(Name, #?CHILD{log_validator = LogValidator}=Child) ->
-    case run_log_validator(LogValidator, info, start) of
-        none ->
-            ok;
-        LogMode ->
+progress_report(Name, #?CHILD{id = Id, log_validator = LogValidator, state = State}=Child) ->
+    case run_log_validator(LogValidator, Id, info, start, State) of
+        {none, NewState} ->
+            NewState;
+        {LogMode, NewState} ->
             error_logger:info_report(progress, [{supervisor, Name}
-                                               ,{started, c_r2p(Child, LogMode)}])
+                                               ,{started, c_r2p(Child, LogMode)}]),
+            NewState
     end.
 
 
-error_report(Name, ErrorContext, Reason, #?CHILD{log_validator = LogValidator}=Child) ->
-    case run_log_validator(LogValidator, error, Reason) of
-        none ->
-            ok;
-        LogMode ->
+error_report(Name, ErrorContext, Reason, #?CHILD{id = Id, log_validator = LogValidator, state = State}=Child) ->
+    case run_log_validator(LogValidator, Id, error, Reason, State) of
+        {none, NewState} ->
+            NewState;
+        {LogMode, NewState} ->
             error_logger:error_report(supervisor_report
                                      ,[{supervisor, Name}
                                       ,{errorContext, ErrorContext}
                                       ,{reason, Reason}
-                                      ,{offender, c_r2p(Child, LogMode)}])
+                                      ,{offender, c_r2p(Child, LogMode)}]),
+            NewState
     end.
 
 
@@ -160,7 +162,9 @@ check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
            ,{type, fun filter_type/1}
            ,{terminate_timeout, fun filter_terminate_timeout/1}
            ,{modules, fun filter_modules/1}
-           ,{log_validator, fun filter_log_validator/1}],
+           ,{log_validator, fun filter_log_validator/1}
+           ,{state, fun(St) -> {ok, St} end}
+           ,{delete_before_terminate, fun filter_delete_before_terminate/1}],
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
@@ -208,20 +212,20 @@ get_table_init_argument(Name, Opts) ->
     end.
 
 
-run_log_validator(Validator, Id, Extra) ->
-    case catch Validator(Id, Extra) of
-        none ->
-            none;
-        short ->
-            short;
-        long ->
-            long;
-        {'EXIT', Reason} ->
-            error_logger:format("~p: log validator crashed: ~p~n", [erlang:self(), Reason]),
-            ?DEF_LOG_MODE;
+run_log_validator(Validator, Id, Lvl, Extra, State) ->
+    try Validator(Id, Lvl, Extra, State) of
+        {Val, _}=Ok when Val == none orelse Val == short orelse Val == long ->
+            Ok;
+        Val when Val == none orelse Val == short orelse Val == long ->
+            {Val, State};
         Other ->
             error_logger:format("~p: ignoring erroneous log mode: ~p~n", [erlang:self(), Other]),
-            ?DEF_LOG_MODE
+            {?DEF_LOG_MODE, State}
+    catch
+        _:Rsn ->
+            error_logger:format("Child id ~p: log validator crashed with reason ~p and stacktrace ~p~n"
+                               ,[Id, Rsn, erlang:get_stacktrace()]),
+            {?DEF_LOG_MODE, State}
     end.
 
 
@@ -257,7 +261,8 @@ cs2c(#{id := Id
      ,type := Type
      ,append := Append
      ,log_validator := LogValidator
-     ,pass_if_started := PassIfStarted}) ->
+     ,state := State
+     ,delete_before_terminate := DelBeforeTerminate}) ->
     #?CHILD{id = Id
            ,pid = undefined
            ,plan = Plan
@@ -271,7 +276,8 @@ cs2c(#{id := Id
            ,append = Append
            ,log_validator = LogValidator
            ,supervisor = erlang:self()
-           ,pass_if_started = PassIfStarted}.
+           ,state = State
+           ,delete_before_terminate = DelBeforeTerminate}.
 
 
 
@@ -283,7 +289,8 @@ c2cs(#?CHILD{id = Id
             ,type = Type
             ,append = Append
             ,log_validator = LogValidator
-            ,pass_if_started = PassifStarted}) ->
+            ,state = State
+            ,delete_before_terminate = DelBeforeTerminate}) ->
     #{id => Id
     ,start => Start
     ,plan => Plan
@@ -292,7 +299,8 @@ c2cs(#?CHILD{id = Id
     ,type => Type
     ,append => Append
     ,log_validator => LogValidator
-    ,pass_if_started => PassifStarted}.
+    ,state => State
+    ,delete_before_terminate => DelBeforeTerminate}.
 
 
 c_r2p(#?CHILD{pid = Pid
@@ -333,7 +341,8 @@ c_r2p(#?CHILD{pid = Pid
              ,append = Append
              ,log_validator = LogValidator
              ,supervisor = Sup
-             ,pass_if_started = PassIfStarted}
+             ,state = State
+             ,delete_before_terminate = DelBeforeTerminate}
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
@@ -354,7 +363,8 @@ c_r2p(#?CHILD{pid = Pid
     ,{append, Append}
     ,{log_validator, LogValidator}
     ,{supervisor, Sup}
-    ,{pass_if_started, PassIfStarted}].
+    ,{state, State}
+    ,{delete_before_terminate, DelBeforeTerminate}].
 
 
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
@@ -538,10 +548,10 @@ print(IODev, {out, To, Msg}, Name) ->
              ,"*DBG* director ~p sent \"~p\" to \"~p\"~n"
              ,[Name, Msg, To]);
 
-print(IODev, {plan, Id, Strategy}, Name) ->
+print(IODev, {plan, Id, {Strategy, State}}, Name) ->
     io:format(IODev
-             ,"*DBG* director ~p is running plan \"~p\" for id \"~p\"~n"
-             ,[Name, Strategy, Id]);
+             ,"*DBG* director ~p is running plan \"~p\" for id \"~p\" with state \"~p\"~n"
+             ,[Name, Strategy, Id, State]);
 
 print(IODev, Other, Name) ->
     io:format(IODev
@@ -569,7 +579,10 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{type, fun filter_type/1, ?DEF_TYPE}
             ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}
-            ,{pass_if_started, fun filter_pass_if_started/1, ?DEF_PASS_IF_STARTED}],
+            ,{state, fun(St) -> {ok, St} end, ?DEF_CHILDSPEC_STATE}
+            ,{delete_before_terminate
+             ,fun filter_delete_before_terminate/1
+             ,?DEF_DELETE_BEFORE_TERMINATE}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
         {ok, ChildSpec3} ->
             DefTerminateTimeout =
@@ -595,10 +608,15 @@ check_childspec(Other, _DefChildSpec) ->
     {error, {childspec_type, [{childspec, Other}]}}.
 
 
-filter_plan(Plan) when erlang:is_function(Plan, 4) ->
-    {ok, Plan};
-filter_plan(Other) ->
-    {error, {plan_type_or_arity, [{plan, Other}]}}.
+filter_plan(F) when erlang:is_function(F) ->
+    case erlang:fun_info(F, arity) of
+        {arity, 4} ->
+            {ok, F};
+        {arity, Other} ->
+            {error, {plan_arity, [{plan, F}, {arity, Other}]}}
+    end;
+filter_plan(F) ->
+    {error, {plan_type, [{plan, F}]}}.
 
 
 is_whole_integer(Int) when erlang:is_integer(Int) ->
@@ -662,7 +680,7 @@ filter_append(Other) ->
 
 filter_log_validator(F) when erlang:is_function(F) ->
     case erlang:fun_info(F, arity) of
-        {arity, 2} ->
+        {arity, 4} ->
             {ok, F};
         {arity, Other} ->
             {error, {log_validator_arity, [{log_validator, F}, {arity, Other}]}}
@@ -671,10 +689,10 @@ filter_log_validator(F) ->
     {error, {log_validator_type, [{log_validator, F}]}}.
 
 
-filter_pass_if_started(Bool) when erlang:is_boolean(Bool) ->
+filter_delete_before_terminate(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
-filter_pass_if_started(Other) ->
-    {error, {pas_if_started_type, [{pass_if_started, Other}]}}.
+filter_delete_before_terminate(Other) ->
+    {error, {delete_before_terminate_type, [{delete_before_terminate, Other}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->

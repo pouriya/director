@@ -62,7 +62,8 @@
         ,'7'/1
         ,'8'/1
         ,'9'/1
-        ,'10'/1]).
+        ,'10'/1
+        ,'11'/1]).
 
 
 
@@ -166,7 +167,7 @@ end_per_testcase(_TestCase, _Config) ->
 '2'(_Config) ->
     Id = foo,
     State = state,
-    Plan = fun(_, killed, _, St) when St == State -> {restart, St} end,
+    Plan = fun(_, killed, _, St) -> {restart, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
                 ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
@@ -175,8 +176,9 @@ end_per_testcase(_TestCase, _Config) ->
                 ,modules => Mods
                 ,append => false
                 ,type => worker
-                ,log_validator => fun(_, _) -> short end
-                ,pass_if_started => false},
+                ,log_validator => fun(_, _, _, _) -> short end
+                ,state => undefined
+                ,delete_before_terminate => true},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, State, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
@@ -270,8 +272,9 @@ end_per_testcase(_TestCase, _Config) ->
                 ,modules => Mods
                 ,append => false
                 ,type => supervisor
-                ,log_validator => fun(_, _) -> long end
-                ,pass_if_started => false},
+                ,log_validator => fun(_, _, _, _) -> long end
+                ,state => undefined
+                ,delete_before_terminate => true},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, undefined, []} end,
 
@@ -455,7 +458,8 @@ end_per_testcase(_TestCase, _Config) ->
                  ,append => false
                  ,type => worker
                  ,log_validator => fun director:log_validator/2
-                 ,pass_if_started => false},
+                 ,state => undefined
+                 ,delete_before_terminate => true},
     F2 = fun() -> {ok, undefined, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -504,10 +508,9 @@ end_per_testcase(_TestCase, _Config) ->
     TabMod = director_table_mnesia,
     Id = foo,
     F = fun() -> {ok, undefined} end,
-    ChildSpec = #{id => Id
-                 ,start => {?CHILD_MODULE, start_link, [F]}
-                 ,pass_if_started => true},
-    F2 = fun() -> {ok, undefined, [ChildSpec]} end,
+    ChildSpec1 = #{id => Id
+                  ,start => {?CHILD_MODULE, start_link, [F]}},
+    F2 = fun() -> {ok, undefined, [ChildSpec1]} end,
     Res = director:start_link(?CALLBACK, F2, [{table_module, TabMod}|?START_OPTIONS]),
     ?assertMatch({ok, _Pid}, Res),
     {ok, Pid} = Res,
@@ -523,6 +526,48 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '10'(_Config) ->
+    TabMod = director_table_mnesia,
+    Id = foo,
+    F = fun() -> {ok, undefined} end,
+    ChildSpec1 = #{id => Id
+                 ,start => {?CHILD_MODULE, start_link, [F]}
+                 ,delete_before_terminate => false},
+    Id2 = bar,
+    ChildSpec2 = #{id => Id2
+                 ,start => {?CHILD_MODULE, start_link, [F]}
+                 ,delete_before_terminate => true},
+    F2 = fun() -> {ok, undefined, [ChildSpec1, ChildSpec2]} end,
+    Res = director:start_link(?CALLBACK, F2, [{delete_table_before_terminate, false}
+                                             ,{table_module, TabMod}|?START_OPTIONS]),
+    ?assertMatch({ok, _Pid}, Res),
+    {ok, Pid} = Res,
+
+    Res2 = director:start_link(?CALLBACK, F2, [{table_module, TabMod}|?START_OPTIONS]),
+    ?assertMatch({ok, _Pid}, Res2),
+    {ok, Pid2} = Res2,
+
+    ?assertMatch({ok, _Pid}, director:get_pid(Pid, Id)),
+    ?assertMatch({ok, _Pid}, director:get_pid(Pid2, Id)),
+    ?assertEqual(ok, director:stop(Pid)),
+    ?assertEqual({error, undefined}, director:get_pid(Pid2, Id)),
+    ?assertEqual({error, not_found}, director:get_pid(Pid2, Id2)),
+
+    Res3 = director:start_link(?CALLBACK
+                              ,fun() -> {ok, undefined} end
+                              ,[{delete_table_before_terminate, false}
+                               ,{table_module, TabMod}|?START_OPTIONS]),
+    ?assertMatch({ok, _Pid}, Res3),
+    {ok, Pid3} = Res3,
+    ?assertEqual({error, undefined}, director:get_pid(Pid3, Id)),
+    ?assertEqual({error, not_found}, director:get_pid(Pid3, Id2)),
+
+    ?assertMatch({ok, _Pid}, director:restart_child(Pid3, Id)),
+    Res4 = director:get_pid(Pid2, Id),
+    ?assertMatch({ok, _Pid}, Res4),
+    ?assert(erlang:is_pid(erlang:element(2, Res4))).
+
+
+'11'(_Config) ->
     F = fun() -> {ok, undefined} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK

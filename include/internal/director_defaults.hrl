@@ -63,8 +63,9 @@
 -define(DEF_LOG_MODE, 'short').
 -define(DEF_TABLE_MOD, 'director_table_list').
 -define(DEF_TABLE_INIT_ARG, 'undefined').
--define(DEF_DELETE_TABLE_BEFORE_TERMINATE, true).
-
+-define(DEF_DELETE_TABLE_BEFORE_TERMINATE, 'true').
+-define(DEF_CHILDSPEC_STATE, 'undefined').
+-define(DEF_DELETE_BEFORE_TERMINATE, 'true').
 
 
 
@@ -75,7 +76,6 @@
 -define(DEF_APPEND, false).
 -define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
 -define(DEF_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
--define(DEF_PASS_IF_STARTED, false).
 
 
 

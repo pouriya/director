@@ -61,7 +61,7 @@
         ,delete_table/2
         ,tab2list/2
         ,handle_message/3
-        ,parent_insert/3]).
+        ,change_parent/3]).
 
 %% Callback module API:
 -export([count_children/2
@@ -145,7 +145,7 @@ handle_message(State::any(), Msg::any()) ->
 
 
 -callback
-parent_insert(State::any(), Child::#?CHILD{}) ->
+change_parent(State::any(), Child::#?CHILD{}) ->
     {'ok', NewState::any()}                              |
     {'soft_error', Reason::'not_parent'}                 |
     {'soft_error', NewState::any(), Reason::'not_parent'}|
@@ -327,7 +327,7 @@ lookup_id(Mod, State, Id) ->
 
 count(Mod, State) ->
     try Mod:count(State) of
-        {ok, Count}=Ok when erlang:is_integer(Count) andalso Count < -1 ->
+        {ok, Count}=Ok when erlang:is_integer(Count) andalso Count > -1 ->
             Ok;
         {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
             {hard_error, {Rsn, ErrParams ++ [{module, Mod}
@@ -439,24 +439,28 @@ delete(Mod, State, Child) ->
     try Mod:delete(State, Child) of
         {ok, _}=Ok ->
             Ok;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, delete}
-                                       ,{state, State}
-                                       ,{child, Child}]}};
+        {soft_error, not_found} ->
+            {soft_error, State, not_found};
+        {soft_error, _, not_found}=SErr ->
+            SErr;
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, delete}
+                                            ,{state, State}
+                                            ,{child, Child}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, delete}
-                                       ,{state, State}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, delete}
+                                            ,{state, State}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, delete}
-                                  ,{state, State}
-                                  ,{child, Child}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, delete}
+                                       ,{state, State}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
@@ -467,65 +471,85 @@ tab2list(Mod, State) ->
                 true ->
                     Ok;
                 false ->
-                    {error, {table_bad_return, [{returned_value, Ok}
-                                               ,{module, Mod}
-                                               ,{function, tab2list}
-                                               ,{state, State}]}}
+                    {hard_error, {table_bad_return, [{returned_value, Ok}
+                                                    ,{module, Mod}
+                                                    ,{function, tab2list}
+                                                    ,{state, State}]}}
             end;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, tab2list}
-                                       ,{state, State}]}};
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, tab2list}
+                                            ,{state, State}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
-                                       ,{module, Mod}
-                                       ,{function, tab2list}
-                                       ,{state, State}]}}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, tab2list}
+                                            ,{state, State}]}}
     catch
         _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, tab2list}
-                                  ,{state, State}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+            {hard_error, {table_crash, [{reason, Rsn}
+                                       ,{module, Mod}
+                                       ,{function, tab2list}
+                                       ,{state, State}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
 combine_children(Mod, State, DefChildSpec) ->
     case lookup_appended(Mod, State) of
         {ok, Appended} ->
-            AppendedChildren = [director_utils:cs2c(director_utils:combine_child(director_utils:c2cs(Child), DefChildSpec))
-                               || Child <- Appended],
-            case insert_children(Mod, State, AppendedChildren) of
-                {ok, _}=Ok ->
-                    Ok;
-                {error, {Rsn, ErrParams}} ->
-                    {error, {Rsn, lists:keyreplace(function
-                                                  ,1
-                                                  ,ErrParams
-                                                  ,{function, combine_children})}}
+            case validate_parent(Appended) of
+                true ->
+                    Combine =
+                        fun(Child) ->
+                            ChildSpec = director_utils:c2cs(Child),
+                            Combined = director_utils:combine_child(ChildSpec, DefChildSpec),
+                            director_utils:cs2c(Combined)
+                        end,
+                    CombinedChildren = [Combine(Child) || Child <- Appended],
+                    case insert_children(Mod, State, CombinedChildren) of
+                        {ok, _}=Ok ->
+                            Ok;
+                        {hard_error, _}=HErr ->
+                            HErr
+                    end;
+                false ->
+                    {soft_error, State, not_parent}
             end;
-        {error, _}=Err ->
-            Err
+        {hard_error, {Rsn, ErrParams}} ->
+            {hard_error, {Rsn, lists:keyreplace(function
+                                               ,1
+                                               ,ErrParams
+                                               ,{function, combine_children})}}
     end.
 
 
 separate_children(Mod, State, DefChildSpec) ->
     case lookup_appended(Mod, State) of
         {ok, Appended} ->
-            AppendedChildren = [director_utils:cs2c(director_utils:separate_child(director_utils:c2cs(Child), DefChildSpec))
-                || Child <- Appended],
-            case insert_children(Mod, State, AppendedChildren) of
-                {ok, _}=Ok ->
-                    Ok;
-                {error, {Rsn, ErrParams}} ->
-                    {error, {Rsn, lists:keyreplace(function
-                                                  ,1
-                                                  ,ErrParams
-                                                  ,{function, separate_children})}}
+            case validate_parent(Appended) of
+                true ->
+                    Separate =
+                        fun(Child) ->
+                            ChildSpec = director_utils:c2cs(Child),
+                            Separated = director_utils:separate_child(ChildSpec, DefChildSpec),
+                            director_utils:cs2c(Separated)
+                        end,
+                    SeparatedChildren = [Separate(Child) || Child <- Appended],
+                    case insert_children(Mod, State, SeparatedChildren) of
+                        {ok, _}=Ok ->
+                            Ok;
+                        {hard_error, _}=HErr ->
+                            HErr
+                    end;
+                false ->
+                    {soft_error, State, not_parent}
             end;
-        {error, _}=Err ->
-            Err
+        {hard_error, {Rsn, ErrParams}} ->
+            {hard_error, {Rsn, lists:keyreplace(function
+                                               ,1
+                                               ,ErrParams
+                                               ,{function, separate_children})}}
     end.
 
 
@@ -533,55 +557,59 @@ handle_message(Mod, State, Msg) ->
     try Mod:handle_message(State, Msg) of
         {ok, _}=Ok ->
             Ok;
-        unknown ->
-            unknown;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, handle_message}
-                                       ,{state, State}
-                                       ,{message, Msg}]}};
+        {soft_error, unknown} ->
+            {soft_error, State, unknown};
+        {soft_error, _, unknown}=SErr ->
+            SErr;
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, handle_message}
+                                            ,{state, State}
+                                            ,{message, Msg}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, handle_message}
+                                            ,{state, State}
+                                            ,{message, Msg}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {table_crash, [{reason, Rsn}
                                        ,{module, Mod}
                                        ,{function, handle_message}
                                        ,{state, State}
-                                       ,{message, Msg}]}}
-    catch
-        _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, handle_message}
-                                  ,{state, State}
-                                  ,{message, Msg}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{message, Msg}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 
-parent_insert(Mod, State, Child) ->
+change_parent(Mod, State, Child) ->
     try Mod:insert(State, Child) of
         {ok, _}=Ok ->
             Ok;
-        {error, _, not_parent}=Err ->
-            Err;
-        {error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
-            {error, {Rsn, ErrParams ++ [{module, Mod}
-                                       ,{function, parent_insert}
-                                       ,{state, State}
-                                       ,{child, Child}]}};
+        {soft_error, not_parent} ->
+            {soft_error, State, not_parent};
+        {soft_error, _, not_parent}=SErr ->
+            SErr;
+        {hard_error, {Rsn, ErrParams}} when erlang:is_atom(Rsn) andalso erlang:is_list(ErrParams) ->
+            {hard_error, {Rsn, ErrParams ++ [{module, Mod}
+                                            ,{function, parent_insert}
+                                            ,{state, State}
+                                            ,{child, Child}]}};
         Other ->
-            {error, {table_bad_return, [{returned_value, Other}
+            {hard_error, {table_bad_return, [{returned_value, Other}
+                                            ,{module, Mod}
+                                            ,{function, parent_insert}
+                                            ,{state, State}
+                                            ,{child, Child}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {table_crash, [{reason, Rsn}
                                        ,{module, Mod}
                                        ,{function, parent_insert}
                                        ,{state, State}
-                                       ,{child, Child}]}}
-    catch
-        _:Rsn ->
-            {error, {table_crash, [{reason, Rsn}
-                                  ,{module, Mod}
-                                  ,{function, parent_insert}
-                                  ,{state, State}
-                                  ,{child, Child}
-                                  ,{stacktrace, erlang:get_stacktrace()}]}}
+                                       ,{child, Child}
+                                       ,{stacktrace, erlang:get_stacktrace()}]}}
     end.
 
 %% -------------------------------------------------------------------------------------------------
@@ -591,7 +619,7 @@ insert_children(Mod, State, [Child|Children]) ->
     case insert(Mod, State, Child) of
         {ok, State2} ->
             insert_children(Mod, State2, Children);
-        {error, _}=Err ->
+        {hard_error, _}=Err ->
             Err
     end;
 insert_children(_, State, []) ->
@@ -600,3 +628,7 @@ insert_children(_, State, []) ->
 
 validate_children(Children) ->
     lists:all(fun(Child) -> erlang:is_record(Child, ?CHILD) end, Children).
+
+
+validate_parent(Children) ->
+    lists:all(fun(#?CHILD{supervisor = Sup}) -> Sup =:= erlang:self() end, Children).
