@@ -33,4 +33,4 @@ distclean:
 	@rm -rf examples/*/$(BUILD_PATH)
 
 push: test
-	@git push origin master
+	git push origin master
