@@ -76,7 +76,7 @@
         ,stop/2
         ,stop/3
         ,plan/4
-        ,log_validator/2
+        ,log_validator/4
         ,terminate_and_delete_child/2
         ,default_childspec/0
         ,default_plan/0]).
@@ -605,12 +605,12 @@ plan(_Id, _Other, _RestartCount, State) ->
 
 
 -spec
-log_validator(Type::log_type(), Extra::term()) ->
+log_validator(Id_Or_Name::any(), Type::log_type(), Extra::term(), State::any()) ->
     'short'.
 %% @doc
 %%     Tells director to call error_logger with Short description for every log.
 %% @end
-log_validator(_Type, _Extra) ->
+log_validator(_Id, _Type, _Extra, _State) ->
     short.
 
 

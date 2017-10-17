@@ -59,7 +59,7 @@
 -define(CHANGE_LOG_VALIDATOR, 'change_log_validator').
 -define(TERMINATE_AND_DELETE_CHILD_TAG, 'terminate_and_delete_child').
 %%-define(GET_LOG_VALIDATOR, 'get_log_validator').
--define(DEF_LOG_VALIDATOR, fun director:log_validator/2).
+-define(DEF_LOG_VALIDATOR, fun director:log_validator/4).
 -define(DEF_LOG_MODE, 'short').
 -define(DEF_TABLE_MOD, 'director_table_list').
 -define(DEF_TABLE_INIT_ARG, 'undefined').

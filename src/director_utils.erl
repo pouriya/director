@@ -174,7 +174,7 @@ get_log_validator(Name, Opts) ->
     case lists:keyfind(log_validator, 1, Opts) of
         false ->
             ?DEF_LOG_VALIDATOR;
-        {_, Fun} when erlang:is_function(Fun, 2) ->
+        {_, Fun} when erlang:is_function(Fun, 4) ->
             Fun;
         {_, Other} ->
             error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
