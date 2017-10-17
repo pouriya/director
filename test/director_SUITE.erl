@@ -77,8 +77,8 @@
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child).
 -define(START_OPTIONS, [{debug, [trace]}
-                       ,{log_validator, fun log_validator/2}
-                       ,{table_module, director_table_mnesia}
+                       ,{log_validator, fun log_validator/4}
+                       ,{table_module, director_table_list}
                        ,{table_init_argument, director_table}]).
 
 
@@ -176,7 +176,7 @@ end_per_testcase(_TestCase, _Config) ->
                 ,modules => Mods
                 ,append => false
                 ,type => worker
-                ,log_validator => fun(_, _, _, _) -> short end
+                ,log_validator => fun(_, _, _, _) -> long end
                 ,state => undefined
                 ,delete_before_terminate => true},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
@@ -457,7 +457,7 @@ end_per_testcase(_TestCase, _Config) ->
                  ,modules => [?CHILD_MODULE]
                  ,append => false
                  ,type => worker
-                 ,log_validator => fun director:log_validator/2
+                 ,log_validator => fun director:log_validator/4
                  ,state => undefined
                  ,delete_before_terminate => true},
     F2 = fun() -> {ok, undefined, [ChildSpec]} end,
@@ -599,5 +599,5 @@ count_children(Director, Specs, Actives, Workers, Sups) ->
 
 
 
-log_validator(_, _) ->
+log_validator(_, _, _, _) ->
     long.
