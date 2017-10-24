@@ -301,7 +301,7 @@ end_per_testcase(_TestCase, _Config) ->
 
     % plan: {restart, Timeout}
     erlang:exit(erlang:whereis(?CHILD), kill),
-    timer:sleep(1),
+    timer:sleep(trunc(RestartTimeout/10)),
     ?assertMatch([{Id, restarting, supervisor, Mods}], director:which_children(?DIRECTOR)),
     count_children(?DIRECTOR, 1,0,0,1),
     ?assertEqual({error, restarting}, director:get_pid(?DIRECTOR, Id)),
