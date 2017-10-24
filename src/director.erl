@@ -115,17 +115,6 @@
 %% -------------------------------------------------------------------------------------------------
 %% Types:
 
-%% 'id' is mandatory.
-%% If you don't set 'start' for default childspec, 'start' is mandatory.
-%% Default values for other keys:
-%%  #{plan => fun director:plan/4
-%%   ,terminate_timeout => infinity % For supervisors
-%%                         1000     % For workers
-%%   ,type => worker
-%%   ,modules => [Module] % Will get from value of 'start' key
-%%   ,append => false
-%%   ,log_validator => fun director:log_validator/2
-%%   ,pass_if_started => false}
 -type childspec() :: #{'id' => id()
                       ,'start' => start()
                       ,'plan' => plan()
@@ -134,60 +123,61 @@
                       ,'modules' => modules()
                       ,'append' => append()
                       ,'log_validator' => log_validator()
-                      ,'pass_if_started' => pass_if_started()}.
+                      ,'delete_before_terminate' => delete_before_terminate()}.
 -type  id() :: term().
--type  start() :: module() % default is {module(), start_link, []}
-                | {module(), function()} % default Args is []
+-type  start() :: module() % will be {module(), start_link, []}
+                | {module(), function()} % will be {module(), function(), []}
                 | mfa().
 -type  plan() :: fun((Id::term(), Reason::term(), RestartCount::pos_integer(), State::any()) ->
-                     'restart'                  |
-                     {'restart', pos_integer()} |
-                     'wait'                     |
-                     'stop'                     |
-                     {'stop', Reason::term()})  .
+                     {'restart', NewState::any()}                 |
+                     {{'restart', pos_integer()}, NewState::any()}|
+                     {'wait', NewState::any()}                    |
+                     {'delete', NewState::any()}                  |
+                     {'stop', NewState::any()}                    |
+                     {{'stop', Reason::term()}, NewState::any()}) .
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
 -type  type() :: 'worker' | 'supervisor'.
 -type  modules() :: [module()] | 'dynamic'.
 -type  append() :: boolean().
--type  log_validator() :: fun((Type:: log_type(), Extra::term()) -> log_mode()).
--type   log_type() :: 'info' | 'error' | 'warning'.
+-type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), State::any()) ->
+                              log_mode()).
+-type   log_level() :: 'info' | 'error' | 'warning'.
 -type   log_mode() :: 'short' | 'long' | 'none'.
--type  pass_if_started() :: boolean().
+-type  delete_before_terminate() :: boolean().
 
-%% Default is:
-%% #{plan => fun director:plan/4
-%%  ,terminate_timeout => 0
-%%  ,modules => []}
 -type default_childspec() :: #{'start' => start()
                               ,'plan' => plan()
                               ,'terminate_timeout' => terminate_timeout()
                               ,'type' => type()
                               ,'modules' => modules()
-                              ,'log_validator' => log_validator()}.
+                              ,'log_validator' => log_validator()
+                              ,'delete_before_terminate' => delete_before_terminate()}.
 
 -type start_return() :: {'ok', pid()} | {'ok', pid(), any()} | 'ignore' | {'error', term()}.
+
+-type init_return() :: {'ok', State::any(), [childspec()]|[]}
+                     | {'ok', State::any(), [childspec()]|[], default_childspec()}
+                     | {'ok', State::any(), [childspec()]|[], start_options()}
+                     | {'ok', State::any(), [childspec()]|[], default_childspec(), start_options()}
+                     | 'ignore'
+                     | {'stop', Reason::any()}.
+
+-type terminate_return() :: {'error', NewReason::any()} | any().
 
 -type register_name() :: {'local', atom()}
                        | {'global', atom()}
                        | {'via', module(), term()}.
 
--type director() :: pid() | atom().
+-type director() :: pid() | atom() | tuple().
 
 -type start_options() :: [start_option()] | [].
--type  start_option() :: debug_option()
-                       | spawn_options()
-                       | timeout_option()
-                       | log_validator_option()
-                       | table_module_option()
-                       | table_init_argument_option()
-                       | delete_table_before_terminate_option().
--type   debug_option() :: {'debug', ['trace'|'log'|'statistics'|'debug'] | []}.
--type   spawn_options() :: {'spawn_opt', proc_lib:spawn_option()}.
--type   timeout_option() :: {'timeout', timeout()}.
--type   log_validator_option() :: {'log_validator', log_validator()}.
--type   table_module_option() :: {'table_module', module()}.
--type   table_init_argument_option() :: {'table_module_init_argument', any()}.
--type   delete_table_before_terminate_option() :: {'delete_table_before_terminate', boolean()}.
+-type  start_option() :: {'debug', [sys:dbg_opt()]|[]}
+                       | {'spawn_opt', proc_lib:spawn_option()}
+                       | {'timeout', timeout()}
+                       | {'log_validator', log_validator()}
+                       | {'table_module', module()}
+                       | {'table_init_argument', any()}
+                       | {'delete_table_before_terminate', boolean()}.
 
 -export_type([childspec/0
              ,id/0
@@ -198,47 +188,29 @@
              ,modules/0
              ,append/0
              ,log_validator/0
+             ,log_level/0
              ,log_mode/0
-             ,log_type/0
+             ,delete_before_terminate/0
              ,default_childspec/0
              ,start_return/0
+             ,init_return/0
+             ,terminate_return/0
              ,register_name/0
              ,director/0
              ,start_options/0
-             ,start_option/0
-             ,pass_if_started/0]).
-
-
-
-
+             ,start_option/0]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Behaviour information:
 
 -callback
-init(InitArg) ->
-    {'ok', State, Childspecs}                        |
-    {'ok', State, Childspecs, DefaultChildspec}      |
-    {'ok', State, Childspec, Opts}                   |
-    {'ok', State, Childspec, DefaultChildspec, Opts} |
-    'ignore'                                         |
-    {'stop', Reason}
-when
-        State :: any(),
-        InitArg :: any(),
-        Childspecs :: [childspec()] | [],
-        DefaultChildspec :: default_childspec(),
-        Opts :: start_options(),
-        Reason :: term().
+init(InitArg::any()) ->
+    init_return().
 
 
 -callback
-terminate(Reason, State) ->
-    'ok' | {'error', Reason2}
-when
-    Reason :: any(),
-    State :: any(),
-    Reason2 :: any().
+terminate(Reason::any(), State::any()) ->
+    terminate_return().
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -480,7 +452,7 @@ change_log_validator(director(), log_validator()) ->
 %%      Changes log validator fun for director itself.
 %% @end
 change_log_validator(Director, LogValidator) when ?is_director(Director) andalso
-                                                  erlang:is_function(LogValidator, 2) ->
+                                                  erlang:is_function(LogValidator, 4) ->
     gen_server:call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}).
 
 
@@ -608,7 +580,7 @@ plan(_Id, _Other, _RestartCount, State) ->
 
 
 -spec
-log_validator(Id_Or_Name::any(), Type::log_type(), Extra::term(), State::any()) ->
+log_validator(Id_Or_Name::any(), Type::log_level(), Extra::term(), State::any()) ->
     'short'.
 %% @doc
 %%     Tells director to call error_logger with Short description for every log.
@@ -1453,10 +1425,7 @@ handle_exit(Parent
             _:Rsn ->
                 {Dbg, {error, {plan_crash, [{reason, Rsn}
                                            ,{plan, Plan}
-                                           ,{id, Id}
-                                           ,{reason_argument, Reason}
-                                           ,{restart_count, ResCount2}
-                                           ,{state, ChState}
+                                           ,{arguments, [Id, Reason, ResCount2, ChState]}
                                            ,{stacktrace, erlang:get_stacktrace()}]}}}
         end,
     case Strategy of
@@ -1664,13 +1633,13 @@ init_module(Name, Mod, InitArg, Opts) ->
                 {error, {init_bad_return, [{returned_value, Other}
                                           ,{module, Mod}
                                           ,{function, init}
-                                          ,{init_argument, InitArg}]}}
+                                          ,{arguments, [InitArg]}]}}
         catch
             _:Rsn ->
                 {error, {init_crash, [{reason, Rsn}
                                      ,{module, Mod}
                                      ,{function, init}
-                                     ,{init_argument, InitArg}
+                                     ,{arguments, [InitArg]}
                                      ,{stacktrace, erlang:get_stacktrace()}]}}
         end,
     case Rslt of

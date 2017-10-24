@@ -450,7 +450,7 @@ filter_start({Mod, Func}) when erlang:is_atom(Mod) andalso erlang:is_atom(Func) 
 filter_start(Mod) when erlang:is_atom(Mod) ->
     {ok, {Mod, start_link, []}};
 filter_start(Other) ->
-    {error, {start_format_or_type, [{start, Other}]}}.
+    {error, {childspec_value, [{start, Other}]}}.
 
 
 combine_child(ChildSpec, DefChildSpec) ->
@@ -624,7 +624,7 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             Error
     end;
 check_childspec(Other, _DefChildSpec) ->
-    {error, {childspec_type, [{childspec, Other}]}}.
+    {error, {childspec_value, [{childspec, Other}]}}.
 
 
 filter_plan(F) when erlang:is_function(F) ->
@@ -632,10 +632,10 @@ filter_plan(F) when erlang:is_function(F) ->
         {arity, 4} ->
             {ok, F};
         {arity, Other} ->
-            {error, {plan_arity, [{plan, F}, {arity, Other}]}}
+            {error, {childspec_value, [{plan, F}, {arity, Other}]}}
     end;
 filter_plan(F) ->
-    {error, {plan_type, [{plan, F}]}}.
+    {error, {childspec_value, [{plan, F}]}}.
 
 
 is_whole_integer(Int) when erlang:is_integer(Int) ->
@@ -656,7 +656,7 @@ filter_count(Count) ->
         true ->
             {ok, Count};
         false ->
-            {error, {count_range_or_type, [{count, Count}]}}
+            {error, {childspec_value, [{count, Count}]}}
     end.
 
 
@@ -667,7 +667,7 @@ filter_terminate_timeout(TerminateTimeout) ->
         true ->
             {ok, TerminateTimeout};
         false ->
-            {error, {terminate_timeout_range_or_type, [{terminate_timeout, TerminateTimeout}]}}
+            {error, {childspec_value, [{terminate_timeout, TerminateTimeout}]}}
     end.
 
 
@@ -676,7 +676,7 @@ filter_type(worker) ->
 filter_type(supervisor) ->
     {ok, supervisor};
 filter_type(Other) ->
-    {error, {type_type, [{type, Other}]}}.
+    {error, {childspec_value, [{type, Other}]}}.
 
 
 filter_modules(dynamic) ->
@@ -686,13 +686,13 @@ filter_modules(Mod) when erlang:is_atom(Mod) ->
 filter_modules(Mods) when erlang:is_list(Mods) ->
     {ok, Mods};
 filter_modules(Other) ->
-    {error, {modules_type, [{modules, Other}]}}.
+    {error, {childspec_value, [{modules, Other}]}}.
 
 
 filter_append(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
 filter_append(Other) ->
-    {error, {append_type, [{append, Other}]}}.
+    {error, {childspec_value, [{append, Other}]}}.
 
 
 
@@ -702,16 +702,16 @@ filter_log_validator(F) when erlang:is_function(F) ->
         {arity, 4} ->
             {ok, F};
         {arity, Other} ->
-            {error, {log_validator_arity, [{log_validator, F}, {arity, Other}]}}
+            {error, {childspec_value, [{log_validator, F}, {arity, Other}]}}
     end;
 filter_log_validator(F) ->
-    {error, {log_validator_type, [{log_validator, F}]}}.
+    {error, {childspec_value, [{log_validator, F}]}}.
 
 
 filter_delete_before_terminate(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
 filter_delete_before_terminate(Other) ->
-    {error, {delete_before_terminate_type, [{delete_before_terminate, Other}]}}.
+    {error, {childspec_value, [{delete_before_terminate, Other}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->

@@ -117,7 +117,7 @@ options() ->
 %% -------------------------------------------------------------------------------------------------
 %% Director's API functions:
 
-create({value, TabName}) when erlang:is_atom(TabName) ->
+create({value, TabName}) ->
     case is_table(TabName) of
         true ->
             case {mnesia:table_info(TabName, access_mode)
@@ -128,13 +128,11 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                     _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {read_only, _, _} ->
-                    {hard_error, {table_access_mode, [{access_mode, read_only}
-                                                     ,{init_argument, TabName}]}};
+                    {hard_error, {table_access_mode, [{access_mode, read_only}]}};
                 {_, Size, _} when erlang:tuple_size(#?CHILD{}) =:= Size ->
-                    {hard_error, {table_record_size, [{record_size, Size}
-                                                     ,{init_argument, TabName}]}};
+                    {hard_error, {table_record_size, [{record_size, Size}]}};
                 {_, _, Type} ->
-                    {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}}
+                    {hard_error, {table_type, [{type, Type}]}}
             end;
         false ->
             try mnesia:create_table(TabName, ?TABLE_OPTIONS) of
@@ -142,16 +140,14 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                     _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {aborted, Rsn} ->
-                    {hard_error, {table_create, [{reason, Rsn}, {init_argument, TabName}]}}
+                    {hard_error, {table_create, [{reason, Rsn}]}}
             catch
                 _:Reason ->
-                    {hard_error, {table_create, [{reason, Reason}, {init_argument, TabName}]}}
+                    {hard_error, {table_create, [{reason, Reason}]}}
             end;
         error ->
             {hard_error, {table_create, [{reason, mnesia_not_started}]}}
-    end;
-create(undefined) ->
-    {hard_error, {table_init_argument, []}}.
+    end.
 
 
 delete_table(Tab) ->
@@ -160,7 +156,7 @@ delete_table(Tab) ->
             _ = mnesia:unsubscribe(system),
             ok;
         {aborted, Rsn} ->
-            {hard_error, {delete_table, [{reason, Rsn}, {table, Tab}]}}
+            {hard_error, {delete_table, [{reason, Rsn}]}}
     catch
         _:Rsn ->
             table_error(Tab, Rsn)
@@ -327,7 +323,7 @@ table_error(Tab, Rsn) ->
                                        ,{arity, mnesia:table_info(Tab, arity)}
                                        ,{type, mnesia:table_info(Tab, type)}]}};
         false ->
-            {hard_error, {table_existence, [{table, Tab}]}};
+            {hard_error, {table_existence, []}};
         error ->
             {hard_error, {table_error, [{reason, Rsn}]}}
     end.

@@ -70,7 +70,7 @@
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
 
--define(ETS_TABLE_OPTIONS, [public, named_table, set, {keypos, 2}]).
+-define(TABLE_OPTIONS, [public, named_table, set, {keypos, 2}]).
 
 %% Dependencies:
 %%  #?CHILD{}
@@ -110,12 +110,12 @@ get_restart_count(Tab, Id) ->
 
 
 options() ->
-    ?ETS_TABLE_OPTIONS.
+    ?TABLE_OPTIONS.
 
 %% -------------------------------------------------------------------------------------------------
 %% Director's API functions:
 
-create({value, TabName}) when erlang:is_atom(TabName) ->
+create({value, TabName}) ->
     case is_table(TabName) of
         true ->
             Self = erlang:self(),
@@ -137,23 +137,19 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
                     {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}};
                 {Protection, Pid, _Type, _Keypos} ->
                     {hard_error, {table_protection_and_owner, [{protection, Protection}
-                                                              ,{owner, Pid}
-                                                              ,{self, Self}
-                                                              ,{init_argument, TabName}]}}
+                                                              ,{owner, Pid}]}}
             end;
         false ->
             try
-                {ok, ets:new(TabName, ?ETS_TABLE_OPTIONS)}
+                {ok, ets:new(TabName, ?TABLE_OPTIONS)}
             catch
                 _:Reason ->
-                    {hard_error, {table_create, [{reason, Reason}, {init_argument, TabName}]}}
+                    {hard_error, {table_create, [{reason, Reason}]}}
             end
-    end;
-create(undefined) ->
-    {hard_error, {table_init_argument, []}}.
+    end.
 
 
-delete_table(Tab) when erlang:is_atom(Tab) ->
+delete_table(Tab) ->
     try ets:delete(Tab) of
         _ ->
             ok
@@ -163,7 +159,7 @@ delete_table(Tab) when erlang:is_atom(Tab) ->
     end.
 
 
-lookup_id(Tab, Id) when erlang:is_atom(Tab) ->
+lookup_id(Tab, Id) ->
     try ets:lookup(Tab, Id) of
         [Child] ->
             {ok, Child};
@@ -175,16 +171,16 @@ lookup_id(Tab, Id) when erlang:is_atom(Tab) ->
     end.
 
 
-count(Tab) when erlang:is_atom(Tab) ->
+count(Tab) ->
     case ets:info(Tab, size) of
         undefined ->
-            {hard_error, {table_existence, [{table, Tab}]}};
+            {hard_error, {table_existence, []}};
         Size ->
             {ok, Size}
     end.
 
 
-lookup_pid(Tab, Pid) when erlang:is_atom(Tab) ->
+lookup_pid(Tab, Pid) ->
     try ets:match_object(Tab, #?CHILD{pid = Pid, _ = '_'}) of
         [Child] ->
             {ok, Child};
@@ -196,7 +192,7 @@ lookup_pid(Tab, Pid) when erlang:is_atom(Tab) ->
     end.
 
 
-lookup_appended(Tab) when erlang:is_atom(Tab) ->
+lookup_appended(Tab) ->
     try ets:match_object(Tab, #?CHILD{append = true, _ = '_'}) of
         Children ->
             {ok, Children}
@@ -206,7 +202,7 @@ lookup_appended(Tab) when erlang:is_atom(Tab) ->
     end.
 
 
-insert(Tab, Child) when erlang:is_atom(Tab) ->
+insert(Tab, Child) ->
     try ets:insert(Tab, Child) of
         _ ->
             {ok, Tab}
@@ -216,7 +212,7 @@ insert(Tab, Child) when erlang:is_atom(Tab) ->
     end.
 
 
-delete(Tab, #?CHILD{id=Id}) when erlang:is_atom(Tab) ->
+delete(Tab, #?CHILD{id=Id}) ->
     try ets:delete(Tab, Id) of
         _ ->
             {ok, Tab}
@@ -226,7 +222,7 @@ delete(Tab, #?CHILD{id=Id}) when erlang:is_atom(Tab) ->
     end.
 
 
-tab2list(Tab) when erlang:is_atom(Tab) ->
+tab2list(Tab) ->
     try
         {ok, ets:tab2list(Tab)}
     catch
@@ -239,7 +235,7 @@ handle_message(Tab, _) ->
     {soft_error, Tab, unknown}.
 
 
-change_parent(Tab, #?CHILD{id = Id}=Child) when erlang:is_atom(Tab) ->
+change_parent(Tab, #?CHILD{id = Id}=Child) ->
     try ets:lookup(Tab, Id) of
         [#?CHILD{supervisor = Pid}] when erlang:self() =/= Pid ->
             {soft_error, not_parent};
@@ -258,10 +254,9 @@ table_error(Tab) ->
     case is_table(Tab) of
         true ->
             {hard_error, {table_protection_and_owner, [{protection, ets:info(Tab, protection)}
-                                                      ,{owner, ets:info(Tab, owner)}
-                                                      ,{table, Tab}]}};
+                                                      ,{owner, ets:info(Tab, owner)}]}};
         false ->
-            {hard_error, {table_existence, [{table, Tab}]}}
+            {hard_error, {table_existence, []}}
     end.
 
 

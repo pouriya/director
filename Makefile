@@ -1,12 +1,9 @@
 BUILD_PATH := _build
 LIB_PATH := $(BUILD_PATH)/default/lib
 
-.PHONY: all deps compile compile-examples shell docs test clean distclean push
+.PHONY: all compile compile-examples shell docs test clean distclean push
 
 all: compile
-
-deps:
-	./rebar3 get-deps
 
 compile: compile-examples
 	./rebar3 compile
@@ -18,7 +15,9 @@ compile-examples:
 
 shell: compile
 	@erl -pa $(LIB_PATH)/director/ebin \
-	         examples/sample/$(LIB_PATH)/sample/ebin
+	         examples/sample/$(LIB_PATH)/sample/ebin \
+	         examples/tables/ETS/$(LIB_PATH)/sample_ets/ebin \
+	         examples/tables/Mnesia/$(LIB_PATH)/sample_mnesia/ebin
 
 docs:
 	@./rebar3 edoc
@@ -38,6 +37,5 @@ distclean:
 	@rm -rf examples/tables/ETS/$(BUILD_PATH)
 	@rm -rf examples/tables/Mnesia/$(BUILD_PATH)
 	
-
 push: test
 	git push origin master
