@@ -6,15 +6,15 @@ LIB_PATH := $(BUILD_PATH)/default/lib
 all: compile
 
 deps:
-	@./rebar3 get-deps
+	./rebar3 get-deps
 
 compile: compile-examples
-	@./rebar3 compile
+	./rebar3 compile
 
 compile-examples:
-	@cd examples/sample && ../../../rebar3 compile
-	@cd examples/tables/ETS && ../../../rebar3 compile
-	@cd examples/tables/Mnesia && ../../../rebar3 compile
+	cd examples/sample && ../../../rebar3 compile
+	cd examples/tables/ETS && ../../../rebar3 compile
+	cd examples/tables/Mnesia && ../../../rebar3 compile
 
 shell: compile
 	@erl -pa $(LIB_PATH)/director/ebin \
