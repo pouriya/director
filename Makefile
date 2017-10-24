@@ -12,7 +12,7 @@ compile: compile-examples
 	./rebar3 compile
 
 compile-examples:
-	cd examples/sample && ../../../rebar3 compile
+	cd examples/sample && ../../rebar3 compile
 	cd examples/tables/ETS && ../../../rebar3 compile
 	cd examples/tables/Mnesia && ../../../rebar3 compile
 
@@ -28,7 +28,7 @@ test: compile-examples
 
 clean:
 	@./rebar3 clean
-	@cd examples/sample && ../../../rebar3 clean
+	@cd examples/sample && ../../rebar3 clean
 	@cd examples/tables/ETS && ../../../rebar3 clean
 	@cd examples/tables/Mnesia && ../../../rebar3 clean
 
