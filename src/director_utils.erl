@@ -110,11 +110,11 @@ get_delete_table_before_terminate(Name, Opts) ->
         {_, Bool} when erlang:is_boolean(Bool) ->
             Bool;
         {_, Other} ->
-            error_logger:format("~p: ignoring erroneous flag for deleting table before"
+            error_logger:format("~p: ignoring erroneous flag for deleting table before "
                                 "termination: ~p~n", [Name, Other]),
             ?DEF_LOG_VALIDATOR;
         Other ->
-            error_logger:format("~p: ignoring erroneous flag for deleting table before"
+            error_logger:format("~p: ignoring erroneous flag for deleting table before "
                                 "termination: ~p~n", [Name, Other]),
             ?DEF_LOG_VALIDATOR
     end.
@@ -461,34 +461,53 @@ combine_child(ChildSpec, DefChildSpec) ->
             ChildSpec
     end.
 
-
+%%#{id => Id
+%%,start => Start
+%%,plan => Plan
+%%,terminate_timeout => TerminateTimeout
+%%,modules => Modules
+%%,type => Type
+%%,append => Append
+%%,log_validator => LogValidator
+%%,state => State
+%%,delete_before_terminate => DelBeforeTerminate}.
 combine_child(start
              ,{Mod, Func, Args}
-             ,#{start := {_Mod2, _Func2, Args2}}=Map) ->
-    Map#{start => {Mod, Func, concat(Args2, Args)}};
-combine_child(terminate_timeout, infinity, Map) ->
-    Map#{terminate_timeout => infinity};
-combine_child(terminate_timeout
-             ,TerminateTimeout
-             ,#{terminate_timeout := TerminateTimeout2}=Map) ->
+             ,#{start := {Mod2, Func2, Args2}}=Map) ->
     if
-        TerminateTimeout2 =:= infinity ->
-            Map#{terminate_timeout => TerminateTimeout};
+        Mod =:= Mod2 andalso Func =:= Func2 ->
+            Map#{start => {Mod, Func, concat(Args2, Args)}};
         true ->
-            Map#{terminate_timeout => TerminateTimeout
-                + TerminateTimeout2}
+            Map
     end;
-combine_child(modules, dynamic, Map) ->
-    Map#{modules => dynamic};
+combine_child(plan, _Plan, #{plan := _Plan2}=Map) ->
+    Map;
+combine_child(terminate_timeout, TerminateTimeout, #{terminate_timeout := TerminateTimeout2}=Map) ->
+    if
+        erlang:is_integer(TerminateTimeout) andalso erlang:is_integer(TerminateTimeout2) ->
+            Map#{terminate_timeout => TerminateTimeout2 + TerminateTimeout};
+        true ->
+            Map
+    end;
 combine_child(modules, Mods, #{modules := Mods2}=Map) ->
     if
-        Mods2 =:= dynamic ->
-            Map#{modules => Mods};
+        erlang:is_list(Mods) andalso erlang:is_list(Mods2) ->
+            Map#{modules => concat(Mods2, Mods)};
         true ->
-            Map#{modules => Mods2 ++ Mods}
+            Map
     end;
-combine_child(Key, Value, Map) ->
-    maps:put(Key, Value, Map).
+combine_child(type, _Type, #{type := _Type2}=Map) ->
+    Map;
+combine_child(log_validator, _LogValidator, #{log_validator := _LogValidator2}=Map) ->
+    Map;
+combine_child(state, _State, #{state := _State2}=Map) ->
+    Map;
+combine_child(delete_before_terminate
+             ,_DelBeforeTerminate
+             ,#{delete_before_terminate := _DelBeforeTerminate2}=Map) ->
+    Map;
+combine_child(Key, Val, Map) ->
+    maps:put(Key, Val, Map).
 
 
 separate_child(start

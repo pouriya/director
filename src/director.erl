@@ -109,6 +109,9 @@
         ,system_terminate/4
         ,format_status/2]).
 
+%% Do not use ! just for tables
+-export([self_start/1]).
+
 %% -------------------------------------------------------------------------------------------------
 %% Types:
 
@@ -829,6 +832,10 @@ terminate_and_delete_child(Director, Id, Timeout) when ?is_director(Director) an
     gen_server:call(Director, {?TERMINATE_AND_DELETE_CHILD_TAG, Id}, Timeout).
 
 
+self_start(Id) ->
+    restart_timer(0, Id).
+
+
 %% -------------------------------------------------------------------------------------------------
 %% 'gen' callback:
 
@@ -1154,9 +1161,9 @@ process_request(Dbg
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
     case do_restart_child(Name, Id, TabMod, TabState) of
-        {ok, Pid, TabState2} ->
+        {ok, #?CHILD{pid = Pid, extra = undefined}, TabState2} ->
             {reply(Dbg, Name, From, {ok, Pid}), State#?STATE{table_state = TabState2}};
-        {ok, Pid, Extra, TabState2} ->
+        {ok, #?CHILD{pid = Pid, extra = {value, Extra}}, TabState2} ->
             {reply(Dbg, Name, From, {ok, Pid, Extra}), State#?STATE{table_state = TabState2}};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
@@ -1174,9 +1181,9 @@ process_request(Dbg
     case director_utils:check_childspec(ChildSpec, DefChildSpec) of
         {ok, Child} ->
             case do_start_child(Name, Child, TabMod, TabState) of
-                {ok, Pid, TabState2} ->
+                {ok, #?CHILD{pid = Pid, extra = undefined}, TabState2} ->
                     {reply(Dbg, Name, From, {ok, Pid}), State#?STATE{table_state = TabState2}};
-                {ok, Pid, Extra, TabState2} ->
+                {ok, #?CHILD{pid = Pid, extra = {value, Extra}}, TabState2} ->
                     {reply(Dbg, Name, From, {ok, Pid, Extra})
                     ,State#?STATE{table_state = TabState2}};
                 {soft_error, TabState2, Rsn} ->
@@ -1193,7 +1200,7 @@ process_request(Dbg
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
     case do_terminate_child(Name, Term, TabMod, TabState) of
-        {ok, TabState2} ->
+        {ok, _Child, TabState2} ->
             {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
@@ -1362,36 +1369,15 @@ process_request(Dbg
                ,From
                ,{?TERMINATE_AND_DELETE_CHILD_TAG, Term}) ->
     case do_terminate_child(Name, Term, TabMod, TabState) of
-        {ok, TabState2} ->
-            LookupFunc =
-                if
-                    erlang:is_pid(Term) ->
-                        lookup_pid;
-                    true ->
-                        lookup_id
-                end,
-            case director_table:LookupFunc(TabMod, TabState2, Term) of
-                {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
-                    {reply(Dbg, Name, From, {error, running}), State};
-                {ok, #?CHILD{supervisor = Sup}} when erlang:is_pid(Sup) andalso
-                                                     erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_parent}), State};
-                {ok, Child} ->
-                    case director_table:delete(TabMod, TabState2, Child) of
-                        {ok, TabState3} ->
-                            {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState3}};
-                        {hard_error, Rsn}=Err ->
-                            Dbg2 = reply(Dbg, Name, From, Err),
-                            terminate(Dbg2, State, Rsn)
-                    end;
-                {soft_error, TabState3, Rsn} ->
-                    {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState3}};
-                {hard_error, Rsn} ->
-                    Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
+        {ok, Child, TabState2} ->
+            case director_table:delete(TabMod, TabState2, Child) of
+                {ok, TabState3} ->
+                    {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState3}};
+                {hard_error, Rsn}=Err ->
+                    Dbg2 = reply(Dbg, Name, From, Err),
                     terminate(Dbg2, State, Rsn)
             end;
         {soft_error, TabState2, Rsn} ->
-            io:format("SALAM~n"),
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
             Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
@@ -1474,56 +1460,81 @@ handle_exit(Parent
                                            ,{stacktrace, erlang:get_stacktrace()}]}}}
         end,
     case Strategy of
-        {value, {restart, Data2}} ->
+        {value, {restart, ChState2}} ->
             case do_restart_child(Name, Id, TabMod, TabState) of
-                {error, Rsn2} ->
-                    terminate(Dbg2, State#?STATE{data = Data2}, Rsn2);
-                {error, TabState2, _Reason3} ->
+                {ok, _Child, TabState2} when ChState =:= ChState2 ->
+                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
+                {ok, Child2, TabState2} ->
+                    case director_table:insert(TabMod, TabState2, Child2#?CHILD{state = ChState2}) of
+                        {ok, TabState3} ->
+                            loop(Parent, Dbg2, State#?STATE{table_state = TabState3});
+                        {hard_error, Rsn3} ->
+                            terminate(Dbg2
+                                     ,State#?STATE{table_state = TabState2}
+                                     ,Rsn3)
+                    end;
+                {soft_error, TabState2, _Reason3} ->
                     TimeRef = restart_timer(0, Id),
                     case director_table:insert(TabMod
                                               ,TabState2
                                               ,Child#?CHILD{pid = restarting
-                                                           ,timer_reference = TimeRef}) of
+                                                           ,timer_reference = TimeRef
+                                                           ,state = ChState2}) of
                         {ok, TabState3} ->
                             loop(Parent
                                 ,Dbg2
-                                ,State#?STATE{table_state = TabState3, data = Data2});
+                                ,State#?STATE{table_state = TabState3});
                         {hard_error, Rsn3} ->
                             terminate(Dbg2
-                                     ,State#?STATE{table_state = TabState2, data = Data2}
+                                     ,State#?STATE{table_state = TabState2}
                                      ,Rsn3)
                     end;
-                {ok, _Pid, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2, data = Data2});
-                {ok, _Pid, _Extra, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2, data = Data2})
-            end;
-        {value, {stop, Data2}} ->
-            terminate(Dbg2, State#?STATE{data = Data2}, Reason);
-        {value, {{stop, Reason3}, Data2}} ->
-            terminate(Dbg2, State#?STATE{data = Data2}, Reason3);
-        {value, {delete, Data2}} ->
-            case director_table:delete(TabMod, TabState, Child) of
-                {ok, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2, data = Data2});
-                {soft_error, TabState2, not_found} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2, data = Data2});
-%%                {soft_error, TabState2, Rsn2} ->
-%%                    terminate(Dbg2, State#?STATE{data = Data2, table_state = TabState2}, Rsn2);
                 {hard_error, Rsn2} ->
-                    terminate(Dbg2, State#?STATE{data = Data2}, Rsn2)
+                    terminate(Dbg2, State, Rsn2)
             end;
-        {value, {wait, Data2}} ->
-            loop(Parent, Dbg2, State#?STATE{data = Data2});
-        {value, {{restart, PosInt}, Data2}} when erlang:is_integer(PosInt) andalso PosInt >= 0 ->
+        {value, {stop, ChState2}} ->
+            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
+                {ok, TabState3} ->
+                    terminate(Dbg2, State#?STATE{table_state = TabState3}, Reason);
+                {hard_error, Rsn3} ->
+                    terminate(Dbg2, State, Rsn3)
+            end;
+        {value, {{stop, Reason3}, ChState2}} ->
+            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
+                {ok, TabState3} ->
+                    terminate(Dbg2, State#?STATE{table_state = TabState3}, Reason3);
+                {hard_error, Rsn3} ->
+                    terminate(Dbg2, State, Rsn3)
+            end;
+        {value, {delete, ChState2}} ->
+            case director_table:delete(TabMod, TabState, Child#?CHILD{state = ChState2}) of
+                {ok, TabState2} ->
+                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
+                {soft_error, TabState2, not_found} ->
+                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
+%%                {soft_error, TabState2, Rsn2} ->
+%%                    terminate(Dbg2, State#?STATE{table_state = TabState2}, Rsn2);
+                {hard_error, Rsn2} ->
+                    terminate(Dbg2, State, Rsn2)
+            end;
+        {value, {wait, ChState2}} ->
+            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
+                {ok, TabState3} ->
+                    loop(Parent, Dbg2, State#?STATE{table_state = TabState3});
+                {hard_error, Rsn3} ->
+                    terminate(Dbg2, State, Rsn3)
+            end;
+        {value, {{restart, PosInt}, ChState2}} when erlang:is_integer(PosInt) andalso PosInt >= 0 ->
             TimeRef = restart_timer(PosInt, Id),
             case director_table:insert(TabMod
                                       ,TabState
-                                      ,Child#?CHILD{pid = restarting, timer_reference = TimeRef}) of
+                                      ,Child#?CHILD{pid = restarting
+                                                   ,timer_reference = TimeRef
+                                                   ,state = ChState2}) of
                 {ok, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2, data = Data2});
+                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
                 {hard_error, Rsn2} ->
-                    terminate(Dbg2, State#?STATE{data = Data2}, Rsn2)
+                    terminate(Dbg2, State, Rsn2)
             end;
         {error, Reason3} ->
             terminate(Dbg2, State, Reason3);
@@ -1546,9 +1557,7 @@ process_timeout(Parent
     case director_table:lookup_id(TabMod, TabState, Id) of
         {ok, #?CHILD{timer_reference = TimerRef}} ->
             case do_restart_child(Name, Id, TabMod, TabState) of
-                {ok, _Pid, TabState3} ->
-                    loop(Parent, Dbg, State#?STATE{table_state = TabState3});
-                {ok, _Pid, _Extra, TabState3} ->
+                {ok, _Child, TabState3} ->
                     loop(Parent, Dbg, State#?STATE{table_state = TabState3});
                 {soft_error, TabState2, Reason} ->
                     case director_table:lookup_id(TabMod, TabState2, Id) of
@@ -1566,6 +1575,8 @@ process_timeout(Parent
                 {hard_error, Rsn} ->
                     terminate(Dbg, State, Rsn)
             end;
+        {ok, _} ->
+            loop(Parent, Dbg, State);
         {soft_error, TabState2, _} ->
             loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {hard_error, Rsn} ->
@@ -1688,17 +1699,17 @@ init_module(Name, Mod, InitArg, Opts) ->
 
 start_children(Name, [#?CHILD{id=Id}=Child|Children], TabMod, TabState) ->
     case do_start_child(Name, Child, TabMod, TabState) of
-        {ok, _Pid, TabState2} ->
-            start_children(Name, Children, TabMod, TabState2);
-        {ok, _Pid, _Extra, TabState2} ->
+        {ok, _Child, TabState2} ->
             start_children(Name, Children, TabMod, TabState2);
         {soft_error, _TabState2, already_present} ->
+            _ = terminate_and_delete_children(Name, TabMod, TabState),
             {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
         {soft_error, _TabState2, Rsn} ->
-            {error, Rsn}; % Like OTP/supervisor
-        {error, _Reason}=Error ->
             _ = terminate_and_delete_children(Name, TabMod, TabState),
-            Error
+            {error, Rsn}; % Like OTP/supervisor
+        {hard_error, Rsn} ->
+            _ = terminate_and_delete_children(Name, TabMod, TabState),
+            {error, Rsn}
     end;
 start_children(_, [], _, TabState) ->
     {ok, TabState}.
@@ -1713,12 +1724,8 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,TabMod, TabState) ->
             {soft_error, TabState, {already_started, Pid}};
         {ok, #?CHILD{supervisor = Sup}} when Sup =:= erlang:self() ->
             {soft_error, TabState, already_present};
-        {ok, #?CHILD{pid = Pid, extra = undefined}} when erlang:is_pid(Pid) ->
-            {ok, Pid, TabState};
-        {ok, #?CHILD{pid = Pid, extra = {value, Extra}}} when erlang:is_pid(Pid) ->
-            {ok, Pid, Extra, TabState};
-        {ok, #?CHILD{pid = Pid}} ->
-            {ok, Pid, TabState};
+        {ok, Child2} ->
+            {ok, Child2, TabState};
 %%        {soft_error, _, _}=SErr ->
 %%            SErr;
         {hard_error, _}=HErr ->
@@ -1729,7 +1736,7 @@ do_start_child(Name, #?CHILD{id = Id}=Child ,TabMod, TabState) ->
 do_restart_child(Name, Id, TabMod, TabState) ->
     case director_table:lookup_id(TabMod, TabState, Id) of
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
-            {error, TabState, running};
+            {hard_error, TabState, running};
         {ok, #?CHILD{supervisor = Sup
                     ,timer_reference = Ref
                     ,restart_count = RstrtCount}=Child} when Sup =:= erlang:self() ->
@@ -1794,9 +1801,9 @@ start_mfa(Name
                                  ,state = director_utils:progress_report(Name, Child)},
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
-                    {ok, Pid, TabState2};
-                {hard_error, Rsn} ->
-                    {error, Rsn}
+                    {ok, Child2, TabState2};
+                {hard_error, _}=HErr ->
+                    HErr
             end;
         {ok, Pid, Extra} when erlang:is_pid(Pid) ->
             Child2 = Child#?CHILD{pid = Pid
@@ -1804,26 +1811,26 @@ start_mfa(Name
                                  ,state = director_utils:progress_report(Name, Child)},
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
-                    {ok, Pid, Extra, TabState2};
-                {hard_error, Rsn} ->
-                    {error, Rsn}
+                    {ok, Child2, TabState2};
+                {hard_error, _}=HErr ->
+                    HErr
             end;
         ignore ->
-            {ok, undefined, TabState};
+            {ok, Child, TabState};
         {error, Rsn} ->
-            {soft_error, Rsn};
+            {soft_error, TabState, Rsn};
         Other ->
-            {soft_error, {start_bad_return, [{returned_value, Other}
-                                            ,{module, Mod}
-                                            ,{function, Func}
-                                            ,{arguments, Args}]}}
+            {soft_error, TabState, {start_bad_return, [{returned_value, Other}
+                                                      ,{module, Mod}
+                                                      ,{function, Func}
+                                                      ,{arguments, Args}]}}
     catch
         _:Rsn ->
-            {soft_error, {start_crash, [{reason, Rsn}
-                                       ,{module, Mod}
-                                       ,{function, Func}
-                                       ,{arguments, Args}
-                                       ,{stacktace, erlang:get_stacktrace()}]}}
+            {soft_error, TabState, {start_crash, [{reason, Rsn}
+                                                 ,{module, Mod}
+                                                 ,{function, Func}
+                                                 ,{arguments, Args}
+                                                 ,{stacktace, erlang:get_stacktrace()}]}}
     end.
 
 
@@ -1850,8 +1857,8 @@ terminate(Dbg
         case terminate_and_delete_children(Name, TabMod, TabState1) of
             {ok, TabState2} ->
                 {Rsn2, TabState2};
-            {error, TabState2, Rsn5} ->
-                {Rsn2 ++ Rsn5, TabState2}
+            {hard_error, TabState2, Rsn5} ->
+                {Rsn2 ++ [Rsn5], TabState2}
         end,
     Rsn6 =
         if
@@ -1913,15 +1920,15 @@ terminate_and_delete_children(Name, TabMod, TabState) ->
         {ok, Children} ->
             terminate_and_delete_children(Name, TabMod, TabState, Children);
         {hard_error, Rsn} ->
-            {error, TabState, Rsn}
+            {hard_error, TabState, Rsn}
     end.
 
 
 terminate_and_delete_children(Name, TabMod, TabState, Children) ->
     TerminateAndDelete =
-        fun(#?CHILD{id = Id, delete_before_terminate = Bool}=Child, {TabState2, Rsns}) ->
+        fun(#?CHILD{id = Id, delete_before_terminate = Bool}, {TabState2, Rsns}) ->
             case do_terminate_child(Name, Id, TabMod, TabState2) of
-                {ok, TabState3} ->
+                {ok, Child, TabState3} ->
                     if
                         Bool ->
                             case director_table:delete(TabMod, TabState3, Child) of
@@ -1958,15 +1965,14 @@ do_terminate_child(Name, Id_or_Pid, TabMod, TabState) ->
     case director_table:SearchFunc(TabMod, TabState, Id_or_Pid) of
         {ok, #?CHILD{supervisor = Sup}=Child} when Sup =:= self() orelse Sup =:= undefined ->
             NewChState = do_terminate_child(Name, Child),
-            case director_table:insert(TabMod
-                                      ,TabState
-                                      ,Child#?CHILD{pid = undefined
-                                                   ,extra = undefined
-                                                   ,timer_reference = undefined
-                                                   ,state = NewChState
-                                                   ,supervisor = undefined}) of
-                {ok, _}=Ok ->
-                    Ok;
+            Child2 = Child#?CHILD{pid = undefined
+                                 ,extra = undefined
+                                 ,timer_reference = undefined
+                                 ,state = NewChState
+                                 ,supervisor = undefined},
+            case director_table:insert(TabMod, TabState, Child2) of
+                {ok, TabState2} ->
+                    {ok, Child2, TabState2};
                 {hard_error, _}=HErr ->
                     HErr
             end;

@@ -423,7 +423,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch({ok, _Pid}, director:start_child(?DIRECTOR,  ChildSpec)),
     {ok, ChildSpec2} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start, maps:get(start, ChildSpec2)),
-    ?assertEqual(Plan2, maps:get(plan, ChildSpec2)),
+    ?assertEqual(Plan, maps:get(plan, ChildSpec2)),
     ?assertEqual(2000, maps:get(terminate_timeout, ChildSpec2)),
     ?assertEqual(Mods, maps:get(modules, ChildSpec2)),
 
@@ -434,7 +434,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, director:change_default_childspec(?DIRECTOR, DefChildSpec2)),
     {ok, ChildSpec3} = director:get_childspec(?DIRECTOR, Id),
     ?assertEqual(Start2, maps:get(start, ChildSpec3)),
-    ?assertEqual(Plan2, maps:get(plan, ChildSpec2)),
+    ?assertEqual(Plan, maps:get(plan, ChildSpec2)),
     ?assertEqual(1000, maps:get(terminate_timeout, ChildSpec3)),
     ?assertEqual([?CHILD_MODULE], maps:get(modules, ChildSpec3)).
 

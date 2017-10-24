@@ -51,7 +51,8 @@
         ,get_pid/2
         ,get_pids/1
         ,get_plan/2
-        ,get_restart_count/2]).
+        ,get_restart_count/2
+        ,options/0]).
 
 %% director's API:
 -export([create/1
@@ -108,6 +109,10 @@ get_plan(Tab, Id) ->
 
 get_restart_count(Tab, Id) ->
     director_table:get_restart_count(?MODULE, Tab, Id).
+
+
+options() ->
+    ?TABLE_OPTIONS.
 
 %% -------------------------------------------------------------------------------------------------
 %% Director's API functions:
@@ -246,20 +251,53 @@ handle_message(Tab, {mnesia_system_event, {mnesia_down, Node}}) ->
         fun() ->
             Fold =
                 fun
-                    (#?CHILD{supervisor = Sup}=Child, Acc) when erlang:node(Sup) =:= Node ->
-                        [Child|Acc];
+                    (#?CHILD{supervisor = Sup
+                            ,delete_before_terminate = false
+                            ,pid = Pid}=Child
+                    ,{ShouldRestart, ShouldDelete}) when erlang:node(Sup) =:= Node andalso
+                                                         erlang:is_pid(Pid) ->
+                        {[Child|ShouldRestart], ShouldDelete};
+                    (#?CHILD{supervisor = Sup, delete_before_terminate = true}=Child
+                    ,{ShouldRestart, ShouldDelete}) when erlang:node(Sup) =:= Node ->
+                        {ShouldRestart, [Child|ShouldDelete]};
                     (_, Acc) ->
                         Acc
                 end,
-            Children = mnesia:foldl(Fold, [], Tab),
-            Delete =
-                fun(Child) ->
-                    ok = mnesia:delete_object(Tab, Child, write)
-                end,
-            ok = lists:foreach(Delete, Children),
-            {ok, Tab}
+            mnesia:foldl(Fold, {[], []}, Tab)
         end,
-    transaction(Tab, TA);
+    case transaction(Tab, TA) of
+        {hard_error, _}=HErr ->
+            HErr;
+        {[], []} ->
+            {ok, Tab};
+        {ShouldRestart, ShouldDelete} ->
+            DeleteTA =
+                fun(Child) ->
+                    fun () ->
+                        ok = mnesia:delete_object(Tab, Child, write)
+                    end
+                end,
+            DeleteTAs = [DeleteTA(Child) || Child <- ShouldDelete],
+            case transactions(Tab, DeleteTAs) of
+                {ok, _} ->
+                    ShouldRestartTA =
+                        fun(#?CHILD{id = Id}=Child) ->
+                            Ref = director:self_start(Id),
+                            fun() ->
+                                ok = mnesia:write(Tab
+                                                 ,Child#?CHILD{supervisor = undefined
+                                                              ,timer_reference = Ref
+                                                              ,pid = undefined
+                                                              ,extra = undefined}
+                                                 ,write)
+                            end
+                        end,
+                    ShouldRestartTAs = [ShouldRestartTA(Child) || Child <- ShouldRestart],
+                    transactions(Tab, ShouldRestartTAs);
+                {hard_error, _}=HErr ->
+                    HErr
+            end
+    end;
 handle_message(Tab, {mnesia_system_event, _}) ->
     {ok, Tab};
 handle_message(_, _) ->
@@ -314,3 +352,13 @@ transaction(Tab, TA) ->
         _:Rsn ->
             table_error(Tab, Rsn)
     end.
+
+transactions(Tab, [TA|TAs]) ->
+    case transaction(Tab, TA) of
+        {hard_error, _}=HErr ->
+            HErr;
+        _ ->
+            transactions(Tab, TAs)
+    end;
+transactions(Tab, []) ->
+    {ok, Tab}.

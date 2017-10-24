@@ -51,7 +51,8 @@
         ,get_pid/2
         ,get_pids/1
         ,get_plan/2
-        ,get_restart_count/2]).
+        ,get_restart_count/2
+        ,options/0]).
 
 %% director's API:
 -export([create/1
@@ -107,6 +108,10 @@ get_plan(Tab, Id) ->
 get_restart_count(Tab, Id) ->
     director_table:get_restart_count(?MODULE, Tab, Id).
 
+
+options() ->
+    ?ETS_TABLE_OPTIONS.
+
 %% -------------------------------------------------------------------------------------------------
 %% Director's API functions:
 
@@ -116,16 +121,21 @@ create({value, TabName}) when erlang:is_atom(TabName) ->
             Self = erlang:self(),
             case {ets:info(TabName, protection)
                  ,ets:info(TabName, owner)
-                 ,ets:info(TabName, type)} of
-                {public, _, Type} when ?is_valid_type(Type) ->
+                 ,ets:info(TabName, type)
+                 ,ets:info(TabName, keypos)} of
+                {public, _, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
-                {public, _, Type} ->
+                {public, _, Type, Keypos} when ?is_valid_type(Type) ->
+                    {hard_error, {table_keypos, [{keypos, Keypos}, {init_argument, TabName}]}};
+                {public, _, Type, _} ->
                     {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}};
-                {_, Self, Type} when ?is_valid_type(Type) ->
+                {_, Self, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
-                {_, Self, Type} ->
+                {_, Self, Type, KeyPos} when ?is_valid_type(Type) ->
+                    {hard_error, {table_keypos, [{keypos, KeyPos}, {init_argument, TabName}]}};
+                {_, Self, Type, _} ->
                     {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}};
-                {Protection, Pid, _Type} ->
+                {Protection, Pid, _Type, _Keypos} ->
                     {hard_error, {table_protection_and_owner, [{protection, Protection}
                                                               ,{owner, Pid}
                                                               ,{self, Self}
