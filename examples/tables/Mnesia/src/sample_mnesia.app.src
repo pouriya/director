@@ -1,0 +1,6 @@
+{application
+,sample_mnesia
+,[{description, "An OTP application"}
+ ,{vsn, "0.1.0"}
+ ,{mod, {sample_mnesia, []}}
+ ,{applications, [kernel, stdlib]}]}.
