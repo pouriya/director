@@ -126,15 +126,15 @@ create({value, TabName}) ->
                 {public, _, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
                 {public, _, Type, Keypos} when ?is_valid_type(Type) ->
-                    {hard_error, {table_keypos, [{keypos, Keypos}, {init_argument, TabName}]}};
+                    {hard_error, {table_keypos, [{keypos, Keypos}]}};
                 {public, _, Type, _} ->
-                    {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}};
+                    {hard_error, {table_type, [{type, Type}]}};
                 {_, Self, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
                 {_, Self, Type, KeyPos} when ?is_valid_type(Type) ->
-                    {hard_error, {table_keypos, [{keypos, KeyPos}, {init_argument, TabName}]}};
+                    {hard_error, {table_keypos, [{keypos, KeyPos}]}};
                 {_, Self, Type, _} ->
-                    {hard_error, {table_type, [{type, Type}, {init_argument, TabName}]}};
+                    {hard_error, {table_type, [{type, Type}]}};
                 {Protection, Pid, _Type, _Keypos} ->
                     {hard_error, {table_protection_and_owner, [{protection, Protection}
                                                               ,{owner, Pid}]}}
@@ -193,9 +193,8 @@ lookup_pid(Tab, Pid) ->
 
 
 lookup_appended(Tab) ->
-    try ets:match_object(Tab, #?CHILD{append = true, _ = '_'}) of
-        Children ->
-            {ok, Children}
+    try
+        {ok, ets:match_object(Tab, #?CHILD{append = true, _ = '_'})}
     catch
         _:_ ->
             table_error(Tab)
@@ -203,9 +202,9 @@ lookup_appended(Tab) ->
 
 
 insert(Tab, Child) ->
-    try ets:insert(Tab, Child) of
-        _ ->
-            {ok, Tab}
+    try
+        _ = ets:insert(Tab, Child),
+        {ok, Tab}
     catch
         _:_ ->
             table_error(Tab)
@@ -213,9 +212,9 @@ insert(Tab, Child) ->
 
 
 delete(Tab, #?CHILD{id=Id}) ->
-    try ets:delete(Tab, Id) of
-        _ ->
-            {ok, Tab}
+    try
+        _ = ets:delete(Tab, Id),
+        {ok, Tab}
     catch
         _:_ ->
             table_error(Tab)
