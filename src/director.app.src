@@ -1,9 +1,8 @@
 {application
 ,director
 ,[{description, "It is a production-ready supervisor and manager for Erlang/Elixir processes with focus on speed and flexibility."}
- ,{vsn, "17.9.16"}
+ ,{vsn, "17.10.25"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}
- ,{links, [{"GitHub", "https://github.com/Pouriya-Jahanbakhsh/director"}
-          ,{"Wiki", "https://github.com/Pouriya-Jahanbakhsh/director/wiki"}]}]}.
+ ,{links, [{"GitHub", "https://github.com/Pouriya-Jahanbakhsh/director"}]}]}.
