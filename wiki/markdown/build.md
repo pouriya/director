@@ -1,21 +1,20 @@
 ## Get source
 ```sh
-$ git clone https://github.com/Pouriya-Jahanbakhsh/director.git
+~ $ git clone https://github.com/Pouriya-Jahanbakhsh/director.git
 ```
-
-
-## Get compiled
-From [Release 17.9.16](https://github.com/Pouriya-Jahanbakhsh/director/releases/tag/17.9.16) Download **lib.tar.gz**
-
 
 
 ## Compile
 ```sh
-$ rebar compile
-```
-or
-```sh
-$ rebar3 compile
+~/director $ make compile
+===> Verifying dependencies...
+===> Compiling sample
+===> Verifying dependencies...
+===> Compiling sample_ets
+===> Verifying dependencies...
+===> Compiling sample_mnesia
+===> Verifying dependencies...
+===> Compiling director
 ```
 
 
@@ -41,4 +40,17 @@ Put this in deps in mix.exs:
 ##### erlang.mk
 ```make
 dep_director = hex 17.9.16
+```
+
+## Convert all available markdown files to HTML
+After installing python `grip` run:
+```sh
+~/director $ make md2html
+Exporting to ./README.html
+Exporting to ./wiki/html/overview.html
+Exporting to ./wiki/html/director-behavior.html
+Exporting to ./wiki/html/build.html
+Exporting to ./examples/sample/README.html
+Exporting to ./examples/ETS/README.html
+Exporting to ./examples/Mnesia/README.html
 ```
