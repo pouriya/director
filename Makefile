@@ -1,12 +1,12 @@
 BUILD_PATH := _build
 LIB_PATH := $(BUILD_PATH)/default/lib
 
-.PHONY: all compile compile-examples shell docs test clean distclean push
+.PHONY: all compile compile-examples shell docs test clean distclean md2html push
 
 all: compile
 
 compile: compile-examples
-	./rebar3 compile
+	@./rebar3 compile
 
 compile-examples:
 	@cd examples/sample && ../../rebar3 compile
@@ -34,7 +34,7 @@ clean:
 	@cd ./examples/Mnesia && ../../rebar3 clean
 	@rm -rf ./examples/*/README.html
 
-distclean:
+distclean: clean
 	@rm -rf $(BUILD_PATH)
 	@rm -rf examples/*/$(BUILD_PATH)
 
