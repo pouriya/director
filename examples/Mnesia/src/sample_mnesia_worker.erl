@@ -1,5 +1,12 @@
 -module(sample_mnesia_worker).
--compile(export_all).
+
+%%-behaviour(gen_server).
+
+-export([start_link/3]).
+-export([init/1
+        ,handle_cast/2
+        ,handle_info/2
+        ,terminate/2]).
 
 -define(S, state).
 -record(?S, {job, interval, count, count2}).

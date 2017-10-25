@@ -1,5 +1,5 @@
 -module(sample_mnesia_sup).
--behaviour(director).
+%%-behaviour(director). % I have not director in deps of this sample, then it causes warning
 
 %% API
 -export([start_link/0

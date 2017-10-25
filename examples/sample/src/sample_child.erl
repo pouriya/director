@@ -1,5 +1,6 @@
 -module(sample_child).
 
+%%-behaviour(gen_server).
 
 -export([start_link/0]).
 -export([init/1

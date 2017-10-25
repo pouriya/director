@@ -1,6 +1,5 @@
 -module(sample_ets_worker_2).
 
-
 -export([start_link/0]).
 -export([init/0]).
 
