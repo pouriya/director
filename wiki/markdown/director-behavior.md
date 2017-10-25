@@ -78,12 +78,12 @@ By calling `director:start_link/2-3-4` or `director:start/2-3-4`, new **Director
                 | {module(), function()} % will be {module(), function(), []}
                 | mfa().
 -type  plan() :: fun((Id::term(), Reason::term(), RestartCount::pos_integer(), state()) ->
-                     {'restart', state()}                 |
-                     {{'restart', pos_integer()}, state()}|
-                     {'wait', state()}                    |
-                     {'delete', state()}                  |
-                     {'stop', state()}                    |
-                     {{'stop', Reason::term()}, state()}) .
+                     {'restart', state()}                           |
+                     {{'restart', Interval::pos_integer()}, state()}|
+                     {'wait', state()}                              |
+                     {'delete', state()}                            |
+                     {'stop', state()}                              |
+                     {{'stop', Reason::term()}, state()})           .
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
 -type  type() :: 'worker' | 'supervisor'.
 -type  modules() :: [module()] | 'dynamic'.
