@@ -123,27 +123,29 @@
                       ,'modules' => modules()
                       ,'append' => append()
                       ,'log_validator' => log_validator()
-                      ,'delete_before_terminate' => delete_before_terminate()}.
+                      ,'delete_before_terminate' => delete_before_terminate()
+                      ,'state' => state()}.
 -type  id() :: term().
 -type  start() :: module() % will be {module(), start_link, []}
                 | {module(), function()} % will be {module(), function(), []}
                 | mfa().
--type  plan() :: fun((Id::term(), Reason::term(), RestartCount::pos_integer(), State::any()) ->
-                     {'restart', NewState::any()}                 |
-                     {{'restart', pos_integer()}, NewState::any()}|
-                     {'wait', NewState::any()}                    |
-                     {'delete', NewState::any()}                  |
-                     {'stop', NewState::any()}                    |
-                     {{'stop', Reason::term()}, NewState::any()}) .
+-type  plan() :: fun((Id::term(), Reason::term(), RestartCount::pos_integer(), state()) ->
+                     {'restart', state()}                 |
+                     {{'restart', pos_integer()}, state()}|
+                     {'wait', state()}                    |
+                     {'delete', state()}                  |
+                     {'stop', state()}                    |
+                     {{'stop', Reason::term()}, state()}) .
 -type  terminate_timeout() :: 'infinity' | non_neg_integer().
 -type  type() :: 'worker' | 'supervisor'.
 -type  modules() :: [module()] | 'dynamic'.
 -type  append() :: boolean().
--type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), State::any()) ->
+-type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), state()) ->
                               log_mode()).
 -type   log_level() :: 'info' | 'error' | 'warning'.
 -type   log_mode() :: 'short' | 'long' | 'none'.
 -type  delete_before_terminate() :: boolean().
+-type  state() :: any().
 
 -type default_childspec() :: #{'start' => start()
                               ,'plan' => plan()
@@ -151,14 +153,15 @@
                               ,'type' => type()
                               ,'modules' => modules()
                               ,'log_validator' => log_validator()
-                              ,'delete_before_terminate' => delete_before_terminate()}.
+                              ,'delete_before_terminate' => delete_before_terminate()
+                              ,'state' => state()}.
 
 -type start_return() :: {'ok', pid()} | {'ok', pid(), any()} | 'ignore' | {'error', term()}.
 
--type init_return() :: {'ok', State::any(), [childspec()]|[]}
-                     | {'ok', State::any(), [childspec()]|[], default_childspec()}
-                     | {'ok', State::any(), [childspec()]|[], start_options()}
-                     | {'ok', State::any(), [childspec()]|[], default_childspec(), start_options()}
+-type init_return() :: {'ok', state(), [childspec()]|[]}
+                     | {'ok', state(), [childspec()]|[], default_childspec()}
+                     | {'ok', state(), [childspec()]|[], start_options()}
+                     | {'ok', state(), [childspec()]|[], default_childspec(), start_options()}
                      | 'ignore'
                      | {'stop', Reason::any()}.
 
@@ -191,6 +194,7 @@
              ,log_level/0
              ,log_mode/0
              ,delete_before_terminate/0
+             ,state/0
              ,default_childspec/0
              ,start_return/0
              ,init_return/0
@@ -209,7 +213,7 @@ init(InitArg::any()) ->
 
 
 -callback
-terminate(Reason::any(), State::any()) ->
+terminate(Reason::any(), state()) ->
     terminate_return().
 
 %% -------------------------------------------------------------------------------------------------
