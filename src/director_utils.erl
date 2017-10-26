@@ -77,12 +77,8 @@
 %% Functions:
 
 concat(List1, List2) ->
-    concat2(lists:reverse(List1), List2).
+    concat2(lists:reverse(make_properlist(List1)), make_properlist(List2)).
 
-concat2([Item|List1], List2) ->
-    concat2(List1, [Item|List2]);
-concat2([], List) ->
-    List.
 
 get_debug_options(Name, Opts) ->
     case lists:keyfind(debug, 1, Opts) of
@@ -461,16 +457,7 @@ combine_child(ChildSpec, DefChildSpec) ->
             ChildSpec
     end.
 
-%%#{id => Id
-%%,start => Start
-%%,plan => Plan
-%%,terminate_timeout => TerminateTimeout
-%%,modules => Modules
-%%,type => Type
-%%,append => Append
-%%,log_validator => LogValidator
-%%,state => State
-%%,delete_before_terminate => DelBeforeTerminate}.
+
 combine_child(start
              ,{Mod, Func, Args}
              ,#{start := {Mod2, Func2, Args2}}=Map) ->
@@ -718,3 +705,22 @@ check_childspecs([], _DefChildSpec) ->
     {ok, []};
 check_childspecs(ChildSpecs, DefChildSpec) ->
     check_childspecs(ChildSpecs, DefChildSpec, []).
+
+
+
+
+concat2([Item|List1], List2) ->
+    concat2(List1, [Item|List2]);
+concat2([], List) ->
+    List.
+
+
+make_properlist(L) ->
+    make_properlist(L, []).
+
+make_properlist([H|T], Ret) when erlang:is_list(T) ->
+    make_properlist(T, [H | Ret]);
+make_properlist([H|T], Ret) ->
+    make_properlist([], [T, H | Ret]);
+make_properlist([], Ret) ->
+    lists:reverse(Ret).
