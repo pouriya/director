@@ -1817,40 +1817,40 @@ terminate(Dbg
                  ,delete_table_before_terminate = Bool}
          ,Rsn1) ->
     St1 = erlang:get_stacktrace(),
-    Rsn2 =
-        case call_terminate(Mod, Data, Rsn1) of
-            ok ->
-                [Rsn1];
-            {error, Rsn3} ->
-                [Rsn3];
-            {crash, Rsn3} ->
-                [Rsn1, Rsn3]
-        end,
-    {Rsn4, TabState} =
+    {Rsn2, TabState} =
         case terminate_and_delete_children(Name, TabMod, TabState1) of
             {ok, TabState2} ->
-                {Rsn2, TabState2};
-            {hard_error, TabState2, Rsn5} ->
-                {Rsn2 ++ [Rsn5], TabState2}
+                {[Rsn1], TabState2};
+            {hard_error, TabState2, Rsn3} ->
+                {[Rsn1, Rsn3], TabState2}
         end,
-    Rsn6 =
+    Rsn4 =
         if
             Bool ->
                 case director_table:delete_table(TabMod, TabState) of
                     ok ->
-                        Rsn4;
-                    {hard_error, Rsn7} ->
-                        Rsn4 ++ [Rsn7]
+                        Rsn2;
+                    {hard_error, Rsn5} ->
+                        Rsn2 ++ [Rsn5]
                 end;
             true ->
+                Rsn2
+        end,
+    Rsn6 =
+        case Rsn4 of
+            [Rsn7] ->
+                Rsn7;
+            _ ->
                 Rsn4
         end,
     Rsn =
-        case Rsn6 of
-            [Rsn8] ->
+        case call_terminate(Mod, Data, Rsn6) of
+            ok ->
+                Rsn6;
+            {error, Rsn8} ->
                 Rsn8;
-            _ ->
-                Rsn6
+            {crash, Rsn8} ->
+                Rsn4 ++ [Rsn8]
         end,
     case director_utils:run_log_validator(LogValidator, Name, error, Rsn, Data) of
         {none, _} ->
