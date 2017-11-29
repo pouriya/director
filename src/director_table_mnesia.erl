@@ -304,7 +304,7 @@ change_parent(Tab, #?CHILD{id = Id}=Child) ->
     TA =
         fun() ->
             case mnesia:read(Tab, Id, write) of
-                [#?CHILD{supervisor = Pid}] when Pid =/= Self ->
+                [#?CHILD{supervisor = Pid}] when Pid =/= Self andalso Pid =/= undefined ->
                     {soft_error, Tab, not_parent};
                 _ ->
                     _ = mnesia:write(Tab, Child, write),

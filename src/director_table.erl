@@ -570,7 +570,7 @@ handle_message(Mod, State, Msg) ->
 
 
 change_parent(Mod, State, Child) ->
-    try Mod:insert(State, Child) of
+    try Mod:change_parent(State, Child) of
         {ok, _}=Ok ->
             Ok;
         {soft_error, not_parent} ->

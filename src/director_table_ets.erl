@@ -236,7 +236,7 @@ handle_message(Tab, _) ->
 
 change_parent(Tab, #?CHILD{id = Id}=Child) ->
     try ets:lookup(Tab, Id) of
-        [#?CHILD{supervisor = Pid}] when erlang:self() =/= Pid ->
+        [#?CHILD{supervisor = Pid}] when erlang:self() =/= Pid andalso Pid =/= undefined ->
             {soft_error, not_parent};
         _ ->
             _ = ets:insert(Tab, Child),
