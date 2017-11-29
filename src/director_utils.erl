@@ -662,6 +662,12 @@ filter_type(worker) ->
     {ok, worker};
 filter_type(supervisor) ->
     {ok, supervisor};
+filter_type(sup) ->
+    {ok, supervisor};
+filter_type(w) ->
+    {ok, worker};
+filter_type(s) ->
+    {ok, supervisor};
 filter_type(Other) ->
     {error, {childspec_value, [{type, Other}]}}.
 
