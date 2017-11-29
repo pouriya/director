@@ -66,6 +66,8 @@
 -define(DEF_DELETE_TABLE_BEFORE_TERMINATE, 'true').
 -define(DEF_CHILDSPEC_STATE, 'undefined').
 -define(DEF_DELETE_BEFORE_TERMINATE, 'true').
+-define(BECOME_SUPERVISOR_TAG, 'become_supervisor').
+-define(CHANGE_PARENT_TAG, 'change_parent').
 
 
 
