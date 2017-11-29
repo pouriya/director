@@ -63,7 +63,8 @@
         ,'8'/1
         ,'9'/1
         ,'10'/1
-        ,'11'/1]).
+        ,'11'/1
+        ,'12'/1]).
 
 
 
@@ -574,6 +575,34 @@ end_per_testcase(_TestCase, _Config) ->
                                                 ,F
                                                 ,?START_OPTIONS)),
     ?CALLBACK = supervisor:get_callback_module(?DIRECTOR).
+
+
+
+'12'(_Cfg) ->
+    F = fun() -> {ok, undefined} end,
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F
+                                                ,?START_OPTIONS)),
+    {ok, ChPid} = ?CHILD_MODULE:start_link(F),
+    Id = foo,
+    ChildSpec1 = #{id => Id, start => {?CHILD_MODULE, start_link, [F]}, plan => fun(_, _, _, St) -> {restart, St} end},
+    ?assertEqual(ok, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid)),
+    ?assertEqual({ok, ChPid}, director:get_pid(?DIRECTOR, Id)),
+    erlang:exit(ChPid, kill),
+    timer:sleep(15),
+    ?assertMatch({ok, _}, director:get_pid(?DIRECTOR, Id)),
+
+    ?assertEqual({error, noproc}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid)),
+    {ok, ChPid2} = director:get_pid(?DIRECTOR, Id),
+    ?assertEqual({error, {already_started, ChPid2}}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid2)),
+    ?assertEqual(ok, director:terminate_child(?DIRECTOR, Id)),
+    {ok, ChPid3} = ?CHILD_MODULE:start_link(F),
+    ?assertEqual({error, {already_present, Id}}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid3)),
+    ?assertEqual({error, {duplicate_child_name, Id}}, director:become_supervisor(?DIRECTOR, ChildSpec1#{start => ?CHILD_MODULE}, ChPid3)),
+    ok.
+
+
 
 
 

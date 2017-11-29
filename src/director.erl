@@ -79,7 +79,8 @@
         ,log_validator/4
         ,terminate_and_delete_child/2
         ,default_childspec/0
-        ,default_plan/0]).
+        ,default_plan/0
+        ,become_supervisor/3]).
 
 %% Previous APIs with timeout argument:
 -export([start_child/3
@@ -96,7 +97,8 @@
         ,get_pids/2
         ,get_default_childspec/2
         ,change_default_childspec/3
-        ,terminate_and_delete_child/3]).
+        ,terminate_and_delete_child/3
+        ,become_supervisor/4]).
 
 %% gen callback:
 -export([init_it/6]).
@@ -615,6 +617,15 @@ default_childspec() ->
     ?DEF_DEF_CHILDSPEC.
 
 
+-spec
+become_supervisor(director(), childspec(), pid()) ->
+    ok | {'error', 'no_proc' | 'no_response' | 'proc_exited' | term()}.
+become_supervisor(Director, ChildSpec, Pid) when ?is_director(Director) andalso
+                                                 erlang:is_map(ChildSpec) andalso
+                                                 erlang:is_pid(Pid) ->
+    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}).
+
+
 %% -------------------------------------------------------------------------------------------------
 %% previous APIs with Timeout argument:
 
@@ -806,6 +817,16 @@ terminate_and_delete_child(director(), id()|pid(), timeout()) ->
 terminate_and_delete_child(Director, Id, Timeout) when ?is_director(Director) andalso
                                                        ?is_timeout(Timeout) ->
     gen_server:call(Director, {?TERMINATE_AND_DELETE_CHILD_TAG, Id}, Timeout).
+
+
+-spec
+become_supervisor(director(), childspec(), pid(), timeout()) ->
+    ok | {'error', 'no_proc' | 'no_response' | 'proc_exited' | term()}.
+become_supervisor(Director, ChildSpec, Pid, Timeout) when ?is_director(Director) andalso
+                                                          erlang:is_map(ChildSpec) andalso
+                                                          erlang:is_pid(Pid) andalso
+                                                          ?is_timeout(Timeout) ->
+    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}, Timeout).
 
 
 self_start(Id) ->
@@ -1359,6 +1380,55 @@ process_request(Dbg
             Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
             terminate(Dbg2, State, Rsn)
     end;
+process_request(Dbg
+               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name, default_childspec = DefChildSpec}=State
+               ,From
+               ,{?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}) ->
+    case erlang:is_process_alive(Pid) of % Proc should be on same node
+        true ->
+            case director_utils:check_childspec(ChildSpec, DefChildSpec) of
+                {ok, #?CHILD{id = Id, start = Start}=Child} ->
+                    case director_table:lookup_id(TabMod, TabState, Id) of
+                        {soft_error, TabState2, not_found} ->
+                            try erlang:link(Pid) of
+                                _ ->
+                                    Pid ! {?CHANGE_PARENT_TAG, erlang:self()},
+                                    case director_table:change_parent(TabMod
+                                                                     ,TabState2
+                                                                     ,Child#?CHILD{pid = Pid}) of
+                                        {ok, TabState3} ->
+                                            Pid ! {?CHANGE_PARENT_TAG, erlang:self()},
+                                            {reply(Dbg, Name, From, ok)
+                                            ,State#?STATE{table_state = TabState3}};
+                                        {soft_error, TabState3, Rsn} ->
+                                            {reply(Dbg, Name, From, {error, Rsn})
+                                            ,State#?STATE{table_state = TabState3}};
+                                        {hard_error, Rsn} ->
+                                            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
+                                            terminate(Dbg2, State, Rsn)
+                                    end
+                            catch
+                                _:Rsn ->
+                                    {reply(Dbg, Name, From, {error, Rsn})
+                                    ,State#?STATE{table_state = TabState2}}
+                            end;
+                        {ok, #?CHILD{pid = Pid2}} when Pid2 == Pid ->
+                            {reply(Dbg, Name, From, {error, {already_started, Pid2}}), State};
+                        {ok, #?CHILD{start = Start2}} when Start == Start2 ->
+                            {reply(Dbg, Name, From, {error, {already_present, Id}}), State};
+                        {ok, _} ->
+                            {reply(Dbg, Name, From, {error, {duplicate_child_name, Id}}), State};
+                        {hard_error, Rsn} ->
+                            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
+                            terminate(Dbg2, State, Rsn)
+                    end;
+                {error, Rsn} ->
+                    {reply(Dbg, Name, From, {error, Rsn}), State}
+            end;
+        false ->
+            {reply(Dbg, Name, From, {error, noproc}), State}
+    end;
+
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator, data = Data}=State, From, Other) ->
     NewData =
@@ -1999,7 +2069,7 @@ do_terminate_child(_Name, #?CHILD{state = ChState}) ->
 
 monitor_child(Pid) ->
     erlang:monitor(process, Pid),
-        catch erlang:unlink(Pid),
+    catch erlang:unlink(Pid),
     receive
         {'EXIT', Pid, Reason} ->
             receive

@@ -2,6 +2,7 @@
 -export([start_link/1
         ,start_link/2
         ,init/1
+        ,handle_info/2
         ,terminate/2
         ,code_change/3]).
 
@@ -21,6 +22,10 @@ start_link(Name, Arg) ->
 
 init(Arg) ->
     Arg().
+
+
+handle_info(_, St) ->
+    {noreply, St}.
 
 
 terminate(_Reason, _State) ->
