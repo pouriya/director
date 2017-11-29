@@ -44,7 +44,6 @@ distclean: clean
 md2html:
 	@grip ./README.md --export ./README.html --title "Director"
 	
-	@mkdir -p ./wiki/html
 	@grip ./wiki/overview.md --export ./wiki/overview.html --title "Director wiki - Overview"
 	@grip ./wiki/director-behavior.md --export ./wiki/director-behavior.html --title "Director wiki - Behavior"
 	@grip ./wiki/build.md --export ./wiki/build.html --title "Director wiki - Build"	
