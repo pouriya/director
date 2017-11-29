@@ -33,18 +33,10 @@
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
 %% @version  17.10.25
 %% -------------------------------------------------------------------------------------------------
-
-
 -module(director_SUITE).
 -author("pouriya.jahanbakhsh@gmail.com").
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Exports:
-
-
-
-
 
 %% ct callbacks:
 -export([init_per_suite/1
@@ -68,12 +60,8 @@
         ,'13'/1
         ,'14'/1]).
 
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
-
 
 -define(DIRECTOR, director_name).
 -define(CHILD, child_name).
@@ -84,25 +72,16 @@
                        ,{table_module, director_table_mnesia}
                        ,{table_init_argument, director_table}]).
 
-
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
-
-
-
 
 %% -------------------------------------------------------------------------------------------------
 %% ct callbacks:
 
 
-
-
-
 all() ->
     [erlang:list_to_atom(erlang:integer_to_list(Int))
     || Int <- lists:seq(1, erlang:length(?MODULE:module_info(exports))-8)].
-
-
 
 
 init_per_suite(Config) ->
@@ -111,14 +90,10 @@ init_per_suite(Config) ->
     Config.
 
 
-
 end_per_suite(Config) ->
     application:stop(sasl),
     application:stop(mnesia),
     Config.
-
-
-
 
 
 init_per_testcase(_TestCase, Config) ->
@@ -126,45 +101,49 @@ init_per_testcase(_TestCase, Config) ->
     Config.
 
 
-
-
-
 end_per_testcase(_TestCase, _Config) ->
-        ok.
-
-
-
-
+    ok.
 
 %% -------------------------------------------------------------------------------------------------
-%%
-
-
-
+%% Test cases:
 
 
 '1'(_Config) ->
     ?assertEqual({error, foo}, director:start_link(?CALLBACK, fun()-> {stop, foo} end)),
+
     ?assertEqual(ignore, director:start_link(?CALLBACK, fun() -> ignore end)),
+
     ?assertMatch({error, {init_bad_return, [{returned_value, bar}|_]}}
                 ,director:start_link(?CALLBACK, fun()-> bar end)),
-    ?assertMatch({error, {init_crash, [{reason, baz}|_]}}, director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
 
-    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, []} end)
+    ?assertMatch({error, {init_crash, [{reason, baz}|_]}}
+                ,director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
+
+    ?assertEqual(director:start_link({local, ?DIRECTOR}
+                                    ,?CALLBACK
+                                    ,fun() -> {ok, undefined, []} end)
                 ,{ok, erlang:whereis(?DIRECTOR)}),
+
     ?assertEqual(ok, director:stop(?DIRECTOR)),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
-    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], #{}} end)
+
+    ?assertEqual(director:start_link({local, ?DIRECTOR}
+                                    ,?CALLBACK
+                                    ,fun() -> {ok, undefined, [], #{}} end)
                 ,{ok, erlang:whereis(?DIRECTOR)}),
     ?assertEqual(ok, director:stop(?DIRECTOR)),
-    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], []} end)
+
+    ?assertEqual(director:start_link({local, ?DIRECTOR}
+                                    ,?CALLBACK
+                                    ,fun() -> {ok, undefined, [], []} end)
                 ,{ok, erlang:whereis(?DIRECTOR)}),
     ?assertEqual(ok, director:stop(?DIRECTOR)),
-    ?assertEqual(director:start_link({local, ?DIRECTOR}, ?CALLBACK, fun() -> {ok, undefined, [], #{}, []} end)
+
+    ?assertEqual(director:start_link({local, ?DIRECTOR}
+                                    ,?CALLBACK
+                                    ,fun() -> {ok, undefined, [], #{}, []} end)
                 ,{ok, erlang:whereis(?DIRECTOR)}),
     ?assertEqual(ok, director:stop(?DIRECTOR)).
-
-
 
 
 '2'(_Config) ->
@@ -173,7 +152,9 @@ end_per_testcase(_TestCase, _Config) ->
     Plan = fun(_, killed, _, St) -> {restart, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
+                ,start => {?CHILD_MODULE
+                          ,start_link
+                          ,[{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
                 ,terminate_timeout => 0
                 ,modules => Mods
@@ -244,15 +225,6 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, director:stop(?DIRECTOR)).
 
 
-
-
-
-
-
-
-
-
-
 '3'(_Config) ->
     Id = foo,
     RestartTimeout = 100,
@@ -269,7 +241,9 @@ end_per_testcase(_TestCase, _Config) ->
         end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
+                ,start => {?CHILD_MODULE
+                          ,start_link
+                          ,[{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
                 ,terminate_timeout => infinity
                 ,modules => Mods
@@ -338,16 +312,14 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch({ok, []}, director:get_pids(?DIRECTOR)).
 
 
-
-
-
-
 '4'(_Config) ->
     Id = foo,
     Plan = fun(_, killed, _, St) -> {stop, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
+                ,start => {?CHILD_MODULE
+                          ,start_link
+                          ,[{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
                 ,terminate_timeout => 0
                 ,modules => Mods
@@ -370,17 +342,15 @@ end_per_testcase(_TestCase, _Config) ->
                  end).
 
 
-
-
-
-
 '5'(_Config) ->
     Reason = oops,
     Id = foo,
     Plan = fun(_, _, _, St) -> {{stop, Reason}, St} end,
     Mods = [?CHILD_MODULE],
     ChildSpec = #{id => Id
-                ,start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, fun() -> {ok, undefined} end]}
+                ,start => {?CHILD_MODULE
+                          ,start_link
+                          ,[{local, ?CHILD}, fun() -> {ok, undefined} end]}
                 ,plan => Plan
                 ,terminate_timeout => 0
                 ,modules => Mods
@@ -401,9 +371,6 @@ end_per_testcase(_TestCase, _Config) ->
                      {'EXIT', Pid, Reason} ->
                          pass
                  end).
-
-
-
 
 
 '6'(_Config) ->
@@ -442,12 +409,6 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual([?CHILD_MODULE], maps:get(modules, ChildSpec3)).
 
 
-
-
-
-
-
-
 '7'(_config) ->
     Id = foo,
     F = fun() -> {ok, undefined} end,
@@ -480,14 +441,15 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(infinity, maps:get(terminate_timeout, ChildSpec5)).
 
 
-
-
-
 '8'(Config) ->
     F = F = fun() -> {ok, undefined} end,
     Id = foo,
     ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
-    F1 = fun() -> io:format("TEST~n"), {ok, undefined, [ChildSpec]} end, %% will see this twice in ct log
+    F1 =
+        fun() ->
+            io:format("TEST~n"), %% will see this twice in ct log
+            {ok, undefined, [ChildSpec]}
+        end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
                                                 ,F1
@@ -497,14 +459,15 @@ end_per_testcase(_TestCase, _Config) ->
     DataDir = ?config(data_dir, Config),
     ModFile = filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ ".erl"]),
     {ok, Src} = file:read_file(ModFile),
-    {ok, Src2} =  file:read_file(filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ "2"])),
+    {ok, Src2} =  file:read_file(filename:join([DataDir
+                                               ,"src"
+                                               ,erlang:atom_to_list(?CALLBACK) ++ "2"])),
     ?assertEqual(ok, file:write_file(ModFile, Src2)),
     ?assertEqual({ok, ?CALLBACK}, compile:file(ModFile)),
     ?assertEqual(ok, sys:suspend(?DIRECTOR)),
     ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
     ?assertEqual(ok, sys:resume(?DIRECTOR)),
     ?assertEqual(ok, file:write_file(ModFile, Src)).
-
 
 
 '9'(_Config) ->
@@ -579,7 +542,6 @@ end_per_testcase(_TestCase, _Config) ->
     ?CALLBACK = supervisor:get_callback_module(?DIRECTOR).
 
 
-
 '12'(_Cfg) ->
     F = fun() -> {ok, undefined} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
@@ -588,7 +550,9 @@ end_per_testcase(_TestCase, _Config) ->
                                                 ,?START_OPTIONS)),
     {ok, ChPid} = ?CHILD_MODULE:start_link(F),
     Id = foo,
-    ChildSpec1 = #{id => Id, start => {?CHILD_MODULE, start_link, [F]}, plan => fun(_, _, _, St) -> {restart, St} end},
+    ChildSpec1 = #{id => Id
+                  ,start => {?CHILD_MODULE, start_link, [F]}
+                  ,plan => fun(_, _, _, St) -> {restart, St} end},
     ?assertEqual(ok, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid)),
     ?assertEqual({ok, ChPid}, director:get_pid(?DIRECTOR, Id)),
     erlang:exit(ChPid, kill),
@@ -597,10 +561,12 @@ end_per_testcase(_TestCase, _Config) ->
 
     ?assertEqual({error, noproc}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid)),
     {ok, ChPid2} = director:get_pid(?DIRECTOR, Id),
-    ?assertEqual({error, {already_started, ChPid2}}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid2)),
+    ?assertEqual({error, {already_started, ChPid2}}
+                ,director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid2)),
     ?assertEqual(ok, director:terminate_child(?DIRECTOR, Id)),
     {ok, ChPid3} = ?CHILD_MODULE:start_link(F),
-    ?assertEqual({error, {already_present, Id}}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid3)),
+    ?assertEqual({error, {already_present, Id}}
+                ,director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid3)),
     ?assertEqual({error, {duplicate_child_name, Id}}
                 ,director:become_supervisor(?DIRECTOR, ChildSpec1#{start => ?CHILD_MODULE}, ChPid3)),
     ok.
@@ -656,16 +622,8 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertMatch({ok, _}, director:get_pid(director_2, Id)).
 
 
-
-
-
-
 %% -------------------------------------------------------------------------------------------------
 %% Internal functions:
-
-
-
-
 
 count_children(Director, Specs, Actives, Workers, Sups) ->
     CountChildren = director:count_children(Director),
@@ -674,9 +632,6 @@ count_children(Director, Specs, Actives, Workers, Sups) ->
     ?assertEqual(Actives, ?config(active, CountChildren)),
     ?assertEqual(Workers, ?config(workers, CountChildren)),
     ?assertEqual(Sups, ?config(supervisors, CountChildren)).
-
-
-
 
 
 log_validator(_, _, _, _) ->
