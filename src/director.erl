@@ -80,7 +80,8 @@
         ,terminate_and_delete_child/2
         ,default_childspec/0
         ,default_plan/0
-        ,become_supervisor/3]).
+        ,become_supervisor/3
+        ,delete_running_child/2]).
 
 %% Previous APIs with timeout argument:
 -export([start_child/3
@@ -98,7 +99,8 @@
         ,get_default_childspec/2
         ,change_default_childspec/3
         ,terminate_and_delete_child/3
-        ,become_supervisor/4]).
+        ,become_supervisor/4
+        ,delete_running_child/3]).
 
 %% gen callback:
 -export([init_it/6]).
@@ -619,11 +621,18 @@ default_childspec() ->
 
 -spec
 become_supervisor(director(), childspec(), pid()) ->
-    ok | {'error', 'no_proc' | 'no_response' | 'proc_exited' | term()}.
+    'ok' | {'error', 'noproc' | term()}.
 become_supervisor(Director, ChildSpec, Pid) when ?is_director(Director) andalso
                                                  erlang:is_map(ChildSpec) andalso
                                                  erlang:is_pid(Pid) ->
     gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}).
+
+
+-spec
+delete_running_child(director(), pid()) ->
+    'ok' | {'error', 'not_found' | term()}.
+delete_running_child(Director, Pid) when ?is_director(Director) andalso erlang:is_pid(Pid) ->
+    gen_server:call(Director, {?DELETE_RUNNING_CHILD_TAG, Pid}).
 
 
 %% -------------------------------------------------------------------------------------------------
@@ -827,6 +836,15 @@ become_supervisor(Director, ChildSpec, Pid, Timeout) when ?is_director(Director)
                                                           erlang:is_pid(Pid) andalso
                                                           ?is_timeout(Timeout) ->
     gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}, Timeout).
+
+
+-spec
+delete_running_child(director(), pid(), timeout()) ->
+    'ok' | {'error', 'not_found' | term()}.
+delete_running_child(Director, Pid, Timeout) when ?is_director(Director) andalso
+                                                  erlang:is_pid(Pid) andalso
+                                                  ?is_timeout(Timeout) ->
+    gen_server:call(Director, {?DELETE_RUNNING_CHILD_TAG, Pid}, Timeout).
 
 
 self_start(Id) ->
@@ -1428,6 +1446,36 @@ process_request(Dbg
         false ->
             {reply(Dbg, Name, From, {error, noproc}), State}
     end;
+
+process_request(Dbg
+               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
+               ,From
+               ,{?DELETE_RUNNING_CHILD_TAG, Pid}) ->
+    case director_table:lookup_pid(TabMod, TabState, Pid) of
+        {ok, Child} ->
+            try erlang:unlink(Pid) of
+                _ ->
+                    case director_table:delete(TabMod, TabState, Child) of
+                        {ok, TabState2} ->
+                            {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
+                        {soft_error, TabState2, Rsn} ->
+                            {reply(Dbg, Name, From, {error, Rsn})
+                            ,State#?STATE{table_state = TabState2}};
+                        {hard_error, Rsn} ->
+                            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
+                            terminate(Dbg2, State, Rsn)
+                    end
+            catch
+                _:Rsn ->
+                    {reply(Dbg, Name, From, {error, Rsn}), State}
+            end;
+        {soft_error, TabState2, Rsn} ->
+            {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
+        {hard_error, Rsn} ->
+            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
+            terminate(Dbg2, State, Rsn)
+    end;
+
 
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator, data = Data}=State, From, Other) ->

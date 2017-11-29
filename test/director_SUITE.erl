@@ -64,7 +64,8 @@
         ,'9'/1
         ,'10'/1
         ,'11'/1
-        ,'12'/1]).
+        ,'12'/1
+        ,'13'/1]).
 
 
 
@@ -599,11 +600,30 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, director:terminate_child(?DIRECTOR, Id)),
     {ok, ChPid3} = ?CHILD_MODULE:start_link(F),
     ?assertEqual({error, {already_present, Id}}, director:become_supervisor(?DIRECTOR, ChildSpec1, ChPid3)),
-    ?assertEqual({error, {duplicate_child_name, Id}}, director:become_supervisor(?DIRECTOR, ChildSpec1#{start => ?CHILD_MODULE}, ChPid3)),
+    ?assertEqual({error, {duplicate_child_name, Id}}
+                ,director:become_supervisor(?DIRECTOR, ChildSpec1#{start => ?CHILD_MODULE}, ChPid3)),
     ok.
 
 
-
+'13'(_Cfg) ->
+    F = fun() -> {ok, undefined} end,
+    Id = foo,
+    ChildSpec1 = #{id => Id
+                 ,start => {?CHILD_MODULE, start_link, [F]}
+                 ,plan => fun(_, _, _, St) -> {restart, St} end},
+    F2 = fun() -> {ok, undefined, [ChildSpec1]} end,
+    ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
+                                                ,?CALLBACK
+                                                ,F2
+                                                ,?START_OPTIONS)),
+    {ok, ChPid} = director:get_pid(?DIRECTOR, Id),
+    erlang:exit(ChPid, kill),
+    timer:sleep(15),
+    {ok, ChPid2} = director:get_pid(?DIRECTOR, Id),
+    ?assert(ChPid /= ChPid2),
+    ?assertEqual(ok, director:delete_running_child(?DIRECTOR, ChPid2)),
+    erlang:exit(ChPid, kill),
+    ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)).
 
 
 

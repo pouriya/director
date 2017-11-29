@@ -68,6 +68,7 @@
 -define(DEF_DELETE_BEFORE_TERMINATE, 'true').
 -define(BECOME_SUPERVISOR_TAG, 'become_supervisor').
 -define(CHANGE_PARENT_TAG, 'change_parent').
+-define(DELETE_RUNNING_CHILD_TAG, 'delete_running_child').
 
 
 
