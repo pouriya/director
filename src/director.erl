@@ -2137,10 +2137,16 @@ restart_timer(PosInt, Id) ->
     erlang:start_timer(PosInt, erlang:self(), Id, []).
 
 
-reply(Dbg, Name, {Pid, Tag}=_From, Result) ->
+reply(Dbg, Name, {Pid, Tag}, Result) when erlang:is_pid(Pid) ->
     Pid ! {Tag, Result},
-    director_utils:debug(Dbg, Name, {out, Pid, Result}).
-
+    director_utils:debug(Dbg, Name, {out, Pid, Result});
+reply(Dbg, Name, Pid, Result) when erlang:is_pid(Pid) ->
+    Pid ! Result,
+    director_utils:debug(Dbg, Name, {out, Pid, Result});
+reply(Dbg, Name, Unknown, Result) ->
+    error_logger:error_msg("Director ~p could not send response ~p to unknown destination ~p"
+                          ,[Name, Result, Unknown]),
+    Dbg.
 
 check_duplicate_ids(Children) ->
     check_duplicate_ids([Id || #?CHILD{id = Id} <- Children], []).
