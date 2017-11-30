@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.10.25
+%% @version  17.11.30
 %% @doc
 %%           API functions for interacting with ETS table as backend children table.
 %% @end
