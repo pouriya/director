@@ -906,7 +906,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                 case call_terminate(Mod, Data, Rsn0) of
                                     ok ->
                                         Rsn0;
-                                    {error, Rsn2} ->
+                                    {new_error, Rsn2} ->
                                         Rsn2;
                                     {crash, Rsn2} ->
                                         [Rsn0, Rsn2]
@@ -920,7 +920,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                         case call_terminate(Mod, Data, Rsn0) of
                             ok ->
                                 Rsn0;
-                            {error, Rsn2} ->
+                            {new_error, Rsn2} ->
                                 Rsn2;
                             {crash, Rsn2} ->
                                 [Rsn0, Rsn2]
@@ -1987,7 +1987,7 @@ terminate(Dbg
         case call_terminate(Mod, Data, Rsn6) of
             ok ->
                 Rsn6;
-            {error, Rsn8} ->
+            {new_error, Rsn8} ->
                 Rsn8;
             {crash, Rsn8} ->
                 Rsn4 ++ [Rsn8]
@@ -2013,7 +2013,7 @@ terminate(Dbg
 
 call_terminate(Mod, Data, Rsn) ->
     try Mod:terminate(Rsn, Data) of
-        {error, _}=Err ->
+        {new_error, _}=Err ->
             Err;
         _ ->
             ok
