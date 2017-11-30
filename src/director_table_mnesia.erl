@@ -32,7 +32,9 @@
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
 %% @version  17.10.25
-%% @hidden
+%% @doc
+%%           API functions for interacting with Mnesia table as backend children table.
+%% @end
 %% -------------------------------------------------------------------------------------------------
 
 
@@ -83,40 +85,95 @@
 %% -------------------------------------------------------------------------------------------------
 %% API:
 
+-spec
+count_children(atom()) ->
+    [{'specs', non_neg_integer()}
+    |{'active', non_neg_integer()}
+    |{'supervisors', non_neg_integer()}
+    |{'workers', non_neg_integer()}]    |
+    {'error', term()}.
+%% @doc
+%%      Returns count of children.<br/>
+%%      Error is for reading from table.
+%% @end
 count_children(Tab) ->
     director_table:count_children(?MODULE, Tab).
 
-
+-spec
+which_children(atom()) ->
+    [{director:id(), director:type(), pid()|'restarting'|'undefined', director:modules()}] |
+    [] |
+    {'error', term()}.
+%% @doc
+%%      Returns information about each child.<br/>
+%%      Error maybe occur for reading from table.
+%% @end
 which_children(Tab) ->
     director_table:which_children(?MODULE, Tab).
 
-
+-spec
+get_childspec(atom(), director:id() | pid()) ->
+    {'ok', director:childspec()} | {'error', 'not_found' | term()}.
+%% @doc
+%%      Returns childspec of child id or child pid.<br/>
+%%      Error maybe occur for reading from table.
+%% @end
 get_childspec(Tab, Id) ->
     director_table:get_childspec(?MODULE, Tab, Id).
 
-
+-spec
+get_pid(atom(), director:id()) ->
+    {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'|term()}.
+%% @doc
+%%      Returns pid of child id if child is running.<br/>
+%%      Error maybe occur for reading from table.
+%% @end
 get_pid(Tab, Id) ->
     director_table:get_pid(?MODULE, Tab, Id).
 
-
+-spec
+get_pids(atom()) ->
+    {'ok', [{director:id(), pid()}] | []} | {'error', term()}.
+%% @doc
+%%      Returns list of {id, pid}s for all running children.<br/>
+%%      Error is for reading from table.
+%% @end
 get_pids(Tab) ->
     director_table:get_pids(?MODULE, Tab).
 
-
+-spec
+get_plan(atom(), director:id()) ->
+    {'ok', director:plan()} | {'error', 'not_found'|term()}.
+%% @doc
+%%      Returns plan of child id.<br/>
+%%      Error maybe occur for reading from table.
+%% @end
 get_plan(Tab, Id) ->
     director_table:get_plan(?MODULE, Tab, Id).
 
-
+-spec
+get_restart_count(atom(), director:id()) ->
+    {'ok', non_neg_integer()} | {'error', 'not_found'|term()}.
+%% @doc
+%%      Returns restart count of child id.<br/>
+%%      Error maybe occur for reading from table.
+%% @end
 get_restart_count(Tab, Id) ->
     director_table:get_restart_count(?MODULE, Tab, Id).
 
-
+-spec
+options() ->
+    list().
+%% @doc
+%%      Returns mandatory options of Mnesia table for creating table for a director process.
+%% @end
 options() ->
     ?TABLE_OPTIONS.
 
 %% -------------------------------------------------------------------------------------------------
 %% Director's API functions:
 
+%% @hidden
 create({value, TabName}) ->
     case is_table(TabName) of
         true ->
@@ -150,6 +207,7 @@ create({value, TabName}) ->
     end.
 
 
+%% @hidden
 delete_table(Tab) ->
     try mnesia:delete_table(Tab) of
         {atomic, ok} ->
@@ -163,6 +221,7 @@ delete_table(Tab) ->
     end.
 
 
+%% @hidden
 lookup_id(Tab, Id) ->
     TA =
         fun() ->
@@ -176,6 +235,7 @@ lookup_id(Tab, Id) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 count(Tab) ->
     try
         {ok, mnesia:table_info(Tab, size)}
@@ -185,6 +245,7 @@ count(Tab) ->
     end.
 
 
+%% @hidden
 lookup_pid(Tab, Pid) ->
     TA =
         fun() ->
@@ -198,6 +259,7 @@ lookup_pid(Tab, Pid) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 lookup_appended(Tab) ->
     TA =
         fun() ->
@@ -207,6 +269,7 @@ lookup_appended(Tab) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 insert(Tab, Child) ->
     TA =
         fun() ->
@@ -216,6 +279,7 @@ insert(Tab, Child) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 delete(Tab, #?CHILD{id=Id}) ->
     TA =
         fun() ->
@@ -230,6 +294,7 @@ delete(Tab, #?CHILD{id=Id}) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 tab2list(Tab) ->
     TA =
         fun() ->
@@ -242,6 +307,7 @@ tab2list(Tab) ->
     transaction(Tab, TA).
 
 
+%% @hidden
 handle_message(Tab, {mnesia_system_event, {mnesia_down, Node}}) ->
     TA =
         fun() ->
@@ -299,6 +365,8 @@ handle_message(Tab, {mnesia_system_event, _}) ->
 handle_message(_, _) ->
     {soft_error, unknown}.
 
+
+%% @hidden
 change_parent(Tab, #?CHILD{id = Id}=Child) ->
     Self = erlang:self(),
     TA =

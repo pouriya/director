@@ -32,7 +32,7 @@
 %%% ------------------------------------------------------------------------------------------------
 
 -define(DEF_START_OPTIONS, []).
--define(DEF_STOP_TIMEOUT, 5000).
+-define(DEF_STOP_TIMEOUT, 'infinity').
 -define(DEF_CALL_TIMEOUT, 5000).
 
 

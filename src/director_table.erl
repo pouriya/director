@@ -194,8 +194,15 @@ which_children(Mod, State) ->
     end.
 
 
-get_childspec(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
+get_childspec(Mod, State, PidOrId) ->
+    SearchFunc =
+        if
+            erlang:is_pid(PidOrId) ->
+                lookup_pid;
+            true ->
+                lookup_id
+        end,
+    case ?MODULE:SearchFunc(Mod, State, PidOrId) of
         {ok, Child} ->
             {ok, director_utils:c2cs(Child)};
         {soft_error, _, Rsn} ->
