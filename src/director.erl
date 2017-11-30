@@ -2095,17 +2095,21 @@ do_terminate_child(Name
                 TerminateTimeout =:= 0 ->
                     BrutalKill();
                 true ->
-                    erlang:exit(Pid, shutdown),
                     receive
-                        {'DOWN', _Ref, process, Pid, shutdown} ->
-                            ChState;
-                        {'DOWN', _Ref, process, Pid, Reason2} ->
-                            director_utils:error_report(Name
-                                                       ,shutdown_error
-                                                       ,Reason2
-                                                       ,Child)
-                    after TerminateTimeout ->
-                        BrutalKill()
+                        {?GEN_CALL_TAG, From, {?CHANGE_PARENT_TAG, Pid}} ->
+                            _ = reply(?DEF_DEBUG_OPTIONS, Name, From, ok),
+                            ok
+                    after 0 ->
+                        erlang:exit(Pid, shutdown),
+                        receive
+                            {'DOWN', _Ref, process, Pid, shutdown} ->
+                                ChState;
+                            {'DOWN', _Ref, process, Pid, Reason2} ->
+                                director_utils:error_report(Name
+                                                           ,shutdown_error
+                                                           ,Reason2
+                                                           ,Child)
+                        end
                     end
             end;
         {error, Reason3} ->
