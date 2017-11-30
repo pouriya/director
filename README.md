@@ -27,7 +27,7 @@ According to the Erlang's manual:
 * Backend table modules `director_table_ets` and `director_table_mnesia` have some useful API for getting children information directly from table.  
 * Since **Director** is modular, You can write your own backend table for keeping children and give it to **Director** for using by implementing `director_table` behavior. Some test cases are ready for testing your table in `/test` directory too.  
 
-All features not listed here.  
+All features not listed here.  For more info see wiki or examples directory.
 
 ### License
 **`BSD 3-Clause`**
