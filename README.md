@@ -1,11 +1,8 @@
-![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master) [![Hex version](https://img.shields.io/hexpm/v/director.svg "Hex version")](https://hex.pm/packages/director)
-
-
 # Welcome
 **Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes with focus on speed, performance and flexibility.
 
 ## Synopsis
-According to the Erlang's manual documentation:  
+According to the Erlang's manual:  
 >A supervisor is a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.  
 >In Erlang we tell supervisors to start other processes. Every process has its own options called childspec and its supervisor maybe restart it if it crashed based these options, etc.
 
@@ -16,7 +13,7 @@ According to the Erlang's manual documentation:
     * Restart child after time interval.
     * Delete child from its children.
     * Wait for calling `restart_child/2-3` for restarting.
-    * Crash entire supervision tree.
+    * Crash entire supervision tree.  
 * **Director** has three database modules for keeping children:
 	* `director_table_list`: An Erlang list. You have to get all children information directly from **Director** process.  
 	* `director_table_ets`: Getting children info is very fast because you can get info directly from table instead of **Director** process and a number of **Director** processes can share a table for keeping their children which increases speed of starting and stoping them.  
@@ -33,4 +30,12 @@ According to the Erlang's manual documentation:
 All features not listed here.  
 
 ### License
-`BSD 3-Clause`
+**`BSD 3-Clause`**
+
+
+### Author
+**`pouriya.jahanbakhsh@gmail.com`**
+
+
+### Hex version
+[**`17.11.30`**](https://hex.pm/packages/director)

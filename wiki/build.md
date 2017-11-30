@@ -22,24 +22,24 @@
 ##### Rebar3
 Put this in deps in rebar.config:
 ```erlang
-{director, "17.10.25"}
+{director, "17.11.30"}
 ```
 
 ##### Rebar
 Put this in deps in rebar.config:
 ```erlang
-{director, ".*", {git, "https://github.com/Pouriya-Jahanbakhsh/director.git", {tag, "17.10.25"}}}
+{director, ".*", {git, "https://github.com/Pouriya-Jahanbakhsh/director.git", {tag, "17.11.30"}}}
 ```
 
 ##### Mix
 Put this in deps in mix.exs:
 ```elixir
-{:director, "~> 17.10.25"}
+{:director, "~> 17.11.30"}
 ```
 
 ##### erlang.mk
 ```make
-dep_director = hex 17.10.25
+dep_director = hex 17.11.30
 ```
 
 ## Convert all available markdown files to HTML
