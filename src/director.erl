@@ -1432,7 +1432,6 @@ process_request(Dbg
                         {soft_error, TabState2, not_found} ->
                             try erlang:link(Pid) of
                                 _ ->
-                                    Pid ! {?CHANGE_PARENT_TAG, erlang:self()},
                                     case director_table:change_parent(TabMod
                                                                      ,TabState2
                                                                      ,Child#?CHILD{pid = Pid}) of
@@ -2118,7 +2117,7 @@ do_terminate_child(Name
                     BrutalKill();
                 true ->
                     receive
-                        {?GEN_CALL_TAG, From, {?CHANGE_PARENT_TAG, Pid}} ->
+                        {?GEN_CALL_TAG, From, {?DELETE_RUNNING_CHILD_TAG, Pid}} ->
                             _ = reply(?DEF_DEBUG_OPTIONS, Name, From, ok),
                             ok
                     after 0 ->
