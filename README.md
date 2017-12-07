@@ -40,4 +40,4 @@ All features not listed here.  For more info see wiki or examples directory.
 
 
 ### Hex version
-[**`17.11.30`**](https://hex.pm/packages/director)
+[**`17.12.7`**](https://hex.pm/packages/director)
