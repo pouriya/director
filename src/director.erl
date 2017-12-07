@@ -1747,7 +1747,7 @@ init_module(Name, Mod, InitArg, Opts) ->
             {ok, Data, ChildSpecs, DefChildSpec} ->
                 case director_utils:check_default_childspec(DefChildSpec) of
                     {ok, DefChildSpec2} ->
-                        case director_utils:check_childspecs(ChildSpecs) of
+                        case director_utils:check_childspecs(ChildSpecs, DefChildSpec2) of
                             {ok, ChildSpecs2} ->
                                 {ok, Data, ChildSpecs2, DefChildSpec2, ?DEF_START_OPTIONS};
                             {error, _}=Error ->
@@ -1759,7 +1759,7 @@ init_module(Name, Mod, InitArg, Opts) ->
             {ok, Data, ChildSpecs, DefChildSpec, Opts2} when erlang:is_list(Opts2) ->
                 case director_utils:check_default_childspec(DefChildSpec) of
                     {ok, DefChildSpec2} ->
-                        case director_utils:check_childspecs(ChildSpecs) of
+                        case director_utils:check_childspecs(ChildSpecs, DefChildSpec2) of
                             {ok, ChildSpecs2} ->
                                 {ok, Data, ChildSpecs2, DefChildSpec2, Opts2};
                             {error, _}=Error ->
