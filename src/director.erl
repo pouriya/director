@@ -184,7 +184,7 @@
                        | {'log_validator', log_validator()}
                        | {'table_module', module()}
                        | {'table_init_argument', any()}
-                       | {'delete_table_before_terminate', boolean()}.
+                       | {'delete_table', boolean()}.
 
 -export_type([childspec/0
              ,id/0
@@ -242,7 +242,7 @@ terminate(Reason::any(), state()) ->
                 ,table_state
                 ,default_childspec
                 ,log_validator
-                ,delete_table_before_terminate}).
+                ,delete_table}).
 
 %% -------------------------------------------------------------------------------------------------
 %% supervisor-like API:
@@ -896,7 +896,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                            ,default_childspec = DefChildSpec
                                            ,log_validator = LogValidator
                                            ,table_module = TabMod
-                                           ,delete_table_before_terminate = DelTab},
+                                           ,delete_table = DelTab},
                             proc_lib:init_ack(Starter, {ok, erlang:self()}),
 %%                    exit(element(2, (catch loop(Parent, Dbg, State))));
                             loop(Parent, Dbg, State);
@@ -2010,7 +2010,7 @@ terminate(Dbg
                  ,table_state = TabState1
                  ,name = Name
                  ,log_validator = LogValidator
-                 ,delete_table_before_terminate = Bool}
+                 ,delete_table = Bool}
          ,Rsn1) ->
     St1 = erlang:get_stacktrace(),
     {Rsn2, TabState} =
