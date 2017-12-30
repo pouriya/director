@@ -179,18 +179,17 @@ create({value, TabName}) ->
                 {public, _, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
                 {public, _, Type, Keypos} when ?is_valid_type(Type) ->
-                    {hard_error, {table_keypos, [{keypos, Keypos}]}};
+                    {hard_error, {table_info, [{keypos, Keypos}]}};
                 {public, _, Type, _} ->
-                    {hard_error, {table_type, [{type, Type}]}};
+                    {hard_error, {table_info, [{type, Type}]}};
                 {_, Self, Type, 2} when ?is_valid_type(Type) ->
                     {ok, TabName};
                 {_, Self, Type, KeyPos} when ?is_valid_type(Type) ->
-                    {hard_error, {table_keypos, [{keypos, KeyPos}]}};
+                    {hard_error, {table_info, [{keypos, KeyPos}]}};
                 {_, Self, Type, _} ->
-                    {hard_error, {table_type, [{type, Type}]}};
+                    {hard_error, {table_info, [{type, Type}]}};
                 {Protection, Pid, _Type, _Keypos} ->
-                    {hard_error, {table_protection_and_owner, [{protection, Protection}
-                                                              ,{owner, Pid}]}}
+                    {hard_error, {table_info, [{protection, Protection}, {owner, Pid}]}}
             end;
         false ->
             try
@@ -315,8 +314,8 @@ change_parent(Tab, #?CHILD{id = Id}=Child) ->
 table_error(Tab) ->
     case is_table(Tab) of
         true ->
-            {hard_error, {table_protection_and_owner, [{protection, ets:info(Tab, protection)}
-                                                      ,{owner, ets:info(Tab, owner)}]}};
+            {hard_error, {table_info, [{protection, ets:info(Tab, protection)}
+                                      ,{owner, ets:info(Tab, owner)}]}};
         false ->
             {hard_error, {table_existence, []}}
     end.

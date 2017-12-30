@@ -113,10 +113,10 @@ end_per_testcase(_TestCase, _Config) ->
 
     ?assertEqual(ignore, director:start_link(?CALLBACK, fun() -> ignore end)),
 
-    ?assertMatch({error, {init_bad_return, [{returned_value, bar}|_]}}
+    ?assertMatch({error, {return, [{value, bar}|_]}}
                 ,director:start_link(?CALLBACK, fun()-> bar end)),
 
-    ?assertMatch({error, {init_crash, [{reason, baz}|_]}}
+    ?assertMatch({error, {crash, [{reason, baz}|_]}}
                 ,director:start_link(?CALLBACK, fun()-> erlang:exit(baz) end)),
 
     ?assertEqual(director:start_link({local, ?DIRECTOR}
@@ -467,7 +467,6 @@ end_per_testcase(_TestCase, _Config) ->
 
     ?assertEqual(ok, file:write_file(File, Src1)),
     ?assertEqual({ok, Callback}, compile:file(File, [return_errors, {outdir, Dir}])),
-%%    ?assertEqual({module, Callback}, c:l(Callback)),
 
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,Callback

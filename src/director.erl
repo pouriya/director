@@ -1370,7 +1370,7 @@ process_request(Dbg
             erlang:is_function(LogValidator, 2) ->
                 {State#?STATE{log_validator = LogValidator}, ok};
             true ->
-                {State, {error, {bad_log_validator, [{log_validator, LogValidator}]}}}
+                {State, {error, {log_validator, [{log_validator, LogValidator}]}}}
         end,
     {reply(Dbg, Name, From, Result), State2};
 process_request(Dbg
@@ -1398,7 +1398,7 @@ process_request(Dbg
                     terminate(Dbg2, State, Rsn)
             end;
         true ->
-            {reply(Dbg, Name, From, {error, {bad_log_validator, [{log_validator, LogValidator}]}})
+            {reply(Dbg, Name, From, {error, {log_validator, [{log_validator, LogValidator}]}})
             ,State}
     end;
 process_request(Dbg
@@ -1516,7 +1516,7 @@ process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator, data = D
                                       ,[Name, Other, From]),
                 NewData0
         end,
-    {reply(Dbg, Name, From, {error, {unknown_request, Other}}), State#?STATE{data = NewData}}.
+    {reply(Dbg, Name, From, {error, {call, Other}}), State#?STATE{data = NewData}}.
 
 
 process_exit(Parent, Dbg, State, Parent, Reason) ->
@@ -1566,10 +1566,10 @@ handle_exit(Parent
             {director_utils:debug(Dbg, Name, {plan, Id, Strategy0}), {value, Strategy0}}
         catch
             _:Rsn ->
-                {Dbg, {error, {plan_crash, [{reason, Rsn}
-                                           ,{plan, Plan}
-                                           ,{arguments, [Id, Reason, ResCount2, ChState]}
-                                           ,{stacktrace, erlang:get_stacktrace()}]}}}
+                {Dbg, {error, {plan, [{reason, Rsn}
+                                     ,{stacktrace, erlang:get_stacktrace()}
+                                     ,{plan, Plan}
+                                     ,{arguments, [Id, Reason, ResCount2, ChState]}]}}}
         end,
     case Strategy of
         {value, {restart, ChState2}} ->
@@ -1773,17 +1773,17 @@ init_module(Name, Mod, InitArg, Opts) ->
             ignore ->
                 ignore;
             Other ->
-                {error, {init_bad_return, [{returned_value, Other}
-                                          ,{module, Mod}
-                                          ,{function, init}
-                                          ,{arguments, [InitArg]}]}}
+                {error, {return, [{value, Other}
+                                 ,{module, Mod}
+                                 ,{function, init}
+                                 ,{arguments, [InitArg]}]}}
         catch
             _:Rsn ->
-                {error, {init_crash, [{reason, Rsn}
-                                     ,{module, Mod}
-                                     ,{function, init}
-                                     ,{arguments, [InitArg]}
-                                     ,{stacktrace, erlang:get_stacktrace()}]}}
+                {error, {crash, [{reason, Rsn}
+                                ,{stacktrace, erlang:get_stacktrace()}
+                                ,{module, Mod}
+                                ,{function, init}
+                                ,{arguments, [InitArg]}]}}
         end,
     case Rslt of
         {ok, Data2, ChildSpecs3, DefChildSpec3, Opts3} ->
@@ -1989,17 +1989,17 @@ start_mfa(Name
         {error, Rsn} ->
             {soft_error, TabState, Rsn};
         Other ->
-            {soft_error, TabState, {start_bad_return, [{returned_value, Other}
-                                                      ,{module, Mod}
-                                                      ,{function, Func}
-                                                      ,{arguments, Args}]}}
+            {soft_error, TabState, {return, [{value, Other}
+                                            ,{module, Mod}
+                                            ,{function, Func}
+                                            ,{arguments, Args}]}}
     catch
         _:Rsn ->
-            {soft_error, TabState, {start_crash, [{reason, Rsn}
-                                                 ,{module, Mod}
-                                                 ,{function, Func}
-                                                 ,{arguments, Args}
-                                                 ,{stacktace, erlang:get_stacktrace()}]}}
+            {soft_error, TabState, {crash, [{reason, Rsn}
+                                           ,{stacktrace, erlang:get_stacktrace()}
+                                           ,{module, Mod}
+                                           ,{function, Func}
+                                           ,{arguments, Args}]}}
     end.
 
 
@@ -2076,9 +2076,9 @@ call_terminate(Mod, Data, Rsn) ->
     catch
         _:Rsn2 ->
             {crash, {terminate_crash, [{reason, Rsn2}
+                                      ,{stacktrace, erlang:get_stacktrace()}
                                       ,{module, Mod}
-                                      ,{arguments, [Rsn, Data]}
-                                      ,{stacktrace, erlang:get_stacktrace()}]}}
+                                      ,{arguments, [Rsn, Data]}]}}
     end.
 
 

@@ -185,11 +185,11 @@ create({value, TabName}) ->
                     _ = mnesia:subscribe(system),
                     {ok, TabName};
                 {read_only, _, _} ->
-                    {hard_error, {table_access_mode, [{access_mode, read_only}]}};
+                    {hard_error, {table_info, [{access_mode, read_only}]}};
                 {_, Size, _} when erlang:tuple_size(#?CHILD{}) =:= Size ->
-                    {hard_error, {table_record_size, [{record_size, Size}]}};
+                    {hard_error, {table_info, [{record_size, Size}]}};
                 {_, _, Type} ->
-                    {hard_error, {table_type, [{type, Type}]}}
+                    {hard_error, {table_info, [{type, Type}]}}
             end;
         false ->
             try mnesia:create_table(TabName, ?TABLE_OPTIONS) of
@@ -203,7 +203,7 @@ create({value, TabName}) ->
                     {hard_error, {table_create, [{reason, Reason}]}}
             end;
         error ->
-            {hard_error, {table_create, [{reason, mnesia_not_started}]}}
+            {hard_error, {table_create, [{reason, not_started}]}}
     end.
 
 
@@ -214,7 +214,7 @@ delete_table(Tab) ->
             _ = mnesia:unsubscribe(system),
             ok;
         {aborted, Rsn} ->
-            {hard_error, {delete_table, [{reason, Rsn}]}}
+            {hard_error, {table_delete, [{reason, Rsn}]}}
     catch
         _:Rsn ->
             table_error(Tab, Rsn)
@@ -387,9 +387,9 @@ change_parent(Tab, #?CHILD{id = Id}=Child) ->
 table_error(Tab, Rsn) ->
     case is_table(Tab) of
         true ->
-            {hard_error, {table_error, [{access_mode, mnesia:table_info(Tab, access_mode)}
-                                       ,{arity, mnesia:table_info(Tab, arity)}
-                                       ,{type, mnesia:table_info(Tab, type)}]}};
+            {hard_error, {table_info, [{access_mode, mnesia:table_info(Tab, access_mode)}
+                                      ,{arity, mnesia:table_info(Tab, arity)}
+                                      ,{type, mnesia:table_info(Tab, type)}]}};
         false ->
             {hard_error, {table_existence, []}};
         error ->
@@ -411,7 +411,7 @@ transaction(Tab, TA) ->
         {atomic, Rslt} ->
             Rslt;
         {aborted, Rsn} ->
-            {hard_error, {transaction_error, [{reason, Rsn}]}}
+            {hard_error, {table_transaction, [{reason, Rsn}]}}
     catch
         _:Rsn ->
             table_error(Tab, Rsn)
