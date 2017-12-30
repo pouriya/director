@@ -4,7 +4,7 @@ I love pull requests from everyone.
 
 Fork, then clone the repo:
 ```sh
-~ $ git clone git@github.com:your-username/director.git && cd director
+~ $ git clone https://github.com/YOUR-USERNAME/director.git && cd director
 ```
 
 Run tests before any changes and Make sure the tests pass:
