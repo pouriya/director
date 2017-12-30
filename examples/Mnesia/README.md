@@ -42,14 +42,14 @@ Eshell V8.3  (abort with ^G)
 
 %% Connect nodes and get copy of table
 (bar@localhost)1> F = 
-(bar@localhost)1>     fun() ->
-(bar@localhost)1>         Node = 'foo@localhost',
-(bar@localhost)1>         pong = net_adm:ping(Node),
-(bar@localhost)1>         application:start(mnesia),
-(bar@localhost)1>         {ok, _} = mnesia:change_config(extra_db_nodes, [Node]),
-(bar@localhost)1>         mnesia:add_table_copy(service, node(), ram_copies),
-(bar@localhost)1>         ok
-(bar@localhost)1>     end,F().
+                      fun() ->
+                          Node = 'foo@localhost',
+                          pong = net_adm:ping(Node),
+                          application:start(mnesia),
+                          {ok, _} = mnesia:change_config(extra_db_nodes, [Node]),
+                          mnesia:add_table_copy(service, node(), ram_copies),
+                          ok
+                      end,F().
 ok
 
 %% Start application

@@ -35,7 +35,7 @@ director:start(RegisterName, CallbackModule, InitArgument, StartOpts).
                        | {'log_validator', log_validator()}
                        | {'table_module', module()}
                        | {'table_init_argument', any()}
-                       | {'delete_table_before_terminate', boolean()}.
+                       | {'delete', boolean()}.
 -type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), state()) ->
                               log_mode()).
 -type   log_level() :: 'info' | 'error' | 'warning'.
@@ -48,7 +48,7 @@ Default start options:
 ,{'log_validator', fun director:log_validator/4}
 ,{'table_module', 'director_table_list'}
 ,{'table_init_argument', 'undefined'}
-,{'delete_table_before_terminate', 'true'}]
+,{'delete', 'true'}]
 ```
 Default value of options `'spawn_opt'` and `'timeout'` depends on OTP `gen` module.  
 After describing `init/1` callback i will describe what log_validator is and what it does.  
@@ -71,7 +71,7 @@ By calling `director:start_link/2-3-4` or `director:start/2-3-4`, new **Director
                       ,'modules' => modules()
                       ,'append' => append()
                       ,'log_validator' => log_validator()
-                      ,'delete_before_terminate' => delete_before_terminate()
+                      ,'delete' => delete()
                       ,'state' => state()}.
 -type  id() :: term().
 -type  start() :: module() % will be {module(), start_link, []}
@@ -92,7 +92,7 @@ By calling `director:start_link/2-3-4` or `director:start/2-3-4`, new **Director
                               log_mode()).
 -type   log_level() :: 'info' | 'error' | 'warning'.
 -type   log_mode() :: 'short' | 'long' | 'none'.
--type  delete_before_terminate() :: boolean().
+-type  delete() :: boolean().
 -type  state() :: any().
 
 -type default_childspec() :: #{'start' => start()
@@ -101,7 +101,7 @@ By calling `director:start_link/2-3-4` or `director:start/2-3-4`, new **Director
                               ,'type' => type()
                               ,'modules' => modules()
                               ,'log_validator' => log_validator()
-                              ,'delete_before_terminate' => delete_before_terminate()
+                              ,'delete' => delete()
                               ,'state' => state()}.
 ```
 
@@ -131,7 +131,7 @@ Default plan is `director:plan/4`.
 
 **log_validator**:  When a child started or crashed, **Director** can generate valid log to `'error_logger'` process.  **Director** itself has a log validator and every child has a log validator too. Both do the same thing. log validator should be a fun with arity four. When a child is started **Director** runs this fun with id of child as first argument, `'info'` atom as second argument, `'start'` atom as third argument and state value as fourth argument. When child is crashed **Director** runs this fun with `'error'` as second argument and reason of error as third argument.  When director itself receives unexpected message runs its log validator with `'warning'` as second argument and `{'receive_unexpected_message', Msg::any()}` as third argument and when director itself receives unexpected call request runs this with `'warning'` as second argument and  `{'receive_unexpected_call', From::any(), Request::any()}` as third argument and when director is terminating calls this with `'error'` as second argument and reason of error as third argument. This fun should return one of `'short'`, `'long'` and `'none'`. `'short'` means call `'error_logger'` process with short descriptions, `'long'` means call `'error_logger'` process with full descriptions and `'none'` means don't call `'error_logger'`. (it's useful when you want to generate your own log inside this fun)  
 
-**delete_before_terminate**: A number of **Director**s can use one shared backend table for keeping their children. When a **Director** is terminating, it terminates all linked children (children which it starts them), if those children have `delete_before_terminate=>false` in their childspecs, then director does not delete them from table before its termination and you can restart them in other **Director** which has access to shared table.  
+**delete**: A number of **Director**s can use one shared backend table for keeping their children. When a **Director** is terminating, it terminates all linked children (children which it starts them), if those children have `delete=>false` in their childspecs, then director does not delete them from table before its termination and you can restart them in other **Director** which has access to shared table.  
 
 **append**: When set this to `'true'` possible values of childspec will be added to values of `DefaultChildSpec`.  
 Example:  

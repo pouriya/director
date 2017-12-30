@@ -14,12 +14,12 @@ compile-director:
 foo: compile
 	@erl -pa $(LIB_PATH)/sample_mnesia/ebin \
 	         ../../$(LIB_PATH)/director/ebin \
-	     -sname foo
+	         -sname foo@localhost
 
 bar: compile
 	@erl -pa $(LIB_PATH)/sample_mnesia/ebin \
 	         ../../$(LIB_PATH)/director/ebin \
-	     -sname bar
+	         -sname bar@localhost
 
 clean:
 	@../../rebar3 clean

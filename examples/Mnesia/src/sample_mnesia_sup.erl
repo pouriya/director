@@ -25,7 +25,7 @@ start_service(Name, Job, Interval, Count) ->
                         ,#{id => Name
                           ,start => {sample_mnesia_worker, start_link, [Job, Interval, Count]}
                           ,plan => fun ?MODULE:plan/4
-                          ,delete_before_terminate => false}).
+                          ,delete => false}).
 
 
 stop_service(Name) ->
