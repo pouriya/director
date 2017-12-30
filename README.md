@@ -11,10 +11,10 @@ According to the Erlang's manual:
 
 ## Features:  
 * If a child process crashed, **Director** can do followings (Depends on childspec):
-    * Restart child.
-    * Restart child after time interval.
+    * Restart child. In next crash **Director** will do another action (Depends on childspec)
+    * Restart child after time interval. In next crash **Director** will do another action (Depends on childspec)
     * Delete child from its children.
-    * Wait for calling `restart_child/2-3` for restarting.
+    * Does nothing and Wait for calling `restart_child/2-3` for restarting. In next crash **Director** will do another action (Depends on childspec)
     * Crash entire supervision tree.  
 * **Director** has three database modules for keeping children:
 	* `director_table_list`: An Erlang list. You have to get all children information directly from **Director** process.  
@@ -29,7 +29,8 @@ According to the Erlang's manual:
 * Backend table modules `director_table_ets` and `director_table_mnesia` have some useful API for getting children information directly from table.  
 * Since **Director** is modular, You can write your own backend table for keeping children and give it to **Director** for using by implementing `director_table` behavior. Some test cases are ready for testing your table in `/test` directory too.  
 
-All features not listed here.  For more info see wiki or examples directory.
+All features not listed here.  For more info see wiki or examples directory.  
+For contributing see `CONTRIBUTING.md` file.
 
 ### License
 **`BSD 3-Clause`**
