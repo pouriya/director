@@ -2,18 +2,18 @@
 **Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes with focus on speed, performance and flexibility.
 
 ## Synopsis
-According to the Erlang's manual documentation:  
+According to the Erlang's manual:  
 >A supervisor is a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.  
 >In Erlang we tell supervisors to start other processes. Every process has its own options called childspec and its supervisor maybe restart it if it crashed based these options, etc.
 
 
 ## Features:  
 * If a child process crashed, **Director** can do followings (Depends on childspec):
-    * Restart child.
-    * Restart child after time interval.
+    * Restart child. In next crash **Director** will do another action (Depends on childspec)
+    * Restart child after time interval. In next crash **Director** will do another action (Depends on childspec)
     * Delete child from its children.
-    * Wait for calling `restart_child/2-3` for restarting.
-    * Crash entire supervision tree.
+    * Does nothing and Wait for calling `restart_child/2-3` for restarting. In next crash **Director** will do another action (Depends on childspec)
+    * Crash entire supervision tree.  
 * **Director** has three database modules for keeping children:
 	* `director_table_list`: An Erlang list. You have to get all children information directly from **Director** process.  
 	* `director_table_ets`: Getting children info is very fast because you can get info directly from table instead of **Director** process and a number of **Director** processes can share a table for keeping their children which increases speed of starting and stoping them.  
@@ -27,7 +27,16 @@ According to the Erlang's manual documentation:
 * Backend table modules `director_table_ets` and `director_table_mnesia` have some useful API for getting children information directly from table.  
 * Since **Director** is modular, You can write your own backend table for keeping children and give it to **Director** for using by implementing `director_table` behavior. Some test cases are ready for testing your table in `/test` directory too.  
 
-All features not listed here.  
+All features not listed here.  For more info see wiki or examples directory.  
+For contributing see `CONTRIBUTING.md` file.
 
 ### License
-`BSD 3-Clause`
+**`BSD 3-Clause`**
+
+
+### Author
+**`pouriya.jahanbakhsh@gmail.com`**
+
+
+### Hex version
+[**`17.12.30`**](https://hex.pm/packages/director)

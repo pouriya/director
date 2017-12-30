@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  17.12.7
+%% @version  17.12.30
 %% -------------------------------------------------------------------------------------------------
 -module(director_table_list_SUITE).
 -author("pouriya.jahanbakhsh@gmail.com").
