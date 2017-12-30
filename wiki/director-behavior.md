@@ -35,7 +35,7 @@ director:start(RegisterName, CallbackModule, InitArgument, StartOpts).
                        | {'log_validator', log_validator()}
                        | {'table_module', module()}
                        | {'table_init_argument', any()}
-                       | {'delete', boolean()}.
+                       | {'delete_table', boolean()}.
 -type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), state()) ->
                               log_mode()).
 -type   log_level() :: 'info' | 'error' | 'warning'.
@@ -48,7 +48,7 @@ Default start options:
 ,{'log_validator', fun director:log_validator/4}
 ,{'table_module', 'director_table_list'}
 ,{'table_init_argument', 'undefined'}
-,{'delete', 'true'}]
+,{'delete_table', 'true'}]
 ```
 Default value of options `'spawn_opt'` and `'timeout'` depends on OTP `gen` module.  
 After describing `init/1` callback i will describe what log_validator is and what it does.  
