@@ -46,4 +46,4 @@
                 ,log_validator
                 ,supervisor
                 ,state
-                ,delete_before_terminate}).
+                ,delete}).
