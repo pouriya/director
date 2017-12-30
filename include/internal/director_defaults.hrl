@@ -35,10 +35,6 @@
 -define(DEF_STOP_TIMEOUT, 'infinity').
 -define(DEF_CALL_TIMEOUT, 5000).
 
-
-
-
-
 -define(DEF_DEBUG_OPTIONS, []).
 -define(GEN_CALL_TAG, '$gen_call').
 -define(COUNT_CHILDREN_TAG, 'count_children').
@@ -63,27 +59,18 @@
 -define(DEF_LOG_MODE, 'short').
 -define(DEF_TABLE_MOD, 'director_table_list').
 -define(DEF_TABLE_INIT_ARG, 'undefined').
--define(DEF_DELETE_TABLE_BEFORE_TERMINATE, 'true').
+-define(DEF_DELETE_TABLE, 'true').
 -define(DEF_CHILDSPEC_STATE, 'undefined').
--define(DEF_DELETE_BEFORE_TERMINATE, 'true').
 -define(BECOME_SUPERVISOR_TAG, 'become_supervisor').
 -define(CHANGE_PARENT_TAG, 'change_parent').
 -define(DELETE_RUNNING_CHILD_TAG, 'delete_running_child').
-
-
-
-
+-define(DEF_DELETE_BEFORE_TERMINATE, 'true').
 
 -define(DEF_PLAN, fun director:plan/4).
 -define(DEF_TYPE, worker).
 -define(DEF_APPEND, false).
 -define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
 -define(DEF_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
-
-
-
-
-
 
 -define(DEF_DEF_CHILDSPEC_PLAN, fun director:plan/4).
 -define(DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT, 0).

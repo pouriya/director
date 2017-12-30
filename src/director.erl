@@ -975,7 +975,7 @@ system_code_change(#?STATE{name = Name
                   ,_OldVsn
                   ,_Extra) ->
     case init_module(Name, Mod, InitArg, []) of
-        {ok, {_Data2, Children, DefChildSpec, _Dbg, _LogValidator, _TabMod, _TabInitArg, _DelTab}} ->
+        {ok, {_, Children, DefChildSpec, _, _, _, _, _}} ->
             case check_duplicate_ids(Children) of
                 ok ->
                     case change_old_children_pids(Children, TabMod, TabState) of
@@ -1788,11 +1788,69 @@ init_module(Name, Mod, InitArg, Opts) ->
     case Rslt of
         {ok, Data2, ChildSpecs3, DefChildSpec3, Opts3} ->
             Opts4 = director_utils:concat(Opts3, Opts),
-            Dbg = director_utils:get_debug_options(Name, Opts4),
-            LogValidator = director_utils:get_log_validator(Name, Opts4),
-            TabMod = director_utils:get_table_module(Name, Opts4),
-            TabInitArg = director_utils:get_table_init_argument(Name, Opts4),
-            DelTab = director_utils:get_delete_table_before_terminate(Name, Opts4),
+            DbgFilter =
+                fun(Name2, _, Val) ->
+                    try
+                        sys:debug_options(Val)
+                    catch
+                        _:_ ->
+                            error_logger:format("~p: ignoring erroneous debug options: ~p\n"
+                                               ,[Name2, Val]),
+                            ?DEF_DEBUG_OPTIONS
+                    end
+                end,
+            Dbg = director_utils:option(Name, Opts4, debug, DbgFilter, ?DEF_DEBUG_OPTIONS),
+            LogValidatorFilter =
+                fun
+                    (_, _, Val) when erlang:is_function(Val, 4) ->
+                        Val;
+                    (Name2, _, Val) ->
+                        error_logger:format("~p: ignoring erroneous log validator: ~p\n"
+                                           ,[Name2, Val]),
+                        ?DEF_LOG_VALIDATOR
+                end,
+            LogValidator = director_utils:option(Name
+                                                ,Opts4
+                                                ,log_validator
+                                                ,LogValidatorFilter
+                                                ,?DEF_LOG_VALIDATOR),
+            TabModFilter =
+                fun
+                    (_, _, Val) when erlang:is_atom(Val) ->
+                        Val;
+                    (Name2, _, Val) ->
+                        error_logger:format("~p: ignoring erroneous table module: ~p\n"
+                                           ,[Name2, Val]),
+                        ?DEF_TABLE_MOD
+                end,
+            TabMod = director_utils:option(Name, Opts4, table_module, TabModFilter, ?DEF_TABLE_MOD),
+            TabInitArgFilter =
+                fun
+                    (_, _, ?DEF_TABLE_INIT_ARG) ->
+                        ?DEF_TABLE_INIT_ARG;
+                    (_, _, Val) ->
+                        {value, Val}
+                end,
+            TabInitArg = director_utils:option(Name
+                                              ,Opts4
+                                              ,table_init_argument
+                                              ,TabInitArgFilter
+                                              ,?DEF_TABLE_INIT_ARG),
+            DelTabFilter =
+                fun
+                    (_, _, Val) when erlang:is_boolean(Val) ->
+                        Val;
+                    (Name2, _, Val) ->
+                        error_logger:format("~p: ignoring erroneous flag for deleting table before "
+                                            "termination: ~p\n"
+                                           ,[Name2, Val]),
+                        ?DEF_DELETE_TABLE
+                    end,
+            DelTab = director_utils:option(Name
+                                          ,Opts4
+                                          ,delete_table
+                                          ,DelTabFilter
+                                          ,?DEF_DELETE_TABLE),
             {ok, {Data2
                  ,ChildSpecs3
                  ,DefChildSpec3
@@ -1806,7 +1864,6 @@ init_module(Name, Mod, InitArg, Opts) ->
         {error, _}=Err2 ->
             Err2
     end.
-
 
 
 start_children(Name, [#?CHILD{id=Id}=Child|Children], TabMod, TabState) ->

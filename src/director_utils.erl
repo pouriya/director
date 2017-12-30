@@ -47,7 +47,6 @@
 %% API:
 -export([concat/2
         ,debug/3
-        ,get_debug_options/2
         ,progress_report/2
         ,error_report/4
         ,run_log_validator/5
@@ -57,15 +56,12 @@
         ,check_default_childspec/1
         ,filter_plan/1
         ,is_whole_integer/1
-        ,get_log_validator/2
-        ,get_table_module/2
-        ,get_table_init_argument/2
         ,combine_child/2
         ,separate_child/2
         ,c2cs/1
         ,c_r2p/2
         ,cs2c/1
-        ,get_delete_table_before_terminate/2]).
+        ,option/5]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -80,39 +76,12 @@ concat(List1, List2) ->
     concat2(lists:reverse(make_properlist(List1)), make_properlist(List2)).
 
 
-get_debug_options(Name, Opts) ->
-    case lists:keyfind(debug, 1, Opts) of
-        {_, DbgOpts} ->
-            try
-                sys:debug_options(DbgOpts)
-            catch
-                _:_ ->
-                    error_logger:format("~p: ignoring erroneous debug options: ~p~n"
-                                       ,[Name, DbgOpts]),
-                    ?DEF_DEBUG_OPTIONS
-            end;
+option(Name, Opts, Key, Filter, Def) ->
+    case lists:keyfind(Key, 1, Opts) of
+        {_, Val} ->
+            Filter(Name, Key, Val);
         false ->
-            ?DEF_DEBUG_OPTIONS;
-        Other ->
-            error_logger:format("~p: ignoring erroneous debug options: ~p~n", [Name, Other]),
-            ?DEF_DEBUG_OPTIONS
-    end.
-
-
-get_delete_table_before_terminate(Name, Opts) ->
-    case lists:keyfind(delete_table_before_terminate, 1, Opts) of
-        false ->
-            ?DEF_DELETE_TABLE_BEFORE_TERMINATE;
-        {_, Bool} when erlang:is_boolean(Bool) ->
-            Bool;
-        {_, Other} ->
-            error_logger:format("~p: ignoring erroneous flag for deleting table before "
-                                "termination: ~p~n", [Name, Other]),
-            ?DEF_LOG_VALIDATOR;
-        Other ->
-            error_logger:format("~p: ignoring erroneous flag for deleting table before "
-                                "termination: ~p~n", [Name, Other]),
-            ?DEF_LOG_VALIDATOR
+            Def
     end.
 
 
@@ -164,48 +133,6 @@ check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
-
-
-get_log_validator(Name, Opts) ->
-    case lists:keyfind(log_validator, 1, Opts) of
-        false ->
-            ?DEF_LOG_VALIDATOR;
-        {_, Fun} when erlang:is_function(Fun, 4) ->
-            Fun;
-        {_, Other} ->
-            error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
-            ?DEF_LOG_VALIDATOR;
-        Other ->
-            error_logger:format("~p: ignoring erroneous log validator: ~p~n", [Name, Other]),
-            ?DEF_LOG_VALIDATOR
-    end.
-
-
-get_table_module(Name, Opts) ->
-    case lists:keyfind(table_module, 1, Opts) of
-        false ->
-            ?DEF_TABLE_MOD;
-        {_, Mod} when erlang:is_atom(Mod) ->
-            Mod;
-        {_, Other} ->
-            error_logger:format("~p: ignoring erroneous table module: ~p~n", [Name, Other]),
-            ?DEF_TABLE_MOD;
-        Other ->
-            error_logger:format("~p: ignoring erroneous table module: ~p~n", [Name, Other]),
-            ?DEF_TABLE_MOD
-    end.
-
-
-get_table_init_argument(Name, Opts) ->
-    case lists:keyfind(table_init_argument, 1, Opts) of
-        false ->
-            ?DEF_TABLE_INIT_ARG;
-        {_, InitArg}  ->
-            {value, InitArg};
-        Other ->
-            error_logger:format("~p: ignoring erroneous table init argument: ~p~n", [Name, Other]),
-            ?DEF_TABLE_INIT_ARG
-    end.
 
 
 run_log_validator(Validator, Id, Lvl, Extra, State) ->
