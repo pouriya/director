@@ -442,32 +442,60 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '8'(Config) ->
-    F = F = fun() -> {ok, undefined} end,
-    Id = foo,
-    ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
-    F1 =
-        fun() ->
-            io:format("TEST~n"), %% will see this twice in ct log
-            {ok, undefined, [ChildSpec]}
-        end,
+    Src = "-module(director_callback2).\n"
+          "-export([init/1\n"
+          "        ,terminate/2]).\n\n"
+          "init(_InitArg) ->\n"
+          "    {ok\n"
+          "    ,undefined\n"
+          "    ,~s}.\n\n\n"
+          "terminate(_, _) ->\n"
+          "    ok.\n",
+
+    Callback = director_callback2,
+    Id1 = foo,
+    ChildMod1 = director_child,
+    Children1 = io_lib:format("[#{id => ~s\n"
+                              "  ,start => {~s, start_link, [fun() -> {ok, undefined} end]}}]"
+                             ,[Id1, ChildMod1]),
+    Src1 = io_lib:format(Src, [Children1]),
+    ct:pal("Source 1:\n~s\n", [Src1]),
+
+    Dir = filename:join(?config(data_dir, Config), "src"),
+    code:add_patha(Dir),
+    File = filename:join([Dir, erlang:atom_to_list(Callback) ++ ".erl"]),
+
+    ?assertEqual(ok, file:write_file(File, Src1)),
+    ?assertEqual({ok, Callback}, compile:file(File, [return_errors, {outdir, Dir}])),
+%%    ?assertEqual({module, Callback}, c:l(Callback)),
+
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
-                                                ,?CALLBACK
-                                                ,F1
+                                                ,Callback
+                                                ,undefined
                                                 ,?START_OPTIONS)),
     ?assertMatch({ok, [{foo, _}]}, director:get_pids(?DIRECTOR)),
-    {_, _Pid} = director:get_pid(?DIRECTOR, Id),
-    DataDir = ?config(data_dir, Config),
-    ModFile = filename:join([DataDir, "src", erlang:atom_to_list(?CALLBACK) ++ ".erl"]),
-    {ok, Src} = file:read_file(ModFile),
-    {ok, Src2} =  file:read_file(filename:join([DataDir
-                                               ,"src"
-                                               ,erlang:atom_to_list(?CALLBACK) ++ "2"])),
-    ?assertEqual(ok, file:write_file(ModFile, Src2)),
-    ?assertEqual({ok, ?CALLBACK}, compile:file(ModFile)),
+
+    Id2 = bar,
+    ChildMod2 = director_child,
+    Children2 = io_lib:format("[#{id => ~s\n"
+                              "  ,start => {~s, start_link, [fun() -> {ok, undefined} end]}}\n"
+                              ",#{id => ~s\n"
+                              "  ,start => {~s, start_link, [fun() -> {ok, undefined} end]}}]"
+                             ,[Id1, ChildMod1, Id2, ChildMod2]),
+    Src2 = io_lib:format(Src, [Children2]),
+    ct:pal("Source 2:\n~s\n", [Src2]),
+
     ?assertEqual(ok, sys:suspend(?DIRECTOR)),
-    ?assertEqual(ok, sys:change_code(erlang:whereis(?DIRECTOR), ?CALLBACK, undefined, undefined)),
+
+    ?assertEqual(ok, file:write_file(File, Src2)),
+    ?assertEqual({ok, Callback}, compile:file(File, [return_errors, {outdir, Dir}])),
+    ?assertEqual({module, Callback}, c:l(Callback)),
+
+    ?assertEqual(ok, sys:change_code(?DIRECTOR, Callback, undefined, undefined)),
     ?assertEqual(ok, sys:resume(?DIRECTOR)),
-    ?assertEqual(ok, file:write_file(ModFile, Src)).
+    ct:pal("Childrens:\n~p\n", [director:which_children(?DIRECTOR)]),
+    ?assertMatch({ok, _}, director:restart_child(?DIRECTOR, Id2)),
+    director:stop(?DIRECTOR).
 
 
 '9'(_Config) ->
@@ -503,7 +531,7 @@ end_per_testcase(_TestCase, _Config) ->
                   ,start => {?CHILD_MODULE, start_link, [F]}
                   ,delete_before_terminate => true},
     F2 = fun() -> {ok, undefined, [ChildSpec1, ChildSpec2]} end,
-    Res = director:start_link(?CALLBACK, F2, [{delete_table_before_terminate, false}
+    Res = director:start_link(?CALLBACK, F2, [{delete_table, false}
                                              ,{table_module, TabMod}|?START_OPTIONS]),
     ?assertMatch({ok, _Pid}, Res),
     {ok, Pid} = Res,
@@ -520,7 +548,7 @@ end_per_testcase(_TestCase, _Config) ->
 
     Res3 = director:start_link(?CALLBACK
                               ,fun() -> {ok, undefined} end
-                              ,[{delete_table_before_terminate, false}
+                              ,[{delete_table, false}
                                ,{table_module, TabMod}|?START_OPTIONS]),
     ?assertMatch({ok, _Pid}, Res3),
     {ok, Pid3} = Res3,
