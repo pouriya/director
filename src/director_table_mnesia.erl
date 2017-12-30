@@ -314,12 +314,12 @@ handle_message(Tab, {mnesia_system_event, {mnesia_down, Node}}) ->
             Fold =
                 fun
                     (#?CHILD{supervisor = Sup
-                            ,delete_before_terminate = false
+                            ,delete = false
                             ,pid = Pid}=Child
                     ,{ShouldRestart, ShouldDelete}) when erlang:node(Sup) =:= Node andalso
                                                          erlang:is_pid(Pid) ->
                         {[Child|ShouldRestart], ShouldDelete};
-                    (#?CHILD{supervisor = Sup, delete_before_terminate = true}=Child
+                    (#?CHILD{supervisor = Sup, delete = true}=Child
                     ,{ShouldRestart, ShouldDelete}) when erlang:node(Sup) =:= Node ->
                         {ShouldRestart, [Child|ShouldDelete]};
                     (_, Acc) ->

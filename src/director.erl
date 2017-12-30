@@ -127,7 +127,7 @@
                       ,'modules' => modules()
                       ,'append' => append()
                       ,'log_validator' => log_validator()
-                      ,'delete_before_terminate' => delete_before_terminate()
+                      ,'delete' => delete()
                       ,'state' => state()}.
 -type  id() :: term().
 -type  start() :: module() % will be {module(), start_link, []}
@@ -148,7 +148,7 @@
                               log_mode()).
 -type   log_level() :: 'info' | 'error' | 'warning'.
 -type   log_mode() :: 'short' | 'long' | 'none'.
--type  delete_before_terminate() :: boolean().
+-type  delete() :: boolean().
 -type  state() :: any().
 
 -type default_childspec() :: #{'start' => start()
@@ -157,7 +157,7 @@
                               ,'type' => type()
                               ,'modules' => modules()
                               ,'log_validator' => log_validator()
-                              ,'delete_before_terminate' => delete_before_terminate()
+                              ,'delete' => delete()
                               ,'state' => state()}.
 
 -type start_return() :: {'ok', pid()} | {'ok', pid(), any()} | 'ignore' | {'error', term()}.
@@ -197,7 +197,7 @@
              ,log_validator/0
              ,log_level/0
              ,log_mode/0
-             ,delete_before_terminate/0
+             ,delete/0
              ,state/0
              ,default_childspec/0
              ,start_return/0
@@ -2094,7 +2094,7 @@ terminate_and_delete_children(Name, TabMod, TabState) ->
 
 terminate_and_delete_children(Name, TabMod, TabState, Children) ->
     TerminateAndDelete =
-        fun(#?CHILD{id = Id, delete_before_terminate = Bool}, {TabState2, Rsns}) ->
+        fun(#?CHILD{id = Id, delete = Bool}, {TabState2, Rsns}) ->
             case do_terminate_child(Name, Id, TabMod, TabState2) of
                 {ok, Child, TabState3} ->
                     if

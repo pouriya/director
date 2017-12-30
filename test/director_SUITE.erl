@@ -162,7 +162,7 @@ end_per_testcase(_TestCase, _Config) ->
                 ,type => worker
                 ,log_validator => fun(_, _, _, _) -> long end
                 ,state => undefined
-                ,delete_before_terminate => true},
+                ,delete => true},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, State, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
@@ -251,7 +251,7 @@ end_per_testcase(_TestCase, _Config) ->
                 ,type => supervisor
                 ,log_validator => fun(_, _, _, _) -> long end
                 ,state => undefined
-                ,delete_before_terminate => true},
+                ,delete => true},
     ?assertEqual(ok, director:check_childspec(ChildSpec)),
     F = fun() -> {ok, undefined, []} end,
 
@@ -423,7 +423,7 @@ end_per_testcase(_TestCase, _Config) ->
                  ,type => worker
                  ,log_validator => fun director:log_validator/4
                  ,state => undefined
-                 ,delete_before_terminate => true},
+                 ,delete => true},
     F2 = fun() -> {ok, undefined, [ChildSpec]} end,
     ?assertMatch({ok, _Pid}, director:start_link({local, ?DIRECTOR}
                                                 ,?CALLBACK
@@ -524,11 +524,11 @@ end_per_testcase(_TestCase, _Config) ->
     F = fun() -> {ok, undefined} end,
     ChildSpec1 = #{id => Id
                   ,start => {?CHILD_MODULE, start_link, [F]}
-                  ,delete_before_terminate => false},
+                  ,delete => false},
     Id2 = bar,
     ChildSpec2 = #{id => Id2
                   ,start => {?CHILD_MODULE, start_link, [F]}
-                  ,delete_before_terminate => true},
+                  ,delete => true},
     F2 = fun() -> {ok, undefined, [ChildSpec1, ChildSpec2]} end,
     Res = director:start_link(?CALLBACK, F2, [{delete_table, false}
                                              ,{table_module, TabMod}|?START_OPTIONS]),

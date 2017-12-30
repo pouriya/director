@@ -129,7 +129,7 @@ check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
            ,{modules, fun filter_modules/1}
            ,{log_validator, fun filter_log_validator/1}
            ,{state, fun(St) -> {ok, St} end}
-           ,{delete_before_terminate, fun filter_delete_before_terminate/1}],
+           ,{delete, fun filter_delete/1}],
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
@@ -185,7 +185,7 @@ cs2c(#{id := Id
      ,append := Append
      ,log_validator := LogValidator
      ,state := State
-     ,delete_before_terminate := DelBeforeTerminate}) ->
+     ,delete := DelBeforeTerminate}) ->
     #?CHILD{id = Id
            ,pid = undefined
            ,plan = Plan
@@ -200,7 +200,7 @@ cs2c(#{id := Id
            ,log_validator = LogValidator
            ,supervisor = erlang:self()
            ,state = State
-           ,delete_before_terminate = DelBeforeTerminate}.
+           ,delete = DelBeforeTerminate}.
 
 
 
@@ -213,7 +213,7 @@ c2cs(#?CHILD{id = Id
             ,append = Append
             ,log_validator = LogValidator
             ,state = State
-            ,delete_before_terminate = DelBeforeTerminate}) ->
+            ,delete = DelBeforeTerminate}) ->
     #{id => Id
     ,start => Start
     ,plan => Plan
@@ -223,7 +223,7 @@ c2cs(#?CHILD{id = Id
     ,append => Append
     ,log_validator => LogValidator
     ,state => State
-    ,delete_before_terminate => DelBeforeTerminate}.
+    ,delete => DelBeforeTerminate}.
 
 
 c_r2p(#?CHILD{pid = Pid
@@ -265,7 +265,7 @@ c_r2p(#?CHILD{pid = Pid
              ,log_validator = LogValidator
              ,supervisor = Sup
              ,state = State
-             ,delete_before_terminate = DelBeforeTerminate}
+             ,delete = DelBeforeTerminate}
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
@@ -287,7 +287,7 @@ c_r2p(#?CHILD{pid = Pid
     ,{log_validator, LogValidator}
     ,{supervisor, Sup}
     ,{state, State}
-    ,{delete_before_terminate, DelBeforeTerminate}].
+    ,{delete, DelBeforeTerminate}].
 
 
 check_map(ChildSpec, [{Key, Filter, DEF}|Keys], ChildSpec2) ->
@@ -416,9 +416,9 @@ combine_child(log_validator, _LogValidator, #{log_validator := _LogValidator2}=M
     Map;
 combine_child(state, _State, #{state := _State2}=Map) ->
     Map;
-combine_child(delete_before_terminate
+combine_child(delete
              ,_DelBeforeTerminate
-             ,#{delete_before_terminate := _DelBeforeTerminate2}=Map) ->
+             ,#{delete := _DelBeforeTerminate2}=Map) ->
     Map;
 combine_child(Key, Val, Map) ->
     maps:put(Key, Val, Map).
@@ -513,9 +513,7 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,{type, fun filter_type/1, ?DEF_TYPE}
             ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}
             ,{state, fun(St) -> {ok, St} end, ?DEF_CHILDSPEC_STATE}
-            ,{delete_before_terminate
-             ,fun filter_delete_before_terminate/1
-             ,?DEF_DELETE_BEFORE_TERMINATE}],
+            ,{delete, fun filter_delete/1, ?DEF_DELETE_BEFORE_TERMINATE}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
         {ok, ChildSpec3} ->
             DefTerminateTimeout =
@@ -628,10 +626,10 @@ filter_log_validator(F) ->
     {error, {childspec_value, [{log_validator, F}]}}.
 
 
-filter_delete_before_terminate(Bool) when erlang:is_boolean(Bool) ->
+filter_delete(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
-filter_delete_before_terminate(Other) ->
-    {error, {childspec_value, [{delete_before_terminate, Other}]}}.
+filter_delete(Other) ->
+    {error, {childspec_value, [{delete, Other}]}}.
 
 
 check_childspecs([], _DefChildSpec) ->
