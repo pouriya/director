@@ -2211,6 +2211,10 @@ monitor_child(Pid) ->
     end.
 
 
+restart_timer(0, Id) ->
+    Ref = erlang:make_ref(),
+    erlang:self() ! {timeout, Ref, Id},
+    Ref;
 restart_timer(PosInt, Id) ->
     erlang:start_timer(PosInt, erlang:self(), Id, []).
 
