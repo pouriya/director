@@ -3,7 +3,7 @@
 %%% Director is available for use under the following license, commonly known as the 3-clause (or
 %%% "modified") BSD license:
 %%%
-%%% Copyright (c) 2016-2017, Pouriya Jahanbakhsh
+%%% Copyright (c) 2018-2019, Pouriya Jahanbakhsh
 %%% (pouriya.jahanbakhsh@gmail.com)
 %%% All rights reserved.
 %%%
