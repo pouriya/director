@@ -39,4 +39,4 @@ For contributing see `CONTRIBUTING.md` file.
 
 
 ### Hex version
-[**`17.12.30`**](https://hex.pm/packages/director)
+[**`18.1.1`**](https://hex.pm/packages/director)

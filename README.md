@@ -14,7 +14,7 @@ According to the Erlang's manual:
     * Restart child. In next crash **Director** will do another action (Depends on childspec)
     * Restart child after time interval. In next crash **Director** will do another action (Depends on childspec)
     * Delete child from its children.
-    * Does nothing and Wait for calling `restart_child/2-3` for restarting. In next crash **Director** will do another action (Depends on childspec)
+    * Does nothing and Waits for calling `restart_child/2-3` for restarting. In next crash **Director** will do another action (Depends on childspec)
     * Crash entire supervision tree.  
 * **Director** has three database modules for keeping children:
 	* `director_table_list`: An Erlang list. You have to get all children information directly from **Director** process.  
@@ -41,4 +41,4 @@ For contributing see `CONTRIBUTING.md` file.
 
 
 ### Hex version
-[**`17.12.30`**](https://hex.pm/packages/director)
+[**`18.1.1`**](https://hex.pm/packages/director)
