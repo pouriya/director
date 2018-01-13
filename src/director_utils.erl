@@ -49,7 +49,6 @@
         ,debug/3
         ,progress_report/2
         ,error_report/4
-        ,run_log_validator/5
         ,check_childspecs/1
         ,check_childspecs/2
         ,check_childspec/2
@@ -85,29 +84,19 @@ option(Name, Opts, Key, Filter, Def) ->
     end.
 
 
-progress_report(Name, #?CHILD{id = Id, log_validator = LogValidator, state = State}=Child) ->
-    case run_log_validator(LogValidator, Id, info, start, State) of
-        {none, NewState} ->
-            NewState;
-        {LogMode, NewState} ->
-            error_logger:info_report(progress, [{supervisor, Name}
-                                               ,{started, c_r2p(Child, LogMode)}]),
-            NewState
-    end.
+progress_report(Name, #?CHILD{state = State}=Child) ->
+    error_logger:info_report(progress, [{supervisor, Name}
+                                       ,{started, c_r2p(Child, long)}]),
+    State.
 
 
-error_report(Name, ErrorContext, Reason, #?CHILD{id = Id, log_validator = LogValidator, state = State}=Child) ->
-    case run_log_validator(LogValidator, Id, error, Reason, State) of
-        {none, NewState} ->
-            NewState;
-        {LogMode, NewState} ->
-            error_logger:error_report(supervisor_report
-                                     ,[{supervisor, Name}
-                                      ,{errorContext, ErrorContext}
-                                      ,{reason, Reason}
-                                      ,{offender, c_r2p(Child, LogMode)}]),
-            NewState
-    end.
+error_report(Name, ErrorContext, Reason, #?CHILD{state = State}=Child) ->
+    error_logger:error_report(supervisor_report
+                             ,[{supervisor, Name}
+                              ,{errorContext, ErrorContext}
+                              ,{reason, Reason}
+                              ,{offender, c_r2p(Child, long)}]),
+    State.
 
 
 debug([], _Name, _MsgInfo) ->
@@ -127,29 +116,11 @@ check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
            ,{type, fun filter_type/1}
            ,{terminate_timeout, fun filter_terminate_timeout/1}
            ,{modules, fun filter_modules/1}
-           ,{log_validator, fun filter_log_validator/1}
            ,{state, fun(St) -> {ok, St} end}
            ,{delete, fun filter_delete/1}],
     check_map2(ChildSpec, Keys, #{});
 check_default_childspec(Other) ->
     {error, {default_childspec_type, [{childspec, Other}]}}.
-
-
-run_log_validator(Validator, Id, Lvl, Extra, State) ->
-    try Validator(Id, Lvl, Extra, State) of
-        {Val, _}=Ok when Val == none orelse Val == short orelse Val == long ->
-            Ok;
-        Val when Val == none orelse Val == short orelse Val == long ->
-            {Val, State};
-        Other ->
-            error_logger:format("~p: ignoring erroneous log mode: ~p~n", [erlang:self(), Other]),
-            {?DEF_LOG_MODE, State}
-    catch
-        _:Rsn ->
-            error_logger:format("Child id ~p: log validator crashed with reason ~p and stacktrace ~p~n"
-                               ,[Id, Rsn, erlang:get_stacktrace()]),
-            {?DEF_LOG_MODE, State}
-    end.
 
 
 check_childspecs([Elem|Elems], DefChildSpec, Children) ->
@@ -183,7 +154,6 @@ cs2c(#{id := Id
      ,modules := Mods
      ,type := Type
      ,append := Append
-     ,log_validator := LogValidator
      ,state := State
      ,delete := DelBeforeTerminate}) ->
     #?CHILD{id = Id
@@ -197,7 +167,6 @@ cs2c(#{id := Id
            ,modules = Mods
            ,type = Type
            ,append = Append
-           ,log_validator = LogValidator
            ,supervisor = erlang:self()
            ,state = State
            ,delete = DelBeforeTerminate}.
@@ -211,7 +180,6 @@ c2cs(#?CHILD{id = Id
             ,modules = Modules
             ,type = Type
             ,append = Append
-            ,log_validator = LogValidator
             ,state = State
             ,delete = DelBeforeTerminate}) ->
     #{id => Id
@@ -221,7 +189,6 @@ c2cs(#?CHILD{id = Id
     ,modules => Modules
     ,type => Type
     ,append => Append
-    ,log_validator => LogValidator
     ,state => State
     ,delete => DelBeforeTerminate}.
 
@@ -262,7 +229,6 @@ c_r2p(#?CHILD{pid = Pid
              ,modules = Mods
              ,type = Type
              ,append = Append
-             ,log_validator = LogValidator
              ,supervisor = Sup
              ,state = State
              ,delete = DelBeforeTerminate}
@@ -284,7 +250,6 @@ c_r2p(#?CHILD{pid = Pid
     ,{extra, Extra}
     ,{modules, Mods}
     ,{append, Append}
-    ,{log_validator, LogValidator}
     ,{supervisor, Sup}
     ,{state, State}
     ,{delete, DelBeforeTerminate}].
@@ -412,8 +377,6 @@ combine_child(modules, Mods, #{modules := Mods2}=Map) ->
     end;
 combine_child(type, _Type, #{type := _Type2}=Map) ->
     Map;
-combine_child(log_validator, _LogValidator, #{log_validator := _LogValidator2}=Map) ->
-    Map;
 combine_child(state, _State, #{state := _State2}=Map) ->
     Map;
 combine_child(delete
@@ -511,7 +474,6 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
             ,StartKey
             ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{type, fun filter_type/1, ?DEF_TYPE}
-            ,{log_validator, fun filter_log_validator/1, ?DEF_LOG_VALIDATOR}
             ,{state, fun(St) -> {ok, St} end, ?DEF_CHILDSPEC_STATE}
             ,{delete, fun filter_delete/1, ?DEF_DELETE_BEFORE_TERMINATE}],
     case check_map(ChildSpec, Keys2, ChildSpec2) of
@@ -611,19 +573,6 @@ filter_append(Bool) when erlang:is_boolean(Bool) ->
     {ok, Bool};
 filter_append(Other) ->
     {error, {childspec_value, [{append, Other}]}}.
-
-
-
-
-filter_log_validator(F) when erlang:is_function(F) ->
-    case erlang:fun_info(F, arity) of
-        {arity, 4} ->
-            {ok, F};
-        {arity, Other} ->
-            {error, {childspec_value, [{log_validator, F}, {arity, Other}]}}
-    end;
-filter_log_validator(F) ->
-    {error, {childspec_value, [{log_validator, F}]}}.
 
 
 filter_delete(Bool) when erlang:is_boolean(Bool) ->

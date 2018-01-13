@@ -43,7 +43,6 @@
                 ,extra
                 ,modules
                 ,type
-                ,log_validator
                 ,supervisor
                 ,state
                 ,delete}).

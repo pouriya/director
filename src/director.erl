@@ -66,8 +66,6 @@
         ,change_plan/3
         ,get_default_childspec/1
         ,change_default_childspec/2
-        ,change_log_validator/2
-        ,change_log_validator/3
         ,start_link/4
         ,start/2
         ,start/3
@@ -76,7 +74,6 @@
         ,stop/2
         ,stop/3
         ,plan/4
-        ,log_validator/4
         ,terminate_and_delete_child/2
         ,default_childspec/0
         ,default_plan/0
@@ -126,7 +123,6 @@
                       ,'type' => type()
                       ,'modules' => modules()
                       ,'append' => append()
-                      ,'log_validator' => log_validator()
                       ,'delete' => delete()
                       ,'state' => state()}.
 -type  id() :: term().
@@ -144,10 +140,6 @@
 -type  type() :: 'worker' | 'supervisor' | 'sup' | 's' | 'w'.
 -type  modules() :: [module()] | 'dynamic'.
 -type  append() :: boolean().
--type  log_validator() :: fun((Name::any(), Type:: log_level(), Extra::term(), state()) ->
-                              log_mode()).
--type   log_level() :: 'info' | 'error' | 'warning'.
--type   log_mode() :: 'short' | 'long' | 'none'.
 -type  delete() :: boolean().
 -type  state() :: any().
 
@@ -156,7 +148,6 @@
                               ,'terminate_timeout' => terminate_timeout()
                               ,'type' => type()
                               ,'modules' => modules()
-                              ,'log_validator' => log_validator()
                               ,'delete' => delete()
                               ,'state' => state()}.
 
@@ -181,7 +172,6 @@
 -type  start_option() :: {'debug', [sys:dbg_opt()]|[]}
                        | {'spawn_opt', proc_lib:spawn_option()}
                        | {'timeout', timeout()}
-                       | {'log_validator', log_validator()}
                        | {'table_module', module()}
                        | {'table_init_argument', any()}
                        | {'delete_table', boolean()}.
@@ -194,9 +184,6 @@
              ,type/0
              ,modules/0
              ,append/0
-             ,log_validator/0
-             ,log_level/0
-             ,log_mode/0
              ,delete/0
              ,state/0
              ,default_childspec/0
@@ -241,7 +228,6 @@ terminate(Reason::any(), state()) ->
                 ,table_module
                 ,table_state
                 ,default_childspec
-                ,log_validator
                 ,delete_table}).
 
 %% -------------------------------------------------------------------------------------------------
@@ -453,36 +439,6 @@ change_default_childspec(Director, DefChildSpec) when ?is_director(Director) and
 
 
 -spec
-change_log_validator(director(), log_validator()) ->
-    'ok' | {'error', term()}.
-%% @doc
-%%      Changes log validator fun for director itself.<br/>
-%% @end
-change_log_validator(Director, LogValidator) when ?is_director(Director) andalso
-                                                  erlang:is_function(LogValidator, 4) ->
-    gen_server:call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}).
-
-
--spec
-change_log_validator(director(), Id::term()|log_validator(), log_validator()|timeout()) ->
-    'ok' | {'error', term()}.
-%% @doc
-%%      Changes log validator fun for child id if log validator is third argument otherwise this is<br/>
-%%      previous function with timeout argument.<br/>
-%%      Error maybe occur for reading from or inserting to table.
-%% @end
-change_log_validator(Director, Id, LogValidator) when ?is_director(Director) andalso
-                                                      erlang:is_function(LogValidator, 2) ->
-    gen_server:call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator, Id});
-change_log_validator(Director
-                    ,LogValidator
-                    ,Timeout) when ?is_director(Director) andalso
-                                   erlang:is_function(LogValidator, 2) andalso
-                                   ?is_timeout(Timeout) ->
-    gen_server:call(Director, {?CHANGE_LOG_VALIDATOR, LogValidator}, Timeout).
-
-
--spec
 start_link(register_name(), module(), InitArg::term(), start_options()) ->
     start_return().
 %% @doc
@@ -585,17 +541,6 @@ plan(_Id, _Other, 5, State) ->
     {stop, State};
 plan(_Id, _Other, _RestartCount, State) ->
     {restart, State}.
-
-
--spec
-log_validator(Id_Or_Name::any(), Type::log_level(), Extra::term(), State::any()) ->
-    'short'.
-%% @doc
-%%      This is default log validator of director itself and its children.<br/>
-%%      Tells director to call error_logger with Short description for every log.
-%% @end
-log_validator(_Id, _Type, _Extra, _State) ->
-    short.
 
 
 -spec
@@ -883,7 +828,7 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
     erlang:process_flag(trap_exit, true),
     case init_module(Name, Mod, InitArg, Opts) of
-        {ok, {Data, Children, DefChildSpec, Dbg, LogValidator, TabMod, TabInitArg, DelTab}} ->
+        {ok, {Data, Children, DefChildSpec, Dbg, TabMod, TabInitArg, DelTab}} ->
             case director_table:create(TabMod, TabInitArg) of
                 {ok, TabState} ->
                     case start_children(Name, Children, TabMod, TabState) of
@@ -894,7 +839,6 @@ init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
                                            ,init_argument = InitArg
                                            ,table_state = TabState2
                                            ,default_childspec = DefChildSpec
-                                           ,log_validator = LogValidator
                                            ,table_module = TabMod
                                            ,delete_table = DelTab},
                             proc_lib:init_ack(Starter, {ok, erlang:self()}),
@@ -975,7 +919,7 @@ system_code_change(#?STATE{name = Name
                   ,_OldVsn
                   ,_Extra) ->
     case init_module(Name, Mod, InitArg, []) of
-        {ok, {_, Children, DefChildSpec, _, _, _, _, _}} ->
+        {ok, {_, Children, DefChildSpec, _, _, _, _}} ->
             case check_duplicate_ids(Children) of
                 ok ->
                     case change_old_children_pids(Children, TabMod, TabState) of
@@ -1061,33 +1005,12 @@ process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
 process_message(Parent, Dbg, State, {system, From, Msg}) ->
     sys:handle_system_msg(Msg, From, Parent, ?MODULE, Dbg, State);
 %% Catch clause:
-process_message(Parent, Dbg, #?STATE{name = Name
-                                    ,table_module = TabMod
-                                    ,table_state = TabState
-                                    ,log_validator = LogValidator
-                                    ,data = Data}=State, Msg) ->
+process_message(Parent, Dbg, #?STATE{table_module = TabMod, table_state = TabState}=State, Msg) ->
     case director_table:handle_message(TabMod, TabState, Msg) of
         {ok, TabState2} ->
             loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {soft_error, TabState2, unknown} ->
-            NewData =
-                case director_utils:run_log_validator(LogValidator
-                                                     ,Name
-                                                     ,warning
-                                                     ,{receive_unexpected_message, Msg}
-                                                     ,Data) of
-                    {short, NewData0} ->
-                        error_logger:error_msg("Director ~p received an unexpected message~n"
-                                              ,[Name]),
-                        NewData0;
-                    {none, NewData0} ->
-                        NewData0;
-                    {long, NewData0} ->
-                        error_logger:error_msg("Director ~p received unexpected message: ~p~n"
-                                              ,[Name, Msg]),
-                        NewData0
-                end,
-            loop(Parent, Dbg, State#?STATE{table_state = TabState2, data = NewData});
+            loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {hard_error, Rsn} ->
             terminate(Dbg, State, Rsn)
     end.
@@ -1356,51 +1279,6 @@ process_request(Dbg
         {error, _}=Err ->
             {reply(Dbg, Name, From, Err), State}
     end;
-%%process_request(Dbg
-%%               ,#?STATE{name = Name, log_validator = LogValidator}=State
-%%               ,From
-%%               ,?GET_LOG_VALIDATOR) ->
-%%    {reply(Dbg, Name, From, LogValidator), State};
-process_request(Dbg
-               ,#?STATE{name = Name}=State
-               ,From
-               ,{?CHANGE_LOG_VALIDATOR, LogValidator}) ->
-    {State2, Result} =
-        if
-            erlang:is_function(LogValidator, 2) ->
-                {State#?STATE{log_validator = LogValidator}, ok};
-            true ->
-                {State, {error, {log_validator, [{log_validator, LogValidator}]}}}
-        end,
-    {reply(Dbg, Name, From, Result), State2};
-process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
-               ,From
-               ,{?CHANGE_LOG_VALIDATOR, LogValidator, Id}) ->
-    if
-        erlang:is_function(LogValidator, 2) ->
-            case director_table:lookup_id(TabMod, TabState, Id) of
-                {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_parent}), State};
-                {ok, Child} ->
-                    case director_table:insert(TabMod
-                                              ,TabState
-                                              ,Child#?CHILD{log_validator = LogValidator}) of
-                        {ok, TabState2} ->
-                            {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
-                        {hard_error, _}=Err ->
-                            {reply(Dbg, Name, From, Err), State}
-                    end;
-                {soft_error, TabState2, Rsn} ->
-                    {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
-                {hard_error, Rsn} ->
-                    Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-                    terminate(Dbg2, State, Rsn)
-            end;
-        true ->
-            {reply(Dbg, Name, From, {error, {log_validator, [{log_validator, LogValidator}]}})
-            ,State}
-    end;
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
@@ -1496,27 +1374,9 @@ process_request(Dbg
             Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
             terminate(Dbg2, State, Rsn)
     end;
-
-
 %% Catch clause:
-process_request(Dbg, #?STATE{name = Name, log_validator = LogValidator, data = Data}=State, From, Other) ->
-    NewData =
-        case director_utils:run_log_validator(LogValidator
-                                             ,Name
-                                             ,warning
-                                             ,{receive_unexpected_call, From, Other}
-                                             ,Data) of
-            {short, NewData0} ->
-                error_logger:error_msg("Director ~p received an unexpected call request~n", [Name]),
-                NewData0;
-            {none, NewData0} ->
-                NewData0;
-            {long, NewData0} ->
-                error_logger:error_msg("Director ~p received unexpected call request ~p with from ~p~n"
-                                      ,[Name, Other, From]),
-                NewData0
-        end,
-    {reply(Dbg, Name, From, {error, {call, Other}}), State#?STATE{data = NewData}}.
+process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
+    {reply(Dbg, Name, From, {error, {call, Other}}), State}.
 
 
 process_exit(Parent, Dbg, State, Parent, Reason) ->
@@ -1800,20 +1660,6 @@ init_module(Name, Mod, InitArg, Opts) ->
                     end
                 end,
             Dbg = director_utils:option(Name, Opts4, debug, DbgFilter, ?DEF_DEBUG_OPTIONS),
-            LogValidatorFilter =
-                fun
-                    (_, _, Val) when erlang:is_function(Val, 4) ->
-                        Val;
-                    (Name2, _, Val) ->
-                        error_logger:format("~p: ignoring erroneous log validator: ~p\n"
-                                           ,[Name2, Val]),
-                        ?DEF_LOG_VALIDATOR
-                end,
-            LogValidator = director_utils:option(Name
-                                                ,Opts4
-                                                ,log_validator
-                                                ,LogValidatorFilter
-                                                ,?DEF_LOG_VALIDATOR),
             TabModFilter =
                 fun
                     (_, _, Val) when erlang:is_atom(Val) ->
@@ -1851,14 +1697,7 @@ init_module(Name, Mod, InitArg, Opts) ->
                                           ,delete_table
                                           ,DelTabFilter
                                           ,?DEF_DELETE_TABLE),
-            {ok, {Data2
-                 ,ChildSpecs3
-                 ,DefChildSpec3
-                 ,Dbg
-                 ,LogValidator
-                 ,TabMod
-                 ,TabInitArg
-                 ,DelTab}};
+            {ok, {Data2, ChildSpecs3, DefChildSpec3, Dbg, TabMod, TabInitArg, DelTab}};
         ignore ->
             ignore;
         {error, _}=Err2 ->
@@ -2009,10 +1848,9 @@ terminate(Dbg
                  ,table_module = TabMod
                  ,table_state = TabState1
                  ,name = Name
-                 ,log_validator = LogValidator
                  ,delete_table = Bool}
          ,Rsn1) ->
-    St1 = erlang:get_stacktrace(),
+%%    St1 = erlang:get_stacktrace(),
     {Rsn2, TabState} =
         case terminate_and_delete_children(Name, TabMod, TabState1) of
             {ok, TabState2} ->
@@ -2048,19 +1886,6 @@ terminate(Dbg
             {crash, Rsn8} ->
                 Rsn4 ++ [Rsn8]
         end,
-    case director_utils:run_log_validator(LogValidator, Name, error, Rsn, Data) of
-        {none, _} ->
-            ok;
-        {short, _} ->
-            error_logger:error_msg("** Director ~p terminating \n"
-                                   "** Reason for termination == ~p\n"
-                                  ,[Name, Rsn]);
-        {long, _} ->
-            error_logger:error_msg("** Director \"~p\" terminating \n"
-                                   "** Reason for termination == ~p\n"
-                                   "** Stacktrace == ~p\n"
-                                  ,[Name, Rsn, St1])
-    end,
     sys:print_log(Dbg),
     erlang:exit(Rsn).
 
