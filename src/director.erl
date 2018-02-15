@@ -185,9 +185,9 @@
                        | {'table_init_argument', any()}
                        | {'delete_table', boolean()}.
 
--type metadata_arg() :: #{'pid' => pid()
-                         ,'extra' => any()
-                         ,'restart_count' := non_neg_integer()}.
+-type metadata_arg() :: #{'pid' => pid() %% only for handle_start
+                         ,'extra' => any() %% if process returns extra section and only in handle_start
+                         ,'restart_count' => non_neg_integer()}.
 
 -type init_arg() :: any().
 
