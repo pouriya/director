@@ -69,7 +69,6 @@
         ,get_childspec/3
         ,get_pid/3
         ,get_pids/2
-        ,get_plan/3
         ,get_restart_count/3]).
 
 %% -------------------------------------------------------------------------------------------------
@@ -227,17 +226,6 @@ get_pids(Mod, State) ->
     case director_table:tab2list(Mod, State) of
         {ok, Children} ->
             {ok, [{Id, Pid} || #?CHILD{id = Id, pid = Pid} <- Children, erlang:is_pid(Pid)]};
-        {hard_error, Rsn} ->
-            {error, Rsn}
-    end.
-
-
-get_plan(Mod, State, Id) ->
-    case lookup_id(Mod, State, Id) of
-        {ok, #?CHILD{plan = Plan}} ->
-            {ok, Plan};
-        {soft_error, _, Rsn} ->
-            {error, Rsn};
         {hard_error, Rsn} ->
             {error, Rsn}
     end.
@@ -434,7 +422,7 @@ insert(Mod, State, Child) ->
 
 
 delete(Mod, State, Child) ->
-    try Mod:delete(State, Child) of
+    try Mod:delete(State, Child#?CHILD.id) of
         {ok, _}=Ok ->
             Ok;
         {soft_error, not_found} ->

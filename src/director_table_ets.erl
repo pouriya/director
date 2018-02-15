@@ -48,7 +48,6 @@
         ,get_childspec/2
         ,get_pid/2
         ,get_pids/1
-        ,get_plan/2
         ,get_restart_count/2
         ,options/0]).
 
@@ -134,16 +133,6 @@ get_pids(atom()) ->
 %% @end
 get_pids(Tab) ->
     director_table:get_pids(?MODULE, Tab).
-
--spec
-get_plan(atom(), director:id()) ->
-    {'ok', director:plan()} | {'error', 'not_found'|term()}.
-%% @doc
-%%      Returns plan of child id.<br/>
-%%      Error maybe occur for reading from table.
-%% @end
-get_plan(Tab, Id) ->
-    director_table:get_plan(?MODULE, Tab, Id).
 
 -spec
 get_restart_count(atom(), director:id()) ->
@@ -270,7 +259,7 @@ insert(Tab, Child) ->
 
 
 %% @hidden
-delete(Tab, #?CHILD{id=Id}) ->
+delete(Tab, Id) ->
     try
         _ = ets:delete(Tab, Id),
         {ok, Tab}

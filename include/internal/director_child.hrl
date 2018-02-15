@@ -35,10 +35,9 @@
 -record(?CHILD, {id
                 ,pid
                 ,append
-                ,plan
                 ,restart_count
                 ,start
-                ,timer_reference
+                ,timer
                 ,terminate_timeout
                 ,extra
                 ,modules

@@ -53,8 +53,8 @@
 -define(GET_DEF_CHILDSPEC, 'get_default_childspec').
 -define(CHANGE_DEF_CHILDSPEC, 'change_default_childspec').
 -define(TERMINATE_AND_DELETE_CHILD_TAG, 'terminate_and_delete_child').
--define(DEF_LOG_MODE, 'short').
--define(DEF_TABLE_MOD, 'director_table_list').
+-define(DEF_LOG, 'true').
+-define(DEF_TABLE_MODE, 'list').
 -define(DEF_TABLE_INIT_ARG, 'undefined').
 -define(DEF_DELETE_TABLE, 'true').
 -define(DEF_CHILDSPEC_STATE, 'undefined').
@@ -62,6 +62,7 @@
 -define(CHANGE_PARENT_TAG, 'change_parent').
 -define(DELETE_RUNNING_CHILD_TAG, 'delete_running_child').
 -define(DEF_DELETE_BEFORE_TERMINATE, 'true').
+-define(DEF_ACTION, wait).
 
 -define(DEF_PLAN, fun director:plan/4).
 -define(DEF_TYPE, worker).
@@ -69,9 +70,7 @@
 -define(DEF_WORKER_TERMINATE_TIMEOUT, 1000).
 -define(DEF_SUPERVISOR_TERMINATE_TIMEOUT, infinity).
 
--define(DEF_DEF_CHILDSPEC_PLAN, fun director:plan/4).
 -define(DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT, 0).
 -define(DEF_DEF_CHILDSPEC_MODULES, []).
--define(DEF_DEF_CHILDSPEC, #{plan => ?DEF_DEF_CHILDSPEC_PLAN
-                            ,terminate_timeout => ?DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT
+-define(DEF_DEF_CHILDSPEC, #{terminate_timeout => ?DEF_DEF_CHILDSPEC_TERMINATE_TIMEOUT
                             ,modules => ?DEF_DEF_CHILDSPEC_MODULES}).

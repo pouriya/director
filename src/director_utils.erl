@@ -46,6 +46,7 @@
 
 %% API:
 -export([concat/2
+        ,proper/2
         ,debug/3
         ,progress_report/2
         ,error_report/4
@@ -53,14 +54,15 @@
         ,check_childspecs/2
         ,check_childspec/2
         ,check_default_childspec/1
-        ,filter_plan/1
         ,is_whole_integer/1
         ,combine_child/2
         ,separate_child/2
         ,c2cs/1
         ,c_r2p/2
         ,cs2c/1
-        ,option/5]).
+        ,option/4
+        ,value/3
+        ,has_duplicate/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -72,16 +74,39 @@
 %% Functions:
 
 concat(List1, List2) ->
-    concat2(lists:reverse(make_properlist(List1)), make_properlist(List2)).
+    lists:reverse(proper(lists:reverse(List1),  proper(List2, []))).
 
 
-option(Name, Opts, Key, Filter, Def) ->
+option(Opts, Key, Filter, Def) ->
     case lists:keyfind(Key, 1, Opts) of
         {_, Val} ->
-            Filter(Name, Key, Val);
+            Filter(Val);
         false ->
             Def
     end.
+
+
+value(Key, List, Def) ->
+    case lists:keyfind(Key, 1, List) of
+        {_, Val} ->
+            Val;
+        _ -> % {Key,..., ...} & false
+            Def
+    end.
+
+
+has_duplicate(L) ->
+    has_duplicate(L, []).
+
+has_duplicate([Id|Ids], Ids2) ->
+    case lists:member(Id, Ids2) of
+        true ->
+            {true, Id}; %% Like OTP/supervisor
+        false ->
+            has_duplicate(Ids, [Id|Ids2])
+    end;
+has_duplicate([], _Ids2) ->
+    false.
 
 
 progress_report(Name, #?CHILD{state = State}=Child) ->
@@ -111,7 +136,6 @@ check_childspecs(ChildSpecs) ->
 
 check_default_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
     Keys = [{start, fun filter_start/1}
-           ,{plan, fun filter_plan/1}
            ,{count, fun filter_count/1}
            ,{type, fun filter_type/1}
            ,{terminate_timeout, fun filter_terminate_timeout/1}
@@ -148,7 +172,6 @@ separate_child(ChildSpec, DefChildSpec) ->
 
 
 cs2c(#{id := Id
-     ,plan := Plan
      ,start := Start
      ,terminate_timeout := TerminateTimeout
      ,modules := Mods
@@ -158,10 +181,9 @@ cs2c(#{id := Id
      ,delete := DelBeforeTerminate}) ->
     #?CHILD{id = Id
            ,pid = undefined
-           ,plan = Plan
            ,restart_count = 0
            ,start = Start
-           ,timer_reference = undefined
+           ,timer = undefined
            ,terminate_timeout = TerminateTimeout
            ,extra = undefined
            ,modules = Mods
@@ -175,7 +197,6 @@ cs2c(#{id := Id
 
 c2cs(#?CHILD{id = Id
             ,start = Start
-            ,plan = Plan
             ,terminate_timeout = TerminateTimeout
             ,modules = Modules
             ,type = Type
@@ -184,7 +205,6 @@ c2cs(#?CHILD{id = Id
             ,delete = DelBeforeTerminate}) ->
     #{id => Id
     ,start => Start
-    ,plan => Plan
     ,terminate_timeout => TerminateTimeout
     ,modules => Modules
     ,type => Type
@@ -195,7 +215,6 @@ c2cs(#?CHILD{id = Id
 
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
-             ,plan = Plan
              ,restart_count = ResCount
              ,start = Start
              ,terminate_timeout = TerminateTimeout
@@ -205,7 +224,6 @@ c_r2p(#?CHILD{pid = Pid
      ,short) ->
     [{id, Id}
     ,{pid, Pid}
-    ,{plan, Plan}
     ,{restart_count, ResCount}
     ,{mfargs, Start}
     ,{restart_type, temporary}
@@ -220,10 +238,9 @@ c_r2p(#?CHILD{pid = Pid
     ,{append, Append}];
 c_r2p(#?CHILD{pid = Pid
              ,id = Id
-             ,plan = Plan
              ,restart_count = ResCount
              ,start = Start
-             ,timer_reference = TimerRef
+             ,timer = TimerPid
              ,terminate_timeout = TerminateTimeout
              ,extra = Extra
              ,modules = Mods
@@ -235,10 +252,9 @@ c_r2p(#?CHILD{pid = Pid
      ,long) ->
     [{id, Id}
     ,{pid, Pid}
-    ,{plan, Plan}
     ,{restart_count, ResCount}
     ,{mfargs, Start}
-    ,{timer_reference, TimerRef}
+    ,{timer, TimerPid}
     ,{restart_type, temporary}
     ,{shutdown, case TerminateTimeout of
                     0 ->
@@ -359,8 +375,6 @@ combine_child(start
         true ->
             Map
     end;
-combine_child(plan, _Plan, #{plan := _Plan2}=Map) ->
-    Map;
 combine_child(terminate_timeout, TerminateTimeout, #{terminate_timeout := TerminateTimeout2}=Map) ->
     if
         erlang:is_integer(TerminateTimeout) andalso erlang:is_integer(TerminateTimeout2) ->
@@ -444,11 +458,6 @@ print(IODev, {out, To, Msg}, Name) ->
              ,"*DBG* director ~p sent \"~p\" to \"~p\"~n"
              ,[Name, Msg, To]);
 
-print(IODev, {plan, Id, {Strategy, State}}, Name) ->
-    io:format(IODev
-             ,"*DBG* director ~p is running plan \"~p\" for id \"~p\" with state \"~p\"~n"
-             ,[Name, Strategy, Id, State]);
-
 print(IODev, Other, Name) ->
     io:format(IODev
              ,"*DBG* director ~p got debug \"~p\" ~n"
@@ -472,7 +481,6 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
         end,
     Keys2 = [id
             ,StartKey
-            ,{plan, fun filter_plan/1, ?DEF_PLAN}
             ,{type, fun filter_type/1, ?DEF_TYPE}
             ,{state, fun(St) -> {ok, St} end, ?DEF_CHILDSPEC_STATE}
             ,{delete, fun filter_delete/1, ?DEF_DELETE_BEFORE_TERMINATE}],
@@ -499,17 +507,6 @@ check_childspec(ChildSpec, DefChildSpec) when erlang:is_map(ChildSpec) ->
     end;
 check_childspec(Other, _DefChildSpec) ->
     {error, {childspec_value, [{childspec, Other}]}}.
-
-
-filter_plan(F) when erlang:is_function(F) ->
-    case erlang:fun_info(F, arity) of
-        {arity, 4} ->
-            {ok, F};
-        {arity, Other} ->
-            {error, {childspec_value, [{plan, F}, {arity, Other}]}}
-    end;
-filter_plan(F) ->
-    {error, {childspec_value, [{plan, F}]}}.
 
 
 is_whole_integer(Int) when erlang:is_integer(Int) ->
@@ -587,20 +584,9 @@ check_childspecs(ChildSpecs, DefChildSpec) ->
     check_childspecs(ChildSpecs, DefChildSpec, []).
 
 
-
-
-concat2([Item|List1], List2) ->
-    concat2(List1, [Item|List2]);
-concat2([], List) ->
-    List.
-
-
-make_properlist(L) ->
-    make_properlist(L, []).
-
-make_properlist([H|T], Ret) when erlang:is_list(T) ->
-    make_properlist(T, [H | Ret]);
-make_properlist([H|T], Ret) ->
-    make_properlist([], [T, H | Ret]);
-make_properlist([], Ret) ->
+proper([H|T], Ret) when erlang:is_list(T) ->
+    proper(T, [H | Ret]);
+proper([H|T], Ret) ->
+    proper([], [T, H | Ret]);
+proper([], Ret) ->
     lists:reverse(Ret).

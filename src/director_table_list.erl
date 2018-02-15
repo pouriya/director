@@ -111,8 +111,8 @@ insert(Tab, #?CHILD{id = Id}=Child) ->
     end.
 
 
-delete(Tab, Child) ->
-    {ok, lists:delete(Child, Tab)}.
+delete(Tab, Id) ->
+    {ok, lists:keydelete(Id, 2, Tab)}.
 
 
 tab2list(Tab) ->

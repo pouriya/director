@@ -1,4 +1,4 @@
--module(director_child).
+-module(director_child_).
 -export([start_link/1
         ,start_link/2
         ,init/1

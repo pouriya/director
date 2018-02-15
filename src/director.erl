@@ -61,22 +61,18 @@
 %% Director Specific API:
 -export([get_pid/2
         ,get_pids/1
-        ,get_plan/2
         ,get_restart_count/2
-        ,change_plan/3
         ,get_default_childspec/1
         ,change_default_childspec/2
-        ,start_link/4
-        ,start/2
+        ,start_link/4 %% With options
+        ,start/2 %% Stand-alone
         ,start/3
         ,start/4
         ,stop/1
         ,stop/2
         ,stop/3
-        ,plan/4
         ,terminate_and_delete_child/2
         ,default_childspec/0
-        ,default_plan/0
         ,become_supervisor/3
         ,delete_running_child/2]).
 
@@ -88,9 +84,7 @@
         ,count_children/2
         ,which_children/2
         ,get_childspec/3
-        ,get_plan/3
         ,get_restart_count/3
-        ,change_plan/4
         ,get_pid/3
         ,get_pids/2
         ,get_default_childspec/2
@@ -110,7 +104,7 @@
         ,system_terminate/4
         ,format_status/2]).
 
-%% Do not use ! just for tables
+%% Do not use! just for tables like mnesia which wants to delete children of bad node
 -export([self_start/1]).
 
 %% -------------------------------------------------------------------------------------------------
@@ -118,49 +112,64 @@
 
 -type childspec() :: #{'id' => id()
                       ,'start' => start()
-                      ,'plan' => plan()
                       ,'terminate_timeout' => terminate_timeout()
                       ,'type' => type()
                       ,'modules' => modules()
                       ,'append' => append()
                       ,'delete' => delete()
-                      ,'state' => state()}.
+                      ,'state' => child_state()}.
 -type  id() :: term().
--type  start() :: module() % will be {module(), start_link, []}
-                | {module(), function()} % will be {module(), function(), []}
+-type  start() :: module() % Will be {module(), start_link, []}
+                | {module(), function()} % Will be {module(), function(), []}
                 | mfa().
--type  plan() :: fun((Id::term(), Reason::term(), RestartCount::pos_integer(), state()) ->
-                     {'restart', state()}                 |
-                     {{'restart', pos_integer()}, state()}|
-                     {'wait', state()}                    |
-                     {'delete', state()}                  |
-                     {'stop', state()}                    |
-                     {{'stop', Reason::term()}, state()}) .
--type  terminate_timeout() :: 'infinity' | non_neg_integer().
--type  type() :: 'worker' | 'supervisor' | 'sup' | 's' | 'w'.
+-type  terminate_timeout() :: timeout().
+-type  type() :: 'worker'
+               | 'supervisor'
+               | 'sup' % supervisor
+               | 's' % supervisor
+               | 'w'. % worker
 -type  modules() :: [module()] | 'dynamic'.
 -type  append() :: boolean().
 -type  delete() :: boolean().
--type  state() :: any().
+-type  child_state() :: any().
 
 -type default_childspec() :: #{'start' => start()
-                              ,'plan' => plan()
                               ,'terminate_timeout' => terminate_timeout()
                               ,'type' => type()
                               ,'modules' => modules()
                               ,'delete' => delete()
-                              ,'state' => state()}.
+                              ,'state' => child_state()}.
 
 -type start_return() :: {'ok', pid()} | {'ok', pid(), any()} | 'ignore' | {'error', term()}.
 
--type init_return() :: {'ok', state(), [childspec()]|[]}
+-type init_return() :: 'ok'
+                     | {'ok', state()}
+                     | {'ok', state(), [childspec()]|[]}
                      | {'ok', state(), [childspec()]|[], default_childspec()}
                      | {'ok', state(), [childspec()]|[], start_options()}
                      | {'ok', state(), [childspec()]|[], default_childspec(), start_options()}
                      | 'ignore'
                      | {'stop', Reason::any()}.
+-type  state() :: any().
 
--type terminate_return() :: {'error', NewReason::any()} | any().
+-type terminate_return() ::{'ok', callback_return_options()}
+                          | {'new_error', NewReason::any(), callback_return_options()}
+                          | any().
+-type  callback_return_options() :: [callback_return_option()] | [].
+-type   callback_return_option() :: {'log', boolean()}.
+
+-type handle_start_return() :: {'ok', child_state(), state(), callback_return_options()}.
+
+-type handle_exit_return() :: {'ok', child_state(), state(), action(), callback_return_options()}
+                            | {'ok', child_state(), state(), callback_return_options()}.
+-type  action() :: 'restart'
+                 | {'restart', pos_integer()}
+                 | 'delete'
+                 | 'wait'
+                 | 'stop'
+                 | {'stop', Reason::any()}.
+
+-type handle_terminate_return() :: {'ok', child_state(), state(), callback_return_options()}.
 
 -type register_name() :: {'local', atom()}
                        | {'global', atom()}
@@ -176,35 +185,67 @@
                        | {'table_init_argument', any()}
                        | {'delete_table', boolean()}.
 
+-type metadata_arg() :: #{'pid' => pid()
+                         ,'extra' => any()
+                         ,'restart_count' := non_neg_integer()}.
+
+-type init_arg() :: any().
+
+-type reason() :: any().
+
 -export_type([childspec/0
              ,id/0
              ,start/0
-             ,plan/0
              ,terminate_timeout/0
              ,type/0
              ,modules/0
              ,append/0
              ,delete/0
-             ,state/0
+             ,child_state/0
              ,default_childspec/0
              ,start_return/0
              ,init_return/0
+             ,state/0
              ,terminate_return/0
+             ,callback_return_options/0
+             ,callback_return_option/0
+             ,handle_start_return/0
+             ,handle_exit_return/0
+             ,action/0
+             ,handle_terminate_return/0
              ,register_name/0
              ,director/0
              ,start_options/0
-             ,start_option/0]).
+             ,start_option/0
+             ,metadata_arg/0
+             ,init_arg/0
+             ,reason/0]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Behaviour information:
 
 -callback
-init(InitArg::any()) ->
+init(init_arg()) ->
     init_return().
 
 
 -callback
-terminate(Reason::any(), state()) ->
+handle_start(id(), child_state(), state(), metadata_arg()) ->
+    handle_start_return().
+
+
+-callback
+handle_terminate(id(), child_state(), reason(), state(), metadata_arg()) ->
+    handle_terminate_return().
+
+
+-callback
+handle_exit(id(), child_state(), reason(), state(), metadata_arg()) ->
+    handle_exit_return().
+
+
+-callback
+terminate(reason(), state()) ->
     terminate_return().
 
 %% -------------------------------------------------------------------------------------------------
@@ -228,13 +269,15 @@ terminate(Reason::any(), state()) ->
                 ,table_module
                 ,table_state
                 ,default_childspec
-                ,delete_table}).
+                ,delete_table
+                ,timers
+                ,msg}).
 
 %% -------------------------------------------------------------------------------------------------
 %% supervisor-like API:
 
 -spec
-start_link(module(), InitArg::term()) ->
+start_link(module(), init_arg()) ->
     start_return().
 %% @doc
 %%      Starts and links a director.
@@ -244,7 +287,7 @@ start_link(Mod, InitArg) when erlang:is_atom(Mod) ->
 
 
 -spec
-start_link(register_name()|module(), module()|term(), term()|start_options()) ->
+start_link(register_name()|module(), module()|init_arg(), init_arg()|start_options()) ->
     start_return().
 %% @doc
 %%      Starts and links a director.
@@ -264,13 +307,14 @@ start_child(director(), childspec()) ->
 %%      Reason of error may be for childspec not starting of process.
 %% @end
 start_child(Director, ChildSpec) when ?is_director(Director) andalso erlang:is_map(ChildSpec) ->
+
     gen_server:call(Director, {?START_CHILD_TAG, ChildSpec}).
 
 
 -spec
 restart_child(director(), id()) ->
-    {'ok', pid()}                 |
-    {'ok', pid(), Extra::term()} |
+    {'ok', pid()}                                               |
+    {'ok', pid(), Extra::term()}                                |
     {'error', Reason::'running'|'restarting'|'not_found'|term()}.
 %% @doc
 %%      Restarts a terminated or waited child using child id.<br/>
@@ -308,7 +352,7 @@ count_children(director()) ->
     [{'specs', non_neg_integer()}
     |{'active', non_neg_integer()}
     |{'supervisors', non_neg_integer()}
-    |{'workers', non_neg_integer()}]    |
+    |{'workers', non_neg_integer()}]   |
     {'error', term()}.
 %% @doc
 %%      Returns count of children.<br/>
@@ -357,30 +401,6 @@ check_childspec(ChildSpec) when erlang:is_map(ChildSpec) ->
 
 %% -------------------------------------------------------------------------------------------------
 %% Specific API:
-
--spec
-change_plan(director(), id(), plan()) ->
-    'ok' | {'error', 'not_found' | 'not_parent' | term()}.
-%% @doc
-%%      Changes the plan of running or waited or terminated child.<br/>
-%%      Be careful about using this, because in next crash of child you may see different behavior.<br/>
-%%      If this supervisor is not owner of child and has access to children table, it cannot change<br/>
-%%      plan and {error, not_parent} error will occur.
-%% @end
-change_plan(Director, Id, Plan) when ?is_director(Director) andalso erlang:is_function(Plan, 4) ->
-    gen_server:call(Director, {?CHANGE_PLAN_TAG, Id, Plan}).
-
-
--spec
-get_plan(director(), id()) ->
-    {'ok', plan()} | {'error', 'not_found'|term()}.
-%% @doc
-%%      Returns plan of child id.<br/>
-%%      Error maybe occur for reading from table.
-%% @end
-get_plan(Director, Id) when ?is_director(Director) ->
-    gen_server:call(Director, {?GET_PLAN_TAG, Id}).
-
 
 -spec
 get_restart_count(director(), id()) ->
@@ -439,7 +459,7 @@ change_default_childspec(Director, DefChildSpec) when ?is_director(Director) and
 
 
 -spec
-start_link(register_name(), module(), InitArg::term(), start_options()) ->
+start_link(register_name(), module(), init_arg(), start_options()) ->
     start_return().
 %% @doc
 %%      Starts and links a director with start options.
@@ -451,7 +471,7 @@ start_link(Name, Mod, InitArg, Opts) when erlang:is_tuple(Name) andalso
 
 
 -spec
-start(module(), InitArg::term()) ->
+start(module(), init_arg()) ->
     start_return().
 %% @doc
 %%      Starts stand-alone director.
@@ -461,7 +481,7 @@ start(Mod, InitArg) when erlang:is_atom(Mod) ->
 
 
 -spec
-start(register_name()|module(), module()|(InitArg::term()), (InitArg::term())|start_options()) ->
+start(register_name()|module(), module()|init_arg(), init_arg()|start_options()) ->
     start_return().
 %% @doc
 %%      Starts stand-alone director.
@@ -475,7 +495,7 @@ start(Mod, InitArg, Opts) when erlang:is_atom(Mod) andalso
 
 
 -spec
-start(register_name(), module(), InitArg::term(), start_options()) ->
+start(register_name(), module(), init_arg(), start_options()) ->
     start_return().
 %% @doc
 %%      Starts stand-alone director.
@@ -497,7 +517,7 @@ stop(Director) when ?is_director(Director) ->
 
 
 -spec
-stop(director(), Reason::term()) ->
+stop(director(), reason()) ->
     'ok'.
 %% @doc
 %%      Stops director process with 'infinity' timeout.
@@ -507,40 +527,13 @@ stop(Director, Reason) when ?is_director(Director) ->
 
 
 -spec
-stop(director(), Reason::term(), timeout()) ->
+stop(director(), reason(), timeout()) ->
     'ok'.
 %% @doc
 %%      Stops director process.
 %% @end
 stop(Director, Reason, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) ->
     proc_lib:stop(Director, Reason, Timeout).
-
-
--spec
-default_plan() ->
-    plan().
-%% @doc
-%%      Returns default plan fun of director.
-%% @end
-default_plan() ->
-    fun director:plan/4.
-
-
--spec
-plan(Id::term(), Reason::term(), RestartCount::non_neg_integer(), State::any()) ->
-    {'restart', State} | {{'restart', 1000}, State} | {'stop', State}.
-%% @doc
-%%      This is default plan of a childspec. <br/>
-%%      Restarts child if child crashed with any reason for three times, restart it after 1000<br/>
-%%      milli-seconds for fourth crash and stop entire supervisor if child crashed five times with<br/>
-%%      crash reason of child.
-%% @end
-plan(_Id, _Other, 4, State) ->
-    {{restart, 1000}, State};
-plan(_Id, _Other, 5, State) ->
-    {stop, State};
-plan(_Id, _Other, _RestartCount, State) ->
-    {restart, State}.
 
 
 -spec
@@ -566,7 +559,7 @@ default_childspec() ->
 
 
 -spec
-become_supervisor(director(), childspec(), pid()) ->
+become_supervisor(director(), pid(), childspec()) ->
     'ok' | {'error', 'noproc' | term()}.
 %% @doc
 %%      Tells director process become supervisor of this Pid with this Childspec.<br/>
@@ -575,10 +568,10 @@ become_supervisor(director(), childspec(), pid()) ->
 %%      Its mailbox.<br/>
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
-become_supervisor(Director, ChildSpec, Pid) when ?is_director(Director) andalso
+become_supervisor(Director, Pid, ChildSpec) when ?is_director(Director) andalso
                                                  erlang:is_map(ChildSpec) andalso
                                                  erlang:is_pid(Pid) ->
-    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}).
+    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}).
 
 
 -spec
@@ -697,32 +690,6 @@ get_restart_count(Director, Id, Timeout) when ?is_director(Director) andalso ?is
 
 
 -spec
-change_plan(director(), id(), plan(), timeout()) ->
-    'ok' | {'error', 'not_found' | 'not_parent' | term()}.
-%% @doc
-%%      Changes the plan of running or waited or terminated child.<br/>
-%%      Be careful about using this, because in next crash of child you may see different behavior.<br/>
-%%      If this supervisor is not owner of child and has access to children table, it cannot change<br/>
-%%      plan and {error, not_parent} error will occur.
-%% @end
-change_plan(Director, Id, Plan, Timeout) when ?is_director(Director) andalso
-                                              erlang:is_function(Plan, 4) andalso
-                                              ?is_timeout(Timeout) ->
-    gen_server:call(Director, {?CHANGE_PLAN_TAG, Id, Plan}, Timeout).
-
-
--spec
-get_plan(director(), id(), timeout()) ->
-    {'ok', plan()} | {'error', 'not_found' | term()}.
-%% @doc
-%%      Returns plan of child id.<br/>
-%%      Error maybe occur for reading from table.
-%% @end
-get_plan(Director, Id, Timeout) when ?is_director(Director) andalso ?is_timeout(Timeout) ->
-    gen_server:call(Director, {?GET_PLAN_TAG, Id}, Timeout).
-
-
--spec
 get_pid(director(), id(), timeout()) ->
     {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'|term()}.
 %% @doc
@@ -783,7 +750,7 @@ terminate_and_delete_child(Director, Id, Timeout) when ?is_director(Director) an
 
 
 -spec
-become_supervisor(director(), childspec(), pid(), timeout()) ->
+become_supervisor(director(), pid(), childspec(), timeout()) ->
     ok | {'error', 'no_proc' | 'no_response' | 'proc_exited' | term()}.
 %% @doc
 %%      Tells director process become supervisor of this Pid with this Childspec.<br/>
@@ -792,11 +759,11 @@ become_supervisor(director(), childspec(), pid(), timeout()) ->
 %%      Its mailbox.<br/>
 %%      Error maybe occur for reading from or inserting to table.
 %% @end
-become_supervisor(Director, ChildSpec, Pid, Timeout) when ?is_director(Director) andalso
+become_supervisor(Director, Pid, ChildSpec, Timeout) when ?is_director(Director) andalso
                                                           erlang:is_map(ChildSpec) andalso
                                                           erlang:is_pid(Pid) andalso
                                                           ?is_timeout(Timeout) ->
-    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}, Timeout).
+    gen_server:call(Director, {?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}, Timeout).
 
 
 -spec
@@ -815,7 +782,7 @@ delete_running_child(Director, Pid, Timeout) when ?is_director(Director) andalso
 
 %% @hidden
 self_start(Id) ->
-    restart_timer(0, Id).
+    start_timer(0, Id).
 
 
 %% -------------------------------------------------------------------------------------------------
@@ -827,48 +794,31 @@ init_it(Starter, self, Name, Mod, InitArg, Opts) ->
 init_it(Starter, Parent, Name0, Mod, InitArg, Opts) ->
     Name = name(Name0),
     erlang:process_flag(trap_exit, true),
-    case init_module(Name, Mod, InitArg, Opts) of
+    case init(Name, Mod, InitArg, Opts) of
         {ok, {Data, Children, DefChildSpec, Dbg, TabMod, TabInitArg, DelTab}} ->
             case director_table:create(TabMod, TabInitArg) of
                 {ok, TabState} ->
-                    case start_children(Name, Children, TabMod, TabState) of
-                        {ok, TabState2} ->
-                            State = #?STATE{data = Data
+                    case start_children(Name, Mod, Data, TabMod, TabState, Children) of
+                        {ok, Data2, TabState2} ->
+                            State = #?STATE{data = Data2
                                            ,name = Name
                                            ,module = Mod
                                            ,init_argument = InitArg
                                            ,table_state = TabState2
                                            ,default_childspec = DefChildSpec
                                            ,table_module = TabMod
-                                           ,delete_table = DelTab},
+                                           ,delete_table = DelTab
+                                           ,msg = undefined},
                             proc_lib:init_ack(Starter, {ok, erlang:self()}),
 %%                    exit(element(2, (catch loop(Parent, Dbg, State))));
                             loop(Parent, Dbg, State);
-                        {error, Rsn0} ->
+                        {error, Rsn} ->
                             unregister_name(Name0),
-                            Rsn =
-                                case call_terminate(Mod, Data, Rsn0) of
-                                    ok ->
-                                        Rsn0;
-                                    {new_error, Rsn2} ->
-                                        Rsn2;
-                                    {crash, Rsn2} ->
-                                        [Rsn0, Rsn2]
-                                end,
                             proc_lib:init_ack(Starter, {error, Rsn}),
                             erlang:exit(Rsn)
                     end;
-                {hard_error, Rsn0} ->
+                {hard_error, Rsn} ->
                     unregister_name(Name0),
-                    Rsn =
-                        case call_terminate(Mod, Data, Rsn0) of
-                            ok ->
-                                Rsn0;
-                            {new_error, Rsn2} ->
-                                Rsn2;
-                            {crash, Rsn2} ->
-                                [Rsn0, Rsn2]
-                        end,
                     proc_lib:init_ack(Starter, {error, Rsn}),
                     erlang:exit(Rsn)
             end;
@@ -918,10 +868,10 @@ system_code_change(#?STATE{name = Name
                   ,_Module
                   ,_OldVsn
                   ,_Extra) ->
-    case init_module(Name, Mod, InitArg, []) of
+    case init(Name, Mod, InitArg, []) of
         {ok, {_, Children, DefChildSpec, _, _, _, _}} ->
-            case check_duplicate_ids(Children) of
-                ok ->
+            case director_utils:has_duplicate([Child#?CHILD.id || Child <- Children]) of
+                false ->
                     case change_old_children_pids(Children, TabMod, TabState) of
                         {ok, TabState2} ->
                             {ok, State#?STATE{table_state = TabState2
@@ -929,8 +879,8 @@ system_code_change(#?STATE{name = Name
                         {error, _}=Err ->
                             Err
                     end;
-                {error, _}=Err ->
-                    Err
+                {true, Id} ->
+                    {error, {duplicate_child_id, Id}}
             end;
         ignore ->
             {ok, State};
@@ -981,35 +931,34 @@ format_status(_, [_PDict, SysState, Parent, Debug, #?STATE{name = Name, module =
 %% Process main loop and its main subcategories:
 
 loop(Parent, Dbg, State) ->
-    process_message(Parent
-                   ,Dbg
-                   ,State
-                   ,receive
-                        Msg ->
-                            Msg
-                    end).
+    Msg =
+        receive
+            Msg_ ->
+                Msg_
+        end,
+    process_message(Parent, debug(Dbg, State#?STATE.name, {in, Msg}), State#?STATE{msg = Msg}, Msg).
 
 
 process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
-               ,{?GEN_CALL_TAG, From, Request}=Msg) ->
-    {Dbg3, State2} = process_request(director_utils:debug(Dbg, Name, Msg), State, From, Request),
-    loop(Parent, Dbg3, State2);
+               ,{?GEN_CALL_TAG, From, Request}) ->
+    {Dbg2, State2} = process_request(debug(Dbg, Name, {request, From, Request}), State, From, Request),
+    loop(Parent, Dbg2, State2);
 process_message(Parent, Dbg, #?STATE{name= Name}=State, {'EXIT', Pid, Reason}=Msg) ->
-    process_exit(Parent, director_utils:debug(Dbg, Name, Msg), State, Pid, Reason);
-process_message(Parent, Dbg, #?STATE{name = Name}=State, {timeout, TimerRef, Id}=Msg) ->
-    process_timeout(Parent, director_utils:debug(Dbg, Name, Msg), State, TimerRef, Id);
-process_message(Parent, Dbg, State, {cancel_timer, _TimerRef, _Result}) ->
-    loop(Parent, Dbg, State);
-process_message(Parent, Dbg, State, {system, From, Msg}) ->
-    sys:handle_system_msg(Msg, From, Parent, ?MODULE, Dbg, State);
+    process_exit(Parent, debug(Dbg, Name, Msg), State, Pid, Reason);
+process_message(Parent, Dbg, #?STATE{name = Name}=State, {'DOWN', _, _, Pid, Id}) ->
+    process_timeout(Parent, debug(Dbg, Name, {'DOWN', Pid, Id}), State, Pid, Id);
+process_message(Parent, Dbg, #?STATE{name = Name}=State, {system, From, Msg}) ->
+    sys:handle_system_msg(Msg, From, Parent, ?MODULE, debug(Dbg, Name, {system, Msg}), State);
 %% Catch clause:
 process_message(Parent, Dbg, #?STATE{table_module = TabMod, table_state = TabState}=State, Msg) ->
     case director_table:handle_message(TabMod, TabState, Msg) of
         {ok, TabState2} ->
             loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {soft_error, TabState2, unknown} ->
+            error_logger:error_report("DIRECTOR ~tp received unknown message ~tp\n"
+                                     ,[State#?STATE.name, Msg]),
             loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {hard_error, Rsn} ->
             terminate(Dbg, State, Rsn)
@@ -1023,63 +972,40 @@ process_request(Dbg
     case director_table:lookup_id(TabMod, TabState, Id) of
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
             {reply(Dbg, Name, From, {ok, Pid}), State};
-        {ok, #?CHILD{pid = restarting, timer_reference = undefined}} ->
-            {reply(Dbg, Name, From, {error, undefined}), State};
         {ok, #?CHILD{pid = Pid}} ->
             {reply(Dbg, Name, From, {error, Pid}), State};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
                ,?GET_PIDS_TAG) ->
     case director_table:tab2list(TabMod, TabState) of
         {ok, Children} ->
-            Reply = {ok, [{Id, Pid}
-                         || #?CHILD{pid = Pid, id = Id} <- Children, erlang:is_pid(Pid)]},
-            {reply(Dbg, Name, From, Reply), State};
+            {reply(Dbg
+                  ,Name
+                  ,From
+                  ,{ok, [{Id, Pid} || #?CHILD{pid = Pid, id = Id} <- Children, erlang:is_pid(Pid)]})
+            ,State};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
                ,?COUNT_CHILDREN_TAG) ->
-    case director_table:tab2list(TabMod, TabState) of
-        {ok, Children} ->
-            Fun =
-                fun(#?CHILD{pid = Pid, type = Type}, {Specs, Actives, Sups, Workers}) ->
-                    Actives2 =
-                        if
-                            erlang:is_pid(Pid) ->
-                                Actives+1;
-                            true ->
-                                Actives
-                        end,
-                    {Sups2, Workers2} =
-                        if
-                            Type =:= supervisor ->
-                                {Sups+1, Workers};
-                            Type =:= worker ->
-                                {Sups, Workers+1}
-                        end,
-                    {Specs+1, Actives2, Sups2, Workers2}
-                end,
-            {Specs, Actives, Sups, Workers} = lists:foldl(Fun, {0, 0, 0, 0}, Children),
-            Reply = [{specs, Specs}
-                    ,{active, Actives}
-                    ,{supervisors, Sups}
-                    ,{workers, Workers}],
-            {reply(Dbg, Name, From, Reply), State};
-        {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+    case director_table:count_children(TabMod, TabState) of
+        {error, Rsn}=Reply ->
+            terminate(reply(Dbg, Name, From, Reply), State, Rsn);
+        Reply ->
+            {reply(Dbg, Name, From, Reply), State}
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
@@ -1087,150 +1013,120 @@ process_request(Dbg
     case director_table:lookup_id(TabMod, TabState, Id) of
         {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
             {reply(Dbg, Name, From, {error, running}), State};
-        {ok, #?CHILD{supervisor = Sup}} when erlang:is_pid(Sup) andalso erlang:self() =/= Sup ->
-            {reply(Dbg, Name, From, {error, not_parent}), State};
+        {ok, #?CHILD{pid = restarting}} ->
+            {reply(Dbg, Name, From, {error, restarting}), State};
         {ok, Child} ->
             case director_table:delete(TabMod, TabState, Child) of
                 {ok, TabState2} ->
                     {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
-                {hard_error, Rsn}=Err ->
-                    Dbg2 = reply(Dbg, Name, From, Err),
-                    terminate(Dbg2, State, Rsn)
+                {hard_error, Rsn} ->
+                    terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
             end;
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
                ,{?GET_CHILDSPEC_TAG, Id}) ->
     case director_table:lookup_id(TabMod, TabState, Id) of
         {ok, Child} ->
-            {reply(Dbg, Name, From, {ok, director_utils:c2cs(Child)}), State};
+            {reply(Dbg, Name, From, {ok, director_child:childspec(Child)}), State};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
+               ,#?STATE{module = Mod
+                       ,data = Data
+                       ,table_module = TabMod
+                       ,table_state = TabState
+                       ,name = Name}=State
                ,From
                ,{?RESTART_CHILD_TAG, Id}) ->
-    case do_restart_child(Name, Id, TabMod, TabState) of
-        {ok, #?CHILD{pid = Pid, extra = undefined}, TabState2} ->
-            {reply(Dbg, Name, From, {ok, Pid}), State#?STATE{table_state = TabState2}};
-        {ok, #?CHILD{pid = Pid, extra = {value, Extra}}, TabState2} ->
-            {reply(Dbg, Name, From, {ok, Pid, Extra}), State#?STATE{table_state = TabState2}};
+    case handle_restart(Name, Mod, Data, TabMod, TabState, Id) of
+        {ok, Data2, TabState2, #?CHILD{pid = Pid, extra = undefined}} ->
+            {reply(Dbg, Name, From, {ok, Pid}), State#?STATE{data = Data2, table_state = TabState2}};
+        {ok, Data2, TabState2, #?CHILD{pid = Pid, extra = {value, Extra}}} ->
+            {reply(Dbg, Name, From, {ok, Pid, Extra})
+            ,State#?STATE{data = Data2, table_state = TabState2}};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod
                        ,table_state = TabState
                        ,name = Name
-                       ,default_childspec = DefChildSpec}=State
+                       ,default_childspec = DefChildSpec
+                       ,module = Mod
+                       ,data = Data}=State
                ,From
                ,{?START_CHILD_TAG, ChildSpec}) ->
     case director_utils:check_childspec(ChildSpec, DefChildSpec) of
-        {ok, Child} ->
-            case do_start_child(Name, Child, TabMod, TabState) of
-                {ok, #?CHILD{pid = Pid, extra = undefined}, TabState2} ->
-                    {reply(Dbg, Name, From, {ok, Pid}), State#?STATE{table_state = TabState2}};
-                {ok, #?CHILD{pid = Pid, extra = {value, Extra}}, TabState2} ->
-                    {reply(Dbg, Name, From, {ok, Pid, Extra})
-                    ,State#?STATE{table_state = TabState2}};
-                {soft_error, TabState2, Rsn} ->
-                    {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
+        {ok, #?CHILD{id = Id}=Child} ->
+            case director_table:lookup_id(TabMod, TabState, Id) of
+                {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
+                    {reply(Dbg, Name, From, {error, {already_started, Pid}}), State};
+                {ok, _} ->
+                    {reply(Dbg, Name, From, {error, already_present}), State};
+                {soft_error, TabState2, not_found} ->
+                    case handle_start(Name, Mod, Data, TabMod, TabState2, Child) of
+                        {ok, Data2, TabState3, #?CHILD{pid = Pid, extra = undefined}} ->
+                            {reply(Dbg, Name, From, {ok, Pid})
+                            ,State#?STATE{data = Data2, table_state = TabState3}};
+                        {ok, Data2, TabState3, #?CHILD{pid = Pid, extra = {value, Extra}}} ->
+                            {reply(Dbg, Name, From, {ok, Pid, Extra})
+                            ,State#?STATE{data = Data2, table_state = TabState3}};
+                        {soft_error, TabState3, Rsn} ->
+                            {reply(Dbg, Name, From, {error, Rsn})
+                            ,State#?STATE{table_state = TabState3}};
+                        {hard_error, Rsn} ->
+                            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
+                    end;
                 {hard_error, Rsn} ->
-                    Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-                    terminate(Dbg2, State, Rsn)
+                    terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
             end;
         {error, _}=Err ->
             {reply(Dbg, Name, From, Err), State}
     end;
+
 process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
+               ,#?STATE{module = Mod
+                       ,data = Data
+                       ,table_module = TabMod
+                       ,table_state = TabState
+                       ,name = Name}=State
                ,From
                ,{?TERMINATE_CHILD_TAG, Term}) ->
-    case do_terminate_child(Name, Term, TabMod, TabState) of
-        {ok, _Child, TabState2} ->
-            {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
+    case do_terminate_child(Name, Mod, Data, TabMod, TabState, Term) of
+        {ok, Data2, TabState2, _} ->
+            {reply(Dbg, Name, From, ok), State#?STATE{data = Data2, table_state = TabState2}};
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
                ,?WHICH_CHILDREN_TAG) ->
-    case director_table:tab2list(TabMod, TabState) of
-        {ok, Children} ->
-            Wrap =
-                fun
-                    (#?CHILD{id = Id
-                            ,type = Type
-                            ,pid = restarting
-                            ,modules = Mods
-                            ,timer_reference = undefined}) ->
-                        {Id, undefined, Type, Mods};
-                    (#?CHILD{id = Id, type = Type, pid = Pid, modules = Mods}) ->
-                        {Id, Pid, Type, Mods}
-                end,
-            Reply = [Wrap(Child) || Child <- Children],
-            {reply(Dbg, Name, From, Reply), State};
-        {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+    case director_table:which_children(TabMod, TabState) of
+        {error, Rsn} ->
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn);
+        Reply ->
+            {reply(Dbg, Name, From, Reply), State}
+
     end;
-process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
-               ,From
-               ,{?GET_PLAN_TAG, Id}) ->
-    case director_table:lookup_id(TabMod, TabState, Id) of
-        {ok, #?CHILD{plan = Plan}} ->
-            {reply(Dbg, Name, From, {ok, Plan}), State};
-        {soft_error, TabState2, Rsn} ->
-            {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
-        {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
-    end;
-process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
-               ,From
-               ,{?CHANGE_PLAN_TAG, Id, Plan}) ->
-    case director_utils:filter_plan(Plan) of
-        {ok, Plan2} ->
-            case director_table:lookup_id(TabMod, TabState, Id) of
-                {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-                    {reply(Dbg, Name, From, {error, not_parent}), State};
-                {ok, Child} ->
-                    Child2 = Child#?CHILD{plan = Plan2},
-                    case director_table:insert(TabMod, TabState, Child2) of
-                        {ok, TabState2} ->
-                            {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState2}};
-                        {hard_error, Rsn}=Err ->
-                            Dbg2 = reply(Dbg, Name, From, Err),
-                            terminate(Dbg2, State, Rsn)
-                    end;
-                {soft_error, TabState2, Rsn} ->
-                    {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
-                {hard_error, Rsn} ->
-                    Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-                    terminate(Dbg2, State, Rsn)
-            end;
-        {error, _}=Err ->
-            {reply(Dbg, Name, From, Err), State}
-    end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
                ,From
@@ -1241,14 +1137,15 @@ process_request(Dbg
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{name = Name, default_childspec = DefChildSpec}=State
                ,From
                ,?GET_DEF_CHILDSPEC) ->
     {reply(Dbg, Name, From, DefChildSpec), State};
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod
                        ,table_state = TabState
@@ -1279,15 +1176,20 @@ process_request(Dbg
         {error, _}=Err ->
             {reply(Dbg, Name, From, Err), State}
     end;
+
 process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
+               ,#?STATE{module = Mod
+                       ,data = Data
+                       ,table_module = TabMod
+                       ,table_state = TabState
+                       ,name = Name}=State
                ,From
                ,{?TERMINATE_AND_DELETE_CHILD_TAG, Term}) ->
-    case do_terminate_child(Name, Term, TabMod, TabState) of
-        {ok, Child, TabState2} ->
-            case director_table:delete(TabMod, TabState2, Child) of
+    case do_terminate_child(Name, Mod, Data, TabMod, TabState, Term) of
+        {ok, Data2, TabState2, Child2} ->
+            case director_table:delete(TabMod, TabState2, Child2) of
                 {ok, TabState3} ->
-                    {reply(Dbg, Name, From, ok), State#?STATE{table_state = TabState3}};
+                    {reply(Dbg, Name, From, ok), State#?STATE{data = Data2, table_state = TabState3}};
                 {hard_error, Rsn}=Err ->
                     Dbg2 = reply(Dbg, Name, From, Err),
                     terminate(Dbg2, State, Rsn)
@@ -1295,14 +1197,14 @@ process_request(Dbg
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
+
 process_request(Dbg
                ,#?STATE{table_module = TabMod, table_state = TabState, name = Name, default_childspec = DefChildSpec}=State
                ,From
-               ,{?BECOME_SUPERVISOR_TAG, ChildSpec, Pid}) ->
-    case erlang:is_process_alive(Pid) of % Proc should be on same node
+               ,{?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}) ->
+    try erlang:is_process_alive(Pid) of % Proc should be on same node
         true ->
             case director_utils:check_childspec(ChildSpec, DefChildSpec) of
                 {ok, #?CHILD{id = Id, start = Start}=Child} ->
@@ -1314,7 +1216,6 @@ process_request(Dbg
                                                                      ,TabState2
                                                                      ,Child#?CHILD{pid = Pid}) of
                                         {ok, TabState3} ->
-                                            Pid ! {?CHANGE_PARENT_TAG, erlang:self()},
                                             {reply(Dbg, Name, From, ok)
                                             ,State#?STATE{table_state = TabState3}};
                                         {soft_error, TabState3, Rsn} ->
@@ -1344,6 +1245,9 @@ process_request(Dbg
             end;
         false ->
             {reply(Dbg, Name, From, {error, noproc}), State}
+    catch
+        _:_ -> %% Process from other node
+            {reply(Dbg, Name, From, {error, other_node}), State}
     end;
 
 process_request(Dbg
@@ -1371,37 +1275,36 @@ process_request(Dbg
         {soft_error, TabState2, Rsn} ->
             {reply(Dbg, Name, From, {error, Rsn}), State#?STATE{table_state = TabState2}};
         {hard_error, Rsn} ->
-            Dbg2 = reply(Dbg, Name, From, {error, Rsn}),
-            terminate(Dbg2, State, Rsn)
+            terminate(reply(Dbg, Name, From, {error, Rsn}), State, Rsn)
     end;
 %% Catch clause:
 process_request(Dbg, #?STATE{name = Name}=State, From, Other) ->
     {reply(Dbg, Name, From, {error, {call, Other}}), State}.
 
 
-process_exit(Parent, Dbg, State, Parent, Reason) ->
-    terminate(Dbg, State, Reason);
+process_exit(Parent, Dbg, #?STATE{name = Name}=State, Parent, Reason) ->
+    terminate(debug(Dbg, Name, {parent, Parent, Reason}), State, Reason);
 process_exit(Parent
             ,Dbg
             ,#?STATE{table_module = TabMod, table_state = TabState, name = Name}=State
             ,Pid
             ,Reason) ->
     case director_table:lookup_pid(TabMod, TabState, Pid) of
-        {ok, #?CHILD{supervisor = Sup}} when erlang:self() =/= Sup ->
-            loop(Parent, Dbg, State);
-        {ok, Child} ->
-            Child2 = Child#?CHILD{pid = restarting
-                                 ,extra = undefined
-                                 ,state = director_utils:error_report(Name
-                                                                     ,child_terminated
-                                                                     ,Reason
-                                                                     ,Child)},
+        {ok, #?CHILD{supervisor = Sup, id = Id}=Child} when erlang:self() =:= Sup ->
+            Dbg2 = debug(Dbg, Name, {'EXIT', Id}),
+            Child2 = Child#?CHILD{pid = undefined, extra = undefined},
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
-                    handle_exit(Parent, Dbg, State#?STATE{table_state = TabState2}, Child2, Reason);
+                    handle_exit(Parent
+                               ,Dbg2
+                               ,State#?STATE{table_state = TabState2}
+                               ,Child2
+                               ,Reason);
                 {hard_error, Rsn} ->
                     terminate(Dbg, State, Rsn)
             end;
+        {ok, #?CHILD{id = Id}} ->
+            loop(Parent, debug(Dbg, Name, {'EXIT', Id}), State);
         {soft_error, TabState2, _} ->
             loop(Parent, Dbg, State#?STATE{table_state = TabState2});
         {hard_error, Rsn} ->
@@ -1411,139 +1314,341 @@ process_exit(Parent
 
 handle_exit(Parent
            ,Dbg
-           ,#?STATE{name = Name
-                   ,table_module = TabMod
-                   ,table_state = TabState}=State
+           ,#?STATE{module = Mod
+                   ,data = Data
+                   ,name = Name}=State
            ,#?CHILD{id = Id
-                   ,plan = Plan
-                   ,restart_count = ResCount
+                   ,restart_count = RestartCount
                    ,state = ChState}=Child
-           ,Reason) ->
-    ResCount2 = ResCount + 1,
-    {Dbg2, Strategy} =
-        try
-            Strategy0 = Plan(Id, Reason, ResCount2, ChState),
-            {director_utils:debug(Dbg, Name, {plan, Id, Strategy0}), {value, Strategy0}}
+           ,Rsn) ->
+    RestartCount2 = RestartCount + 1,
+    MetaData = #{restart_count => RestartCount2},
+    {HandleExitResult, Log} =
+        try Mod:handle_exit(Id, ChState, Rsn, Data, MetaData) of
+            {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
+                Log2 =
+                    case director_utils:value(log, Opts, ?DEF_LOG) of
+                        true ->
+                            true;
+                        _ ->
+                            false
+                    end,
+                {{ok, ChState2, Data2, ?DEF_ACTION}, Log2};
+            {ok, ChState2, Data2, Action, Opts} when erlang:is_list(Opts) ->
+                Log2 =
+                    case director_utils:value(log, Opts, ?DEF_LOG) of
+                        true ->
+                            true;
+                        _ ->
+                            false
+                    end,
+                {{ok, ChState2, Data2, Action}, Log2};
+            Other ->
+                {{error, {return, [{value, Other}
+                                  ,{module, Mod}
+                                  ,{function, handle_exit}
+                                  ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
+                ,?DEF_LOG}
         catch
-            _:Rsn ->
-                {Dbg, {error, {plan, [{reason, Rsn}
-                                     ,{stacktrace, erlang:get_stacktrace()}
-                                     ,{plan, Plan}
-                                     ,{arguments, [Id, Reason, ResCount2, ChState]}]}}}
+            _:Rsn2 ->
+                {{error, {crash, [{reason, Rsn2}
+                                 ,{stacktrace, erlang:get_stacktrace()}
+                                 ,{module, Mod}
+                                 ,{function, handle_exit}
+                                 ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
+                ,?DEF_LOG}
+
         end,
-    case Strategy of
-        {value, {restart, ChState2}} ->
-            case do_restart_child(Name, Id, TabMod, TabState) of
-                {ok, _Child, TabState2} when ChState =:= ChState2 ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
-                {ok, Child2, TabState2} ->
-                    case director_table:insert(TabMod, TabState2, Child2#?CHILD{state = ChState2}) of
-                        {ok, TabState3} ->
-                            loop(Parent, Dbg2, State#?STATE{table_state = TabState3});
-                        {hard_error, Rsn3} ->
-                            terminate(Dbg2
-                                     ,State#?STATE{table_state = TabState2}
-                                     ,Rsn3)
-                    end;
-                {soft_error, TabState2, _Reason3} ->
-                    TimeRef = restart_timer(0, Id),
-                    case director_table:insert(TabMod
-                                              ,TabState2
-                                              ,Child#?CHILD{pid = restarting
-                                                           ,timer_reference = TimeRef
-                                                           ,state = ChState2}) of
-                        {ok, TabState3} ->
-                            loop(Parent
-                                ,Dbg2
-                                ,State#?STATE{table_state = TabState3});
-                        {hard_error, Rsn3} ->
-                            terminate(Dbg2
-                                     ,State#?STATE{table_state = TabState2}
-                                     ,Rsn3)
-                    end;
-                {hard_error, Rsn2} ->
-                    terminate(Dbg2, State, Rsn2)
-            end;
-        {value, {stop, ChState2}} ->
-            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
-                {ok, TabState3} ->
-                    terminate(Dbg2, State#?STATE{table_state = TabState3}, Reason);
-                {hard_error, Rsn3} ->
-                    terminate(Dbg2, State, Rsn3)
-            end;
-        {value, {{stop, Reason3}, ChState2}} ->
-            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
-                {ok, TabState3} ->
-                    terminate(Dbg2, State#?STATE{table_state = TabState3}, Reason3);
-                {hard_error, Rsn3} ->
-                    terminate(Dbg2, State, Rsn3)
-            end;
-        {value, {delete, ChState2}} ->
-            case director_table:delete(TabMod, TabState, Child#?CHILD{state = ChState2}) of
-                {ok, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
-                {soft_error, TabState2, not_found} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
-%%                {soft_error, TabState2, Rsn2} ->
-%%                    terminate(Dbg2, State#?STATE{table_state = TabState2}, Rsn2);
-                {hard_error, Rsn2} ->
-                    terminate(Dbg2, State, Rsn2)
-            end;
-        {value, {wait, ChState2}} ->
-            case director_table:insert(TabMod, TabState, Child#?CHILD{state = ChState2}) of
-                {ok, TabState3} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState3});
-                {hard_error, Rsn3} ->
-                    terminate(Dbg2, State, Rsn3)
-            end;
-        {value, {{restart, PosInt}, ChState2}} when erlang:is_integer(PosInt) andalso PosInt >= 0 ->
-            TimeRef = restart_timer(PosInt, Id),
-            case director_table:insert(TabMod
-                                      ,TabState
-                                      ,Child#?CHILD{pid = restarting
-                                                   ,timer_reference = TimeRef
-                                                   ,state = ChState2}) of
-                {ok, TabState2} ->
-                    loop(Parent, Dbg2, State#?STATE{table_state = TabState2});
-                {hard_error, Rsn2} ->
-                    terminate(Dbg2, State, Rsn2)
-            end;
-        {error, Reason3} ->
-            terminate(Dbg2, State, Reason3);
-        {value, Other} ->
-            terminate(Dbg2
-                     ,State
-                     ,{plan_return, [{returned_value, Other}
-                                    ,{plan, Plan}
-                                    ,{id, Id}
-                                    ,{reason_argument, Reason}
-                                    ,{restart_count, ResCount2}]})
+    if
+        Log ->
+            error_logger:error_report(supervisor_report
+                                     ,[{supervisor, Name}
+                                      ,{errorContext, child_terminated}
+                                      ,{reason, Rsn}
+                                      ,{offender, director_child:proplist(Child)}]);
+        true ->
+            ok
+    end,
+    case HandleExitResult of
+        {ok, ChState3, Data3, Action2} ->
+            handle_exit_2(Parent
+                         ,Dbg
+                         ,State#?STATE{data = Data3}
+                         ,Child#?CHILD{state = ChState3, restart_count = RestartCount2}
+                         ,Rsn
+                         ,Action2);
+        {error, _}=Err ->
+            Err
     end.
+
+
+handle_exit_2(Parent
+             ,Dbg
+             ,#?STATE{name = Name, module = Mod, data = Data, table_module = TabMod, table_state = TabState}=State
+             ,#?CHILD{id =Id}=Child
+             ,Rsn
+             ,restart) ->
+    case handle_start(Name, Mod, Data, TabMod, TabState, Child) of
+        {ok, Data2, TabState2, _} ->
+            loop(Parent, Dbg, State#?STATE{data = Data2, table_state = TabState2});
+        {hard_error, Rsn2} ->
+            terminate(Dbg, State, [Rsn, Rsn2]);
+        {soft_error, TabState2, _} ->
+            handle_exit_3(Parent
+                         ,debug(Dbg, Name, {timer, Id, 0})
+                         ,State#?STATE{table_state = TabState2}
+                         ,Child#?CHILD{timer = start_timer(0, Id), pid = restarting}
+                         ,Rsn)
+    end;
+
+handle_exit_2(Parent
+             ,Dbg
+             ,#?STATE{name = Name}=State
+             ,#?CHILD{id = Id}=Child
+             ,Rsn
+             ,{restart, Timeout}) when erlang:is_integer(Timeout) andalso Timeout > 0 ->
+    handle_exit_3(Parent
+                 ,debug(Dbg, Name, {timer, Id, Timeout})
+                 ,State
+                 ,Child#?CHILD{timer = start_timer(Timeout, Id), pid = restarting}
+                 ,Rsn);
+
+handle_exit_2(Parent, Dbg, State, Child, Rsn, wait) ->
+    handle_exit_3(Parent
+                 ,Dbg
+                 ,State
+                 ,Child#?CHILD{pid = undefined, extra = undefined}
+                 ,Rsn);
+
+handle_exit_2(Parent
+             ,Dbg
+             ,#?STATE{table_module = TabMod, table_state = TabState}=State
+             ,Child
+             ,Rsn
+             ,delete) ->
+    case director_table:delete(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            loop(Parent, Dbg, State#?STATE{table_state = TabState2});
+        {hard_error, Rsn2} ->
+            terminate(Dbg, State, [Rsn, Rsn2])
+    end;
+
+handle_exit_2(_
+             ,Dbg
+             ,#?STATE{table_module = TabMod, table_state = TabState}=State
+             ,Child
+             ,Rsn
+             ,stop) ->
+    case director_table:insert(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            terminate(Dbg, State#?STATE{table_state = TabState2}, Rsn);
+        {hard_error, Rsn2} ->
+            terminate(Dbg, State, [Rsn, Rsn2])
+    end;
+
+handle_exit_2(_
+             ,Dbg
+             ,#?STATE{table_module = TabMod, table_state = TabState}=State
+             ,Child
+             ,_
+             ,{stop, Rsn2}) ->
+    case director_table:insert(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            terminate(Dbg, State#?STATE{table_state = TabState2}, Rsn2);
+        {hard_error, Rsn3} ->
+            terminate(Dbg, State, [Rsn2, Rsn3])
+    end;
+%% Catch Clause:
+handle_exit_2(_
+             ,Dbg
+             ,#?STATE{module = Mod
+                     ,data = Data
+                     ,table_module = TabMod
+                     ,table_state = TabState}=State
+             ,#?CHILD{id = Id, restart_count = RestartCount}=Child
+             ,Rsn
+             ,Action) ->
+    case director_table:insert(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            terminate(Dbg
+                     ,State#?STATE{table_state = TabState2}
+                     ,{action, [{action, Action}
+                               ,{module, Mod}
+                               ,{function, handle_exit}
+                               ,{arguments, [Data
+                                            ,Id
+                                            ,State
+                                            ,Rsn
+                                            ,#{restart_count => RestartCount}]}]});
+        {hard_error, Rsn2} ->
+            terminate(Dbg, State, [Rsn, Rsn2])
+    end.
+
+
+handle_exit_3(Parent
+             ,Dbg
+             ,#?STATE{table_module = TabMod, table_state = TabState}=State
+             ,Child
+             ,Rsn) ->
+    case director_table:insert(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            loop(Parent, Dbg, State#?STATE{table_state = TabState2});
+        {hard_error, Rsn2} ->
+            terminate(Dbg, State, [Rsn, Rsn2])
+    end.
+
+
+%%handle_exit(Parent
+%%           ,Dbg
+%%           ,#?STATE{module = Mod
+%%                   ,data = Data
+%%                   ,name = Name
+%%                   ,table_module = TabMod
+%%                   ,table_state = TabState}=State
+%%           ,#?CHILD{id = Id
+%%                   ,restart_count = RestartCount
+%%                   ,state = ChState}=Child
+%%           ,Rsn) ->
+%%    RestartCount2 = RestartCount + 1,
+%%    MetaData = #{restart_count => RestartCount2},
+%%    {HandleExitResult, Log} =
+%%        try Mod:handle_exit(Id, ChState, Rsn, Data, MetaData) of
+%%            {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
+%%                Log2 =
+%%                    case director_utils:value(log, Opts, ?DEF_LOG) of
+%%                        true ->
+%%                            true;
+%%                        _ ->
+%%                            false
+%%                    end,
+%%                {{ok, ChState2, Data2, ?DEF_ACTION}, Log2};
+%%            {ok, ChState2, Data2, Action, Opts} when erlang:is_list(Opts) ->
+%%                Log2 =
+%%                    case director_utils:value(log, Opts, ?DEF_LOG) of
+%%                        true ->
+%%                            true;
+%%                        _ ->
+%%                            false
+%%                    end,
+%%                {{ok, ChState2, Data2, Action}, Log2};
+%%            Other ->
+%%                error_logger:error_report("DIRECTOR ~tp: unknown return value ~tp from ~tp:handle_e"
+%%                                          "xit(~tp, ~tp, ~tp, ~tp), using default action \'~tp\'\n"
+%%                                         ,[Name, Other, Mod, Data, Id, State, Rsn, MetaData, ?DEF_ACTION]),
+%%                {{ok, ChState, Data, ?DEF_ACTION}, ?DEF_LOG}
+%%        catch
+%%            _:undef ->
+%%                case erlang:function_exported(Mod, handle_exit, 4) of
+%%                    true ->
+%%                        {{error, {crash, [{reason, undef}
+%%                                         ,{stacktrace, erlang:get_stacktrace()}
+%%                                         ,{module, Mod}
+%%                                         ,{function, handle_exit}
+%%                                         ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
+%%                        ,?DEF_LOG};
+%%                    _ -> % false
+%%                        error_logger:error_report("DIRECTOR ~tp: undefined callback handle_terminat"
+%%                                                  "e/4 for callback module ~tp, using default actio"
+%%                                                  "n \'~tp\'\n"
+%%                                                 ,[Name, Mod, ?DEF_ACTION]),
+%%                        {{ok, ChState, Data, ?DEF_ACTION}, ?DEF_LOG}
+%%                end;
+%%            _:Rsn2 ->
+%%                {{error, {crash, [{reason, Rsn2}
+%%                                 ,{stacktrace, erlang:get_stacktrace()}
+%%                                 ,{module, Mod}
+%%                                 ,{function, handle_exit}
+%%                                 ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
+%%                ,?DEF_LOG}
+%%
+%%        end,
+%%    if
+%%        Log ->
+%%            error_logger:error_report(supervisor_report
+%%                                     ,[{supervisor, Name}
+%%                                      ,{errorContext, child_terminated}
+%%                                      ,{reason, Rsn}
+%%                                      ,{offender, director_child:proplist(Child)}]);
+%%        true ->
+%%            ok
+%%    end,
+%%    case HandleExitResult of
+%%        {ok, ChState3, Data3, restart} ->
+%%            Child2 = Child#?CHILD{state = ChState3, restart_count = RestartCount2},
+%%            case director_table:insert(TabMod, TabState, Child2) of
+%%                {ok, TabState2} ->
+%%                    case handle_start(Name, Mod, Data3, TabMod, TabState2, Child2) of
+%%                        {ok, Data4, TabState3, _} ->
+%%                            loop(Parent, Dbg, State#?STATE{data = Data4, table_state = TabState3});
+%%                        {hard_error, Rsn3} ->
+%%                            terminate(Dbg, State#?STATE{data = Data3, table_state = TabState2}, Rsn3);
+%%                        {soft_error, TabState3, _} ->
+%%                            case director_table:insert(TabMod, TabState3, Child2#?CHILD{timer = start_timer(0, Id)}) of
+%%                                {ok, TabState4} ->
+%%                                    loop(Parent, Dbg, State#?STATE{data = Data3, table_state = TabState4});
+%%                                {hard_error, Rsn4} ->
+%%                                    terminate(Dbg, State#?STATE{data = Data3, table_state = TabState3}, Rsn4)
+%%                            end
+%%                    end;
+%%                {hard_error, Rsn3} ->
+%%                    terminate(Dbg, State#?STATE{data = Data3, table_state = TabState}, Rsn3)
+%%            end;
+%%        {ok, ChState3, Data3, {restart, Time}} when erlang:is_integer(Time) andalso Time >= 0 ->
+%%            Child2 = Child#?CHILD{state = ChState3, timer = start_timer(Time, Id), restart_count = RestartCount2, pid = restarting},
+%%            Dbg2 = debug(Dbg, Name, {timer, Id, Time}),
+%%            case director_table:insert(TabMod, TabState, Child2) of
+%%                {ok, TabState2} ->
+%%                    loop(Parent, Dbg2, State#?STATE{data = Data3, table_state = TabState2});
+%%                {hard_error, Rsn3} ->
+%%                    terminate(Dbg2, State#?STATE{data = Data3}, Rsn3)
+%%            end;
+%%        {ok, ChState3, Data3, wait} ->
+%%            Child2 = Child#?CHILD{state = ChState3, pid = undefined, restart_count = RestartCount2},
+%%            case director_table:insert(TabMod, TabState, Child2) of
+%%                {ok, TabState2} ->
+%%                    loop(Parent, Dbg, State#?STATE{data = Data3, table_state = TabState2});
+%%                {hard_error, Rsn3} ->
+%%                    terminate(Dbg, State#?STATE{data = Data3, table_state = TabState}, Rsn3)
+%%            end;
+%%        {ok, _, Data3, delete} ->
+%%            case director_table:delete(TabMod, TabState, Child) of
+%%                {ok, TabState2} ->
+%%                    loop(Parent, Dbg, State#?STATE{data = Data3, table_state = TabState2});
+%%                {hard_error, Rsn3} ->
+%%                    terminate(Dbg, State#?STATE{data = Data3, table_state = TabState}, Rsn3)
+%%            end;
+%%        {ok, _, Data3, stop} ->
+%%            terminate(Dbg, State#?STATE{data = Data3}, Rsn);
+%%        {ok, _, Data3, {stop, Rsn3}} ->
+%%            terminate(Dbg, State#?STATE{data = Data3}, Rsn3);
+%%        {ok, _, Data3, Unknown} ->
+%%            terminate(Dbg
+%%                     ,State#?STATE{data = Data3}
+%%                     ,{action, [{action, Unknown}
+%%                               ,{module, Mod}
+%%                               ,{function, handle_exit}
+%%                               ,{arguments, [Data, Id, State, Rsn, MetaData]}]});
+%%        {error, Rsn3} ->
+%%            terminate(Dbg, State, Rsn3)
+%%    end.
 
 
 process_timeout(Parent
                ,Dbg
-               ,#?STATE{name = Name, table_module = TabMod, table_state = TabState}=State
-               ,TimerRef
+               ,#?STATE{name = Name, module = Mod, data = Data, table_module = TabMod, table_state = TabState}=State
+               ,TimerPid
                ,Id) ->
     case director_table:lookup_id(TabMod, TabState, Id) of
-        {ok, #?CHILD{timer_reference = TimerRef}} ->
-            case do_restart_child(Name, Id, TabMod, TabState) of
-                {ok, _Child, TabState3} ->
-                    loop(Parent, Dbg, State#?STATE{table_state = TabState3});
+        {ok, #?CHILD{timer = TimerPid}=Child} ->
+            case handle_start(Name, Mod, Data, TabMod, TabState, Child) of
+                {ok, Data2, TabState2, _} ->
+                    loop(Parent, Dbg, State#?STATE{data = Data2, table_state = TabState2});
                 {soft_error, TabState2, Reason} ->
-                    case director_table:lookup_id(TabMod, TabState2, Id) of
-                        {ok, Child} ->
-                            handle_exit(Parent
-                                       ,Dbg
-                                       ,State#?STATE{table_state = TabState2}
-                                       ,Child
-                                       ,Reason);
-                        {soft_error, TabState3, _} ->
-                            loop(Parent, Dbg, State#?STATE{table_state = TabState3});
-                        {hard_error, Rsn} ->
-                            terminate(Dbg, State#?STATE{table_state = TabState2}, Rsn)
-                    end;
+                    handle_exit(Parent
+                               ,Dbg
+                               ,State#?STATE{table_state = TabState2}
+                               ,Child
+                               ,Reason);
                 {hard_error, Rsn} ->
                     terminate(Dbg, State, Rsn)
             end;
@@ -1585,9 +1690,11 @@ unregister_name(_Other) ->
     ok.
 
 
-init_module(Name, Mod, InitArg, Opts) ->
+init(Name, Mod, InitArg, Opts) ->
     Rslt =
         try Mod:init(InitArg) of
+            ok ->
+                {ok, undefined, [], ?DEF_DEF_CHILDSPEC, ?DEF_START_OPTIONS};
             {ok, Data} ->
                 {ok, Data, [], ?DEF_DEF_CHILDSPEC, ?DEF_START_OPTIONS};
             {ok, Data, ChildSpecs} ->
@@ -1649,54 +1756,73 @@ init_module(Name, Mod, InitArg, Opts) ->
         {ok, Data2, ChildSpecs3, DefChildSpec3, Opts3} ->
             Opts4 = director_utils:concat(Opts3, Opts),
             DbgFilter =
-                fun(Name2, _, Val) ->
+                fun(Val) ->
                     try
                         sys:debug_options(Val)
                     catch
                         _:_ ->
-                            error_logger:format("~p: ignoring erroneous debug options: ~p\n"
-                                               ,[Name2, Val]),
+                            error_logger:format("~tp: ignoring erroneous debug options: ~tp\n"
+                                               ,[Name, Val]),
                             ?DEF_DEBUG_OPTIONS
                     end
                 end,
-            Dbg = director_utils:option(Name, Opts4, debug, DbgFilter, ?DEF_DEBUG_OPTIONS),
-            TabModFilter =
+            Dbg = director_utils:option(Opts4, debug, DbgFilter, ?DEF_DEBUG_OPTIONS),
+            TabFilter =
                 fun
-                    (_, _, Val) when erlang:is_atom(Val) ->
-                        Val;
-                    (Name2, _, Val) ->
-                        error_logger:format("~p: ignoring erroneous table module: ~p\n"
-                                           ,[Name2, Val]),
-                        ?DEF_TABLE_MOD
+                    (Val) when erlang:is_list(Val) ->
+                        Val2 = director_utils:proper(Val, []),
+                        Mode =
+                            case lists:keyfind(mode, 1, Val2) of
+                                {_, Mode2} when erlang:is_atom(Mode2) ->
+                                    Mode2;
+                                {_, Mode2} ->
+                                    error_logger:format("~tp: ignoring erroneous table mode: ~tp\n"
+                                                       ,[Name, Mode2]),
+                                    ?DEF_TABLE_MODE;
+                                false ->
+                                    ?DEF_TABLE_MODE;
+                                Mode2 ->
+                                    error_logger:format("~tp: ignoring erroneous table mode: ~tp\n"
+                                                       ,[Name, Mode2]),
+                                    ?DEF_TABLE_MODE
+                            end,
+                        TabInitArg =
+                            case lists:keyfind(init_arg, 1, Val2) of
+                                {_, TabInitArg2} ->
+                                    {value, TabInitArg2};
+                                false ->
+                                    ?DEF_TABLE_INIT_ARG;
+                                TabInitArg2 ->
+                                    error_logger:format("~tp: ignoring erroneous table init argumen"
+                                                        "t: ~tp\n"
+                                                       ,[Name, TabInitArg2]),
+                                    ?DEF_TABLE_INIT_ARG
+                            end,
+                        DelTab =
+                            case lists:keyfind(delete, 1, Val2) of
+                                {_, DelTab2} when erlang:is_boolean(DelTab2) ->
+                                    DelTab2;
+                                false ->
+                                    ?DEF_DELETE_TABLE;
+                                DelTab2 ->
+                                    error_logger:format("~tp: ignoring erroneous table delete flag:"
+                                                        " ~tp\n"
+                                                       ,[Name, DelTab2]),
+                                    ?DEF_DELETE_TABLE
+                            end,
+                        {Mode, TabInitArg, DelTab};
+                    (Val) ->
+                        error_logger:format("~tp: ignoring erroneous table options: ~tp\n"
+                                           ,[Name, Val]),
+                        {?DEF_TABLE_MODE, ?DEF_TABLE_INIT_ARG, ?DEF_DELETE_TABLE}
                 end,
-            TabMod = director_utils:option(Name, Opts4, table_module, TabModFilter, ?DEF_TABLE_MOD),
-            TabInitArgFilter =
-                fun
-                    (_, _, ?DEF_TABLE_INIT_ARG) ->
-                        ?DEF_TABLE_INIT_ARG;
-                    (_, _, Val) ->
-                        {value, Val}
-                end,
-            TabInitArg = director_utils:option(Name
-                                              ,Opts4
-                                              ,table_init_argument
-                                              ,TabInitArgFilter
-                                              ,?DEF_TABLE_INIT_ARG),
-            DelTabFilter =
-                fun
-                    (_, _, Val) when erlang:is_boolean(Val) ->
-                        Val;
-                    (Name2, _, Val) ->
-                        error_logger:format("~p: ignoring erroneous flag for deleting table before "
-                                            "termination: ~p\n"
-                                           ,[Name2, Val]),
-                        ?DEF_DELETE_TABLE
-                    end,
-            DelTab = director_utils:option(Name
-                                          ,Opts4
-                                          ,delete_table
-                                          ,DelTabFilter
-                                          ,?DEF_DELETE_TABLE),
+            {TabMode, TabInitArg, DelTab} = director_utils:option(Opts4
+                                                                 ,table
+                                                                 ,TabFilter
+                                                                 ,{?DEF_TABLE_MODE
+                                                                  ,?DEF_TABLE_INIT_ARG
+                                                                  ,?DEF_DELETE_TABLE}),
+            TabMod = erlang:list_to_atom("director_table_" ++ erlang:atom_to_list(TabMode)),
             {ok, {Data2, ChildSpecs3, DefChildSpec3, Dbg, TabMod, TabInitArg, DelTab}};
         ignore ->
             ignore;
@@ -1705,141 +1831,26 @@ init_module(Name, Mod, InitArg, Opts) ->
     end.
 
 
-start_children(Name, [#?CHILD{id=Id}=Child|Children], TabMod, TabState) ->
-    case do_start_child(Name, Child, TabMod, TabState) of
-        {ok, _Child, TabState2} ->
-            start_children(Name, Children, TabMod, TabState2);
-        {soft_error, _TabState2, already_present} ->
-            _ = terminate_and_delete_children(Name, TabMod, TabState),
-            {error, {duplicate_child_name, Id}}; % Like OTP/supervisor
-        {soft_error, _TabState2, Rsn} ->
-            _ = terminate_and_delete_children(Name, TabMod, TabState),
-            {error, Rsn}; % Like OTP/supervisor
-        {hard_error, Rsn} ->
-            _ = terminate_and_delete_children(Name, TabMod, TabState),
-            {error, Rsn}
-    end;
-start_children(_, [], _, TabState) ->
-    {ok, TabState}.
-
-
-do_start_child(Name, #?CHILD{id = Id}=Child ,TabMod, TabState) ->
+start_children(Name, Mod, Data, TabMod, TabState, [#?CHILD{id=Id}=Child|Children]) ->
     case director_table:lookup_id(TabMod, TabState, Id) of
         {soft_error, TabState2, not_found} ->
-            start_mfa(Name, Child, TabMod, TabState2);
-        {ok, #?CHILD{pid = Pid, supervisor = Sup}} when erlang:is_pid(Pid) andalso
-                                                        Sup =:= erlang:self() ->
-            {soft_error, TabState, {already_started, Pid}};
-        {ok, #?CHILD{supervisor = Sup}} when Sup =:= erlang:self() ->
-            {soft_error, TabState, already_present};
-        {ok, Child2} ->
-            {ok, Child2, TabState};
-%%        {soft_error, _, _}=SErr ->
-%%            SErr;
-        {hard_error, _}=HErr ->
-            HErr
-    end.
-
-
-do_restart_child(Name, Id, TabMod, TabState) ->
-    case director_table:lookup_id(TabMod, TabState, Id) of
-        {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
-            {hard_error, TabState, running};
-        {ok, #?CHILD{supervisor = Sup
-                    ,timer_reference = Ref
-                    ,restart_count = RstrtCount}=Child} when Sup =:= erlang:self() ->
-            _ =
-                if
-                    erlang:is_reference(Ref) ->
-                        erlang:cancel_timer(Ref, [{async, true}]);
-                    true ->
-                        ok
-                end,
-            Child2 = Child#?CHILD{pid = restarting
-                                 ,timer_reference = undefined
-                                 ,extra = undefined},
-            case director_table:insert(TabMod, TabState, Child2) of
-                {ok, TabState2} ->
-                    start_mfa(Name
-                             ,Child2#?CHILD{restart_count = RstrtCount + 1}
-                             ,TabMod
-                             ,TabState2);
-                {hard_error, _}=HErr ->
-                    HErr
+            case handle_start(Name, Mod, Data, TabMod, TabState2, Child) of
+                {ok, Data2, TabState3, _} ->
+                    start_children(Name, Mod, Data2, TabMod, TabState3, Children);
+                {soft_error, TabState3, Rsn} ->
+                    _ = terminate_and_delete_children(Name, Mod, Data, TabMod, TabState3),
+                    {error, Rsn};
+                {hard_error, Rsn} ->
+                    _ = terminate_and_delete_children(Name, Mod, Data, TabMod, TabState2),
+                    {error, Rsn}
             end;
-        {ok, #?CHILD{supervisor = undefined
-                    ,restart_count = RstrtCount}=Child} ->
-            Child2 = Child#?CHILD{supervisor = erlang:self()},
-            case director_table:change_parent(TabMod, TabState, Child2) of
-                {ok, TabState2} ->
-                    Child3 = Child2#?CHILD{pid = restarting
-                                          ,timer_reference = undefined
-                                          ,extra = undefined},
-                    case director_table:insert(TabMod, TabState2, Child3) of
-                        {ok, TabState3} ->
-                            start_mfa(Name
-                                     ,Child3#?CHILD{restart_count = RstrtCount + 1}
-                                     ,TabMod
-                                     ,TabState3);
-                        {hard_error, _}=HErr ->
-                            HErr
-                    end;
-                {soft_error, _, _}=SErr ->
-                    SErr;
-                {hard_error, _}=HErr ->
-                    HErr
-            end;
-        {ok, _} ->
-            {soft_error, TabState, not_parent};
-        {soft_error, _, _}=SErr ->
-            SErr;
-        {hard_error, _}=HErr ->
-            HErr
-    end.
-
-
-start_mfa(Name
-         ,#?CHILD{start = {Mod, Func, Args}}=Child
-         ,TabMod
-         ,TabState) ->
-    try erlang:apply(Mod, Func, Args) of
-        {ok, Pid} when erlang:is_pid(Pid) ->
-            Child2 = Child#?CHILD{pid = Pid
-                                 ,extra = undefined
-                                 ,state = director_utils:progress_report(Name, Child)},
-            case director_table:insert(TabMod, TabState, Child2) of
-                {ok, TabState2} ->
-                    {ok, Child2, TabState2};
-                {hard_error, _}=HErr ->
-                    HErr
-            end;
-        {ok, Pid, Extra} when erlang:is_pid(Pid) ->
-            Child2 = Child#?CHILD{pid = Pid
-                                 ,extra = {value, Extra}
-                                 ,state = director_utils:progress_report(Name, Child)},
-            case director_table:insert(TabMod, TabState, Child2) of
-                {ok, TabState2} ->
-                    {ok, Child2, TabState2};
-                {hard_error, _}=HErr ->
-                    HErr
-            end;
-        ignore ->
-            {ok, Child, TabState};
-        {error, Rsn} ->
-            {soft_error, TabState, Rsn};
-        Other ->
-            {soft_error, TabState, {return, [{value, Other}
-                                            ,{module, Mod}
-                                            ,{function, Func}
-                                            ,{arguments, Args}]}}
-    catch
-        _:Rsn ->
-            {soft_error, TabState, {crash, [{reason, Rsn}
-                                           ,{stacktrace, erlang:get_stacktrace()}
-                                           ,{module, Mod}
-                                           ,{function, Func}
-                                           ,{arguments, Args}]}}
-    end.
+        {ok, _} -> % So i'm using shared table and this child is started by other supervisor
+            start_children(Name, Mod, Data, TabMod, TabState, Children);
+        {hard_error, Rsn} ->
+            {error, Rsn}
+    end;
+start_children(_, _, Data, _, TabState, []) ->
+    {ok, Data, TabState}.
 
 
 terminate(Dbg
@@ -1848,19 +1859,19 @@ terminate(Dbg
                  ,table_module = TabMod
                  ,table_state = TabState1
                  ,name = Name
-                 ,delete_table = Bool}
-         ,Rsn1) ->
-%%    St1 = erlang:get_stacktrace(),
+                 ,delete_table = DelTab
+                 ,msg = LastMsg}
+         ,Rsn) ->
     {Rsn2, TabState} =
-        case terminate_and_delete_children(Name, TabMod, TabState1) of
-            {ok, TabState2} ->
-                {[Rsn1], TabState2};
-            {hard_error, TabState2, Rsn3} ->
-                {[Rsn1, Rsn3], TabState2}
+        case terminate_and_delete_children(Name, Mod, Data, TabMod, TabState1) of
+            {ok, _, TabState2} ->
+                {[Rsn], TabState2};
+            {error, TabState2, Rsn3} ->
+                {[Rsn, Rsn3], TabState2}
         end,
     Rsn4 =
         if
-            Bool ->
+            DelTab ->
                 case director_table:delete_table(TabMod, TabState) of
                     ok ->
                         Rsn2;
@@ -1871,83 +1882,107 @@ terminate(Dbg
                 Rsn2
         end,
     Rsn6 =
-        case Rsn4 of
-            [Rsn7] ->
-                Rsn7;
-            _ ->
+        if
+            erlang:length(Rsn4) =:= 1 ->
+                erlang:hd(Rsn4);
+            true ->
                 Rsn4
         end,
-    Rsn =
-        case call_terminate(Mod, Data, Rsn6) of
-            ok ->
-                Rsn6;
-            {new_error, Rsn8} ->
-                Rsn8;
-            {crash, Rsn8} ->
-                Rsn4 ++ [Rsn8]
-        end,
+    Rsn7 = call_terminate(Name, Mod, Data, Rsn6, LastMsg),
     sys:print_log(Dbg),
-    erlang:exit(Rsn).
+    erlang:exit(Rsn7).
 
 
 
 
-call_terminate(Mod, Data, Rsn) ->
-    try Mod:terminate(Rsn, Data) of
-        {new_error, _}=Err ->
-            Err;
-        _ ->
+call_terminate(Name, Mod, Data, Rsn, Msg) ->
+    {Rsn2, Log} =
+        try Mod:terminate(Rsn, Data) of
+            {new_error, Rsn3, Opts} when erlang:is_list(Opts) ->
+                Log2 =
+                    case director_utils:value(log, Opts, ?DEF_LOG) of
+                        true ->
+                            true;
+                        _ ->
+                            false
+                    end,
+                {Rsn3, Log2};
+            {ok, Opts} when erlang:is_list(Opts) ->
+                Log2 =
+                    case director_utils:value(log, Opts, ?DEF_LOG) of
+                        true ->
+                            true;
+                        _ ->
+                            fasle
+                    end,
+                {Rsn, Log2};
+            _ ->
+                {Rsn, ?DEF_LOG}
+        catch
+            _:Rsn3 ->
+                {[Rsn, {crash, [{reason, Rsn3}
+                               ,{stacktrace, erlang:get_stacktrace()}
+                               ,{module, Mod}
+                               ,{arguments, [Rsn, Data]}]}]
+                ,?DEF_LOG}
+        end,
+    if
+        Log ->
+            error_logger:error_msg("** DIRECTOR ~tp terminating \n"
+                                   "** Reason for termination ~tp \n"
+                                   "** Last message was ~tp \n"
+                                  ,[Name, Rsn2, Msg]);
+        true ->
             ok
-    catch
-        _:Rsn2 ->
-            {crash, {terminate_crash, [{reason, Rsn2}
-                                      ,{stacktrace, erlang:get_stacktrace()}
-                                      ,{module, Mod}
-                                      ,{arguments, [Rsn, Data]}]}}
-    end.
+    end,
+    Rsn2.
 
 
 
-terminate_and_delete_children(Name, TabMod, TabState) ->
+terminate_and_delete_children(Name, Mod, Data, TabMod, TabState) ->
     case director_table:tab2list(TabMod, TabState) of
         {ok, Children} ->
-            terminate_and_delete_children(Name, TabMod, TabState, Children);
+            terminate_and_delete_children(Name, Mod, Data, TabMod, TabState, Children);
         {hard_error, Rsn} ->
-            {hard_error, TabState, Rsn}
+            {error, TabState, Rsn}
     end.
 
 
-terminate_and_delete_children(Name, TabMod, TabState, Children) ->
+terminate_and_delete_children(Name, Mod, Data, TabMod, TabState, Children) ->
     TerminateAndDelete =
-        fun(#?CHILD{id = Id, delete = Bool}, {TabState2, Rsns}) ->
-            case do_terminate_child(Name, Id, TabMod, TabState2) of
-                {ok, Child, TabState3} ->
-                    if
-                        Bool ->
-                            case director_table:delete(TabMod, TabState3, Child) of
-                                {ok, TabState4} ->
-                                    {TabState4, Rsns};
-                                {hard_error, Rsn} ->
-                                    {TabState3, [Rsn|Rsns]}
-                            end;
-                        true ->
-                            {TabState3, Rsns}
-                    end;
-                {soft_error, TabState3, _} ->
-                    {TabState3, Rsns};
-                {hard_error, Rsn} ->
-                    {TabState2, [Rsn|Rsns]}
-            end
+        fun
+            (#?CHILD{id = Id, delete = Bool, supervisor = Sup}
+            ,{Data_, TabState_, Rsns}) when erlang:self() == Sup ->
+                case do_terminate_child(Name, Mod, Data_, TabMod, TabState_, Id) of
+                    {ok, Data2, TabState3, Child} ->
+                        if
+                            Bool ->
+                                case director_table:delete(TabMod, TabState3, Child) of
+                                    {ok, TabState4} ->
+                                        {Data2, TabState4, Rsns};
+                                    {hard_error, Rsn} ->
+                                        {Data2, TabState3, [Rsn|Rsns]}
+                                end;
+                            true ->
+                                {Data2, TabState3, Rsns}
+                        end;
+                    {soft_error, TabState3, _} ->
+                        {Data_, TabState3, Rsns};
+                    {hard_error, Rsn} ->
+                        {Data_, TabState_, [Rsn|Rsns]}
+                end;
+            (_, Acc) ->
+                Acc
         end,
-    case lists:foldl(TerminateAndDelete, {TabState, []}, Children) of
-        {TabState2, []} ->
-            {ok, TabState2};
-        {TabState2, Errs} ->
+    case lists:foldl(TerminateAndDelete, {Data, TabState, []}, Children) of
+        {Data2, TabState2, []} ->
+            {ok, Data2, TabState2};
+        {_Data2, TabState2, Errs} ->
             {error, TabState2, Errs}
     end.
 
 
-do_terminate_child(Name, Id_or_Pid, TabMod, TabState) ->
+do_terminate_child(Name, Mod, Data, TabMod, TabState, Id_or_Pid) ->
     SearchFunc =
         if
             erlang:is_pid(Id_or_Pid) ->
@@ -1956,70 +1991,102 @@ do_terminate_child(Name, Id_or_Pid, TabMod, TabState) ->
                 lookup_id
         end,
     case director_table:SearchFunc(TabMod, TabState, Id_or_Pid) of
-        {ok, #?CHILD{supervisor = Sup}=Child} when Sup =:= self() orelse Sup =:= undefined ->
-            NewChState = do_terminate_child(Name, Child),
-            Child2 = Child#?CHILD{pid = undefined
-                                 ,extra = undefined
-                                 ,timer_reference = undefined
-                                 ,state = NewChState
-                                 ,supervisor = undefined},
-            case director_table:insert(TabMod, TabState, Child2) of
-                {ok, TabState2} ->
-                    {ok, Child2, TabState2};
-                {hard_error, _}=HErr ->
-                    HErr
-            end;
+        {ok, #?CHILD{pid = Pid, supervisor = Sup}=Child} when Sup =:= self() andalso erlang:is_pid(Pid) ->
+
+            do_terminate_child_2(Name, Mod, Data, TabMod, TabState, Child);
         {ok, _} ->
             {soft_error, TabState, not_parent};
-        {soft_error, _, _}=SErr ->
-            SErr;
         {hard_error, _}=HErr ->
             HErr
     end.
 
 
-do_terminate_child(Name
-                  ,#?CHILD{pid=Pid
-                          ,terminate_timeout = TerminateTimeout
-                          ,state = ChState}=Child) when erlang:is_pid(Pid) ->
-    BrutalKill =
-        fun() ->
-            erlang:exit(Pid, kill),
-            receive
-                {'DOWN', _Ref, process, Pid, killed} ->
-                    ChState;
-                {'DOWN', _Ref, process, Pid, Reason} ->
-                    director_utils:error_report(Name, shutdown_error, Reason, Child)
+do_terminate_child_2(Name
+                    ,Mod
+                    ,Data
+                    ,TabMod
+                    ,TabState
+                    ,#?CHILD{pid=Pid, terminate_timeout = TerminateTimeout}=Child) ->
+    receive
+        % Child unlinked me and wants to be deleted from my children :(
+        {?GEN_CALL_TAG, From, {?DELETE_RUNNING_CHILD_TAG, Pid}} ->
+            _ = reply(?DEF_DEBUG_OPTIONS, Name, From, ok),
+            case director_table:delete(TabMod, TabState, Child) of
+                {ok, TabState2} ->
+                    {soft_error, TabState2, not_found};
+                {hard_error, _}=HErr ->
+                    HErr
             end
-        end,
-    case monitor_child(Pid) of
-        ok ->
-            if
-                TerminateTimeout =:= 0 ->
-                    BrutalKill();
+    after 0 ->
+        case monitor_child(Pid) of
+            ok ->
+                Rsn =
+                    if
+                        TerminateTimeout =:= 0 ->
+                            kill;
+                        true ->
+                            shutdown
+                    end,
+                erlang:exit(Pid, Rsn),
+                receive
+                    {'DOWN', _, process, Pid, Rsn2} ->
+                        do_terminate_child_3(Name, Mod, Data, TabMod, TabState, Child, Rsn2)
+                end;
+            {error, Rsn2} ->
+                do_terminate_child_3(Name, Mod, Data, TabMod, TabState, Child, Rsn2)
+        end
+    end.
+
+
+do_terminate_child_3(Name
+                    ,Mod
+                    ,Data
+                    ,TabMod
+                    ,TabState
+                    ,#?CHILD{state = State
+                            ,id = Id
+                            ,restart_count = RestartCount
+                            ,timer = Timer}=Child
+                    ,Rsn) ->
+    MetaData = #{restart_count => RestartCount},
+    try Mod:handle_terminate(Id, State, Rsn,  Data, MetaData) of
+        {ok, State2, Data2, Opts} when erlang:is_list(Opts) ->
+            case director_utils:value(log, Opts, ?DEF_LOG) of
                 true ->
-                    receive
-                        {?GEN_CALL_TAG, From, {?DELETE_RUNNING_CHILD_TAG, Pid}} ->
-                            _ = reply(?DEF_DEBUG_OPTIONS, Name, From, ok),
-                            ok
-                    after 0 ->
-                        erlang:exit(Pid, shutdown),
-                        receive
-                            {'DOWN', _Ref, process, Pid, shutdown} ->
-                                ChState;
-                            {'DOWN', _Ref, process, Pid, Reason2} ->
-                                director_utils:error_report(Name
-                                                           ,shutdown_error
-                                                           ,Reason2
-                                                           ,Child)
-                        end
-                    end
+                    error_logger:error_report(supervisor_report
+                                             ,[{supervisor, Name}
+                                              ,{errorContext, shutdown_error}
+                                              ,{reason, Rsn}
+                                              ,{offender, director_child:proplist(Child)}]);
+                _ ->
+                    false
+            end,
+            ok = stop_timer(Timer),
+            Child2 = Child#?CHILD{state = State2
+                                 ,pid = undefined
+                                 ,extra = undefined
+                                 ,supervisor = undefined
+                                 ,timer = undefined},
+            case director_table:insert(TabMod, TabState, Child2) of
+                {ok, TabState2} ->
+                    {ok, Data2, TabState2, Child2};
+                {hard_error, _}=HErr ->
+                    HErr
             end;
-        {error, Reason3} ->
-            director_utils:error_report(Name, shutdown_error, Reason3, Child)
-    end;
-do_terminate_child(_Name, #?CHILD{state = ChState}) ->
-    ChState.
+        Other ->
+            {hard_error, {return, [{value, Other}
+                             ,{module, Mod}
+                             ,{function, handle_terminate}
+                             ,{arguments, [Id, State, Rsn,  Data, MetaData]}]}}
+    catch
+        _:Rsn2 ->
+            {hard_error, {crash, [{reason, Rsn2}
+                                 ,{stacktrace, erlang:get_stacktrace()}
+                                 ,{module, Mod}
+                                 ,{function, handle_terminate}
+                                 ,{arguments, [Id, State, Rsn,  Data, MetaData]}]}}
+
+    end.
 
 
 monitor_child(Pid) ->
@@ -2036,38 +2103,16 @@ monitor_child(Pid) ->
     end.
 
 
-restart_timer(0, Id) ->
-    Ref = erlang:make_ref(),
-    erlang:self() ! {timeout, Ref, Id},
-    Ref;
-restart_timer(PosInt, Id) ->
-    erlang:start_timer(PosInt, erlang:self(), Id, []).
-
-
 reply(Dbg, Name, {Pid, Tag}, Result) when erlang:is_pid(Pid) ->
     Pid ! {Tag, Result},
-    director_utils:debug(Dbg, Name, {out, Pid, Result});
+    debug(Dbg, Name, {out, Pid, Result});
 reply(Dbg, Name, Pid, Result) when erlang:is_pid(Pid) ->
     Pid ! Result,
-    director_utils:debug(Dbg, Name, {out, Pid, Result});
+    debug(Dbg, Name, {out, Pid, Result});
 reply(Dbg, Name, Unknown, Result) ->
     error_logger:error_msg("Director ~p could not send response ~p to unknown destination ~p"
                           ,[Name, Result, Unknown]),
     Dbg.
-
-check_duplicate_ids(Children) ->
-    check_duplicate_ids([Id || #?CHILD{id = Id} <- Children], []).
-
-
-check_duplicate_ids([Id|Ids], Ids2) ->
-    case lists:member(Id, Ids2) of
-        true ->
-            {error, {duplicate_child_name, Id}}; %% Like OTP/supervisor
-        false ->
-            check_duplicate_ids(Ids, [Id|Ids2])
-    end;
-check_duplicate_ids([], _Ids2) ->
-    ok.
 
 
 change_old_children_pids([#?CHILD{id = Id}=Child|Children], TabMod, TabState) ->
@@ -2093,3 +2138,262 @@ change_old_children_pids([#?CHILD{id = Id}=Child|Children], TabMod, TabState) ->
     end;
 change_old_children_pids([], _TabMod, TabState) ->
     {ok, TabState}.
+
+
+handle_restart(Name, Mod, Data, TabMod, TabState, Id) ->
+    case director_table:lookup_id(TabMod, TabState, Id) of
+        {ok, #?CHILD{pid = Pid}} when erlang:is_pid(Pid) ->
+            {soft_error, TabState, {running, Pid}};
+        {ok, #?CHILD{pid = restarting}} ->
+            {soft_error, TabState, restarting};
+        {ok, Child} ->
+            handle_start(Name, Mod, Data, TabMod, TabState, Child);
+        {soft_error, _, _}=SErr ->
+            SErr;
+        {hard_error, _}=HErr ->
+            HErr
+    end.
+
+handle_start(Name, Mod, Data, TabMod, TabState, Child) ->
+    Child2 = Child#?CHILD{pid = restarting, extra = undefined, supervisor = erlang:self()},
+    case director_table:insert(TabMod, TabState, Child2) of
+        {ok, TabState2} ->
+            handle_start_2(Name, Mod, Data, TabMod, TabState2, Child2);
+        {hard_error, _}=HErr ->
+            HErr
+    end.
+
+
+handle_start_2(Name, Mod, Data, TabMod, TabState, #?CHILD{start = {ChMod, Func, Args}}=Child) ->
+    try erlang:apply(ChMod, Func, Args) of
+        {ok, Pid} when erlang:is_pid(Pid) ->
+            handle_start_3(Name
+                          ,Mod
+                          ,Data
+                          ,TabMod
+                          ,TabState
+                          ,Child#?CHILD{pid = Pid, extra = undefined});
+        {ok, Pid, Extra} when erlang:is_pid(Pid) ->
+            handle_start_3(Name
+                          ,Mod
+                          ,Data
+                          ,TabMod
+                          ,TabState
+                          ,Child#?CHILD{pid = Pid, extra = {value, Extra}});
+        ignore ->
+            handle_start_3(Name
+                          ,Mod
+                          ,Data
+                          ,TabMod
+                          ,TabState
+                          ,Child#?CHILD{pid = undefined, extra = undefined});
+        {error, Rsn} ->
+            {soft_error, TabState, Rsn};
+        Other ->
+            {soft_error, TabState, {return, [{value, Other}
+                                            ,{module, Mod}
+                                            ,{function, Func}
+                                            ,{arguments, Args}]}}
+    catch
+        _:Rsn ->
+            {soft_error, TabState, {crash, [{reason, Rsn}
+                                           ,{stacktrace, erlang:get_stacktrace()}
+                                           ,{module, Mod}
+                                           ,{function, Func}
+                                           ,{arguments, Args}]}}
+    end.
+
+
+handle_start_3(Name, Mod, Data, TabMod, TabState, Child) ->
+    case director_table:insert(TabMod, TabState, Child) of
+        {ok, TabState2} ->
+            handle_start_4(Name, Mod, Data, TabMod, TabState2, Child);
+        {hard_error, _}=HErr ->
+            HErr
+    end.
+
+
+handle_start_4(Name
+              ,Mod
+              ,Data
+              ,TabMod
+              ,TabState
+              ,#?CHILD{pid = Pid
+                      ,extra = Extra
+                      ,restart_count = RestartCount
+                      ,id = Id
+                      ,state = ChState}=Child) ->
+    MetaData =
+        case {Pid, Extra} of
+            {Pid2, undefined} when erlang:is_pid(Pid2) ->
+                #{pid => Pid, restart_count => RestartCount};
+            {undefined, undefined} ->
+                #{restart_count => RestartCount};
+            {Pid2, {value, Extra2}} when erlang:is_pid(Pid2) ->
+                #{pid => Pid, restart_count => RestartCount, extra => Extra2};
+            {undefined, {value, Extra2}} ->
+                #{restart_count => RestartCount, extra => Extra2}
+        end,
+    try Mod:handle_start(Id, ChState, Data, MetaData) of
+        {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
+            Child2 = Child#?CHILD{state = ChState2},
+            case director_utils:value(log, Opts, ?DEF_LOG) of
+                true ->
+                    error_logger:info_report(progress
+                                            ,[{supervisor, Name}
+                                             ,{started, director_child:proplist(Child2)}]);
+                _ ->
+                    ok
+            end,
+            case director_table:insert(TabMod, TabState, Child2) of
+                {ok, TabState2} ->
+                    {ok, Data2, TabState2, Child2};
+                {hard_error, _}=HErr ->
+                    HErr
+            end;
+        Other ->
+            {hard_error, {return, [{value, Other}
+                                  ,{module, Mod}
+                                  ,{function, handle_start}
+                                  ,{arguments, [Id, ChState, Data, MetaData]}]}}
+    catch
+        _:Rsn ->
+            {hard_error, {crash, [{reason, Rsn}
+                            ,{stacktrace, erlang:get_stacktrace()}
+                            ,{module, Mod}
+                            ,{function, handle_start}
+                            ,{arguments, [Id, ChState, Data, MetaData]}]}}
+
+    end.
+
+
+debug([], _Name, _MsgInfo) ->
+    [];
+debug(Dbg, Name, MsgInfo) ->
+    sys:handle_debug(Dbg, fun print/3, Name, MsgInfo).
+
+
+print(IODev, {in, Msg}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got message ~tp \n">>), [Name, Msg]);
+
+print(IODev, {out, Dest, Msg}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp sent message ~tp to ~tp\n">>), [Name, Msg, Dest]);
+
+print(IODev, {'EXIT', Pid, Rsn}, Name) ->
+    io:format(IODev
+             ,add_debug_header(<<"~tp got exit signal from ~tp with reason ~tp \n">>)
+             ,[Name, Pid, Rsn]);
+
+print(IODev, {'EXIT', Id}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp exit signal is from child id ~tp\n">>), [Name, Id]);
+
+print(IODev, {request, From, {?GET_PID_TAG, Id}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting pid of child id ~tp\n">>), [Name, pid(From), Id]);
+
+print(IODev, {request, From, ?GET_PIDS_TAG}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting pid of all children\n">>), [Name, pid(From)]);
+
+print(IODev, {request, From, ?COUNT_CHILDREN_TAG}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting count of different types of its children\n">>), [Name, pid(From)]);
+
+print(IODev, {request, From, {?DELETE_CHILD_TAG, Id}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for deleting child id ~tp\n">>), [Name, pid(From), Id]);
+
+print(IODev, {request, From, {?GET_CHILDSPEC_TAG, Id}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting childspec of child id ~tp\n">>), [Name, pid(From), Id]);
+
+print(IODev, {request, From, {?RESTART_CHILD_TAG, Id}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for restarting child id ~tp\n">>), [Name, pid(From), Id]);
+
+print(IODev, {request, From, {?START_CHILD_TAG, ChildSpec}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for starting childspec ~tp\n">>), [Name, pid(From), ChildSpec]);
+
+print(IODev, {request, From, {?TERMINATE_CHILD_TAG, Term}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for terminating child ~tp\n">>), [Name, pid(From), Term]);
+
+print(IODev, {request, From, ?WHICH_CHILDREN_TAG}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting information about all children\n">>), [Name, pid(From)]);
+
+print(IODev, {request, From, {?GET_RESTART_COUNT_TAG, Id}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting restart count of child id ~tp\n">>), [Name, pid(From), Id]);
+
+print(IODev, {request, From, ?GET_DEF_CHILDSPEC}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting its default childspec\n">>), [Name, pid(From)]);
+
+print(IODev, {request, From, {?CHANGE_DEF_CHILDSPEC, ChildSpec}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for changing its default childspec to ~tp\n">>), [Name, pid(From), ChildSpec]);
+
+print(IODev, {request, From, {?TERMINATE_AND_DELETE_CHILD_TAG, Term}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for terminating and deleting child id/pid ~tp\n">>), [Name, pid(From), Term]);
+
+print(IODev, {request, From, {?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for becoming supervisor of ~tp with childspec ~tp\n">>), [Name, pid(From), Pid, ChildSpec]);
+
+print(IODev, {request, From, Req}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got unknown request ~tp from ~tp\n">>), [Name, Req, pid(From)]);
+
+print(IODev, {timer, Id, Time}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp starts timer with ~tp milli-seconds timeout for restarting child id ~tp\n">>), [Name, Time, Id]);
+
+print(IODev, {'DOWN', Ref, Id}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got 'DOWN' signal from timer process ~tp for child id ~tp\n">>), [Name, Ref, Id]);
+
+print(IODev, {system, Msg}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got system message ~tp\n">>), [Name, Msg]);
+
+print(IODev, {parent, Parent, Rsn}, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got exit signal from its parent ~tp for reason ~tp\n">>), [Name, Parent, Rsn]);
+
+print(IODev, Other, Name) ->
+    io:format(IODev, add_debug_header(<<"~tp got debug ~tp \n">>), [Name, Other]).
+
+
+add_debug_header(Txt) ->
+    {{Y, Mo, D}, {H, Mi, S}} = erlang:localtime(),
+    <<"*DBG* - "
+     ,(erlang:integer_to_binary(Y))/binary
+     ,"/"
+     ,(erlang:integer_to_binary(Mo))/binary
+     ,"/"
+     ,(erlang:integer_to_binary(D))/binary
+     ," "
+     ,(erlang:integer_to_binary(H))/binary
+     ,":"
+     ,(erlang:integer_to_binary(Mi))/binary
+     ,":"
+     ,(erlang:integer_to_binary(S))/binary
+     ," - DIRECTOR "
+     ,Txt/binary>>.
+
+
+pid({Pid, _}) when erlang:is_pid(Pid) ->
+    Pid;
+pid(Pid) ->
+    Pid.
+
+
+start_timer(Time, Msg) ->
+    {Pid, _} = erlang:spawn_monitor(fun() -> exit_after(Time, Msg) end),
+    Pid.
+
+exit_after(Time, Rsn) ->
+    wait(Time),
+    erlang:exit(Rsn).
+
+
+wait(Time) when Time > 4294967295 -> % 16#FFFFFFFF max timeout of 'receive' statement
+    Time2 = erlang:trunc(Time / 2),
+    wait(Time2),
+    wait(Time2);
+wait(Time) ->
+    receive
+    after Time ->
+        ok
+    end.
+
+
+stop_timer(Pid) when erlang:is_pid(Pid) ->
+    erlang:exit(Pid, kill),
+    ok;
+stop_timer(_) ->
+    ok.
