@@ -64,10 +64,10 @@
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child_).
 -define(TAB_NAME, director_table).
--define(TAB_MODE, list).
--define(TAB_OPTS, [{db, ?TAB_MODE}, {init_arg, ?TAB_NAME}]).
+-define(TAB, list).
+-define(DB_OPTS, [{table, ?TAB}, {init_arg, ?TAB_NAME}]).
 -define(START_OPTIONS, [{debug, [trace]}
-                       ,{table, ?TAB_OPTS}]).
+                       ,{db, ?DB_OPTS}]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -512,8 +512,8 @@ end_per_testcase(_TestCase, _Config) ->
 
 '6'(_Config) ->
     InitArg = erlang:self(),
-    TabMode = mnesia,
-    TabOpts = [{db, TabMode}, {init_arg, ?TAB_NAME}],
+    Tab = mnesia,
+    TabOpts = [{table, Tab}, {init_arg, ?TAB_NAME}],
     Id = foo,
     F = fun() -> {ok, undefined} end,
     ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
@@ -523,7 +523,7 @@ end_per_testcase(_TestCase, _Config) ->
             receive after infinity -> ok end
         end,
     erlang:spawn_link(StartDir),
-    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg, [ChildSpec], [{table, TabOpts}|?START_OPTIONS]} end),
+    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg, [ChildSpec], [{db, TabOpts}|?START_OPTIONS]} end),
     director_test_utils:handle_return(?CALLBACK
                                      ,handle_start
                                      ,fun([Id2, ChState2, State2, #{pid := Pid, restart_count := 0}]) when Id2 =:= Id andalso
@@ -535,11 +535,11 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, receive {ok, _} -> ok after 500 -> error end),
     StartDir2 =
         fun() ->
-            InitArg ! director:start_link({local, director_name_2}, ?CALLBACK, InitArg, [{table, TabOpts}|?START_OPTIONS]),
+            InitArg ! director:start_link({local, director_name_2}, ?CALLBACK, InitArg, [{db, TabOpts}|?START_OPTIONS]),
             receive after infinity -> ok end
         end,
     erlang:spawn_link(StartDir2),
-    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg, [ChildSpec], [{table, TabOpts}|?START_OPTIONS]} end),
+    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg, [ChildSpec], [{db, TabOpts}|?START_OPTIONS]} end),
     ?assertEqual(ok, receive {ok, _} -> ok after 500 -> error end),
     Pid = erlang:whereis(?CHILD),
     ?assertEqual({ok, Pid}, director:get_pid(?DIRECTOR, Id)),
@@ -552,8 +552,8 @@ end_per_testcase(_TestCase, _Config) ->
 
 '7'(_Config) ->
     InitArg = erlang:self(),
-    TabMode = mnesia,
-    TabOpts = [{db, TabMode}, {init_arg, ?TAB_NAME}, {delete, false}],
+    Tab = mnesia,
+    TabOpts = [{table, Tab}, {init_arg, ?TAB_NAME}, {delete, false}],
     Id = foo,
     F = fun() -> {ok, undefined} end,
     ChildSpec1 = #{id => Id
@@ -567,7 +567,7 @@ end_per_testcase(_TestCase, _Config) ->
         fun() ->
             InitArg ! director:start_link(?CALLBACK
                                          ,InitArg
-                                         ,[{table, TabOpts}|?START_OPTIONS]),
+                                         ,[{db, TabOpts}|?START_OPTIONS]),
             receive after infinity -> ok end
         end,
     erlang:spawn_link(StartDir),
