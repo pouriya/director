@@ -158,7 +158,8 @@
 -type  callback_return_options() :: [callback_return_option()] | [].
 -type   callback_return_option() :: {'log', boolean()}.
 
--type handle_start_return() :: {'ok', child_state(), state(), callback_return_options()}.
+-type handle_start_return() :: {'ok', child_state(), state(), callback_return_options()}
+                             | {'stop', child_state(), reason(), callback_return_options()}.
 
 -type handle_exit_return() :: {'ok', child_state(), state(), action(), callback_return_options()}
                             | {'ok', child_state(), state(), callback_return_options()}.
@@ -1340,15 +1341,6 @@ handle_exit(Parent
     MetaData = #{restart_count => RestartCount2},
     {HandleExitResult, Log} =
         try Mod:handle_exit(Id, ChState, Rsn, Data, MetaData) of
-            {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
-                Log2 =
-                    case director_utils:value(log, Opts, ?DEF_LOG) of
-                        true ->
-                            true;
-                        _ ->
-                            false
-                    end,
-                {{ok, ChState2, Data2, ?DEF_ACTION}, Log2};
             {ok, ChState2, Data2, Action, Opts} when erlang:is_list(Opts) ->
                 Log2 =
                     case director_utils:value(log, Opts, ?DEF_LOG) of
@@ -1358,6 +1350,22 @@ handle_exit(Parent
                             false
                     end,
                 {{ok, ChState2, Data2, Action}, Log2};
+            % {ok, ChState2, Data2, Opts} | {stop, Rsn, ChState2, Opts}
+            {El1, El2, El3, Opts} when (El1 =:= ok orelse El2 =:= stop) andalso
+                                        erlang:is_list(Opts) ->
+                Log2 =
+                    case director_utils:value(log, Opts, ?DEF_LOG) of
+                        true ->
+                            true;
+                        _ ->
+                            false
+                    end,
+                case El1 of
+                    ok ->
+                        {{ok, El2, El3, ?DEF_ACTION}, Log2};
+                    _ -> % stop
+                        {error, El2}
+                end;
             Other ->
                 {{error, {return, [{value, Other}
                                   ,{module, Mod}
@@ -1372,7 +1380,6 @@ handle_exit(Parent
                                  ,{function, handle_exit}
                                  ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
                 ,?DEF_LOG}
-
         end,
     if
         Log ->
@@ -1930,7 +1937,9 @@ do_terminate_child_3(Name
                     ,Rsn) ->
     MetaData = #{restart_count => RestartCount},
     try Mod:handle_terminate(Id, State, Rsn,  Data, MetaData) of
-        {ok, State2, Data2, Opts} when erlang:is_list(Opts) ->
+        % {ok, ChState2, Data2, Opts} | {stop, Rsn, ChState2, Opts}
+        {El1, El2, El3, Opts} when (El1 =:= ok orelse El2 =:= stop) andalso
+                                   erlang:is_list(Opts) ->
             case director_utils:value(log, Opts, ?DEF_LOG) of
                 true ->
                     error_logger:error_report(supervisor_report
@@ -1939,17 +1948,33 @@ do_terminate_child_3(Name
                                               ,{reason, Rsn}
                                               ,{offender, director_child:proplist(Child)}]);
                 _ ->
-                    false
+                    ok
             end,
             ok = stop_timer(Timer),
-            Child2 = Child#?CHILD{state = State2
-                                 ,pid = undefined
-                                 ,extra = undefined
-                                 ,supervisor = undefined
-                                 ,timer = undefined},
+            Child2 =
+                case El1 of
+                    ok ->
+                        ok = stop_timer(Timer),
+                        Child#?CHILD{state = El2
+                                    ,pid = undefined
+                                    ,extra = undefined
+                                    ,supervisor = undefined
+                                    ,timer = undefined};
+                    _ -> % stop
+                        Child#?CHILD{state = El3
+                                    ,pid = undefined
+                                    ,extra = undefined
+                                    ,supervisor = undefined
+                                    ,timer = undefined}
+                end,
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
-                    {ok, Data2, TabState2, Child2};
+                    case El1 of
+                        ok ->
+                            {ok, El3, TabState2, Child2};
+                        _ -> % stop
+                            {hard_error, El2}
+                    end;
                 {hard_error, _}=HErr ->
                     HErr
             end;
@@ -2115,19 +2140,33 @@ handle_start_4(Name
                 #{restart_count => RestartCount, extra => Extra2}
         end,
     try Mod:handle_start(Id, ChState, Data, MetaData) of
-        {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
-            Child2 = Child#?CHILD{state = ChState2},
+        % {ok, ChState2, Data2, Opts} | {stop, Rsn, ChState2, Opts}
+        {El1, El2, El3, Opts} when (El1 =:= ok orelse El2 =:= stop) andalso
+                                   erlang:is_list(Opts) ->
+            Child2 =
+                case El1 of
+                    ok ->
+                        Child#?CHILD{state = El2};
+                    _ -> % stop
+                        Child#?CHILD{state = El3}
+                end,
             case director_utils:value(log, Opts, ?DEF_LOG) of
                 true ->
                     error_logger:info_report(progress
                                             ,[{supervisor, Name}
-                                             ,{started, director_child:proplist(Child2)}]);
+                                             ,{started
+                                              ,director_child:proplist(Child2)}]);
                 _ ->
                     ok
             end,
             case director_table:insert(TabMod, TabState, Child2) of
                 {ok, TabState2} ->
-                    {ok, Data2, TabState2, Child2};
+                    case El1 of
+                        ok ->
+                            {ok, El3, TabState2, Child2};
+                        _ -> % stop
+                            {hard_error, El2}
+                    end;
                 {hard_error, _}=HErr ->
                     HErr
             end;
