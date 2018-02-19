@@ -593,6 +593,7 @@ delete_running_child(Director, Pid) when ?is_director(Director) andalso erlang:i
 -spec
 start_child(director(), childspec(), timeout()) ->
     start_return().
+%% @hidden
 %% @doc
 %%      Starts child using childspec.
 %%      Reason of error may be for childspec not starting process or reading from or inserting<br/>
@@ -609,6 +610,7 @@ restart_child(director(), id(), timeout()) ->
     {'ok', pid()}                                                            |
     {'ok', pid(), Extra::term()}                                             |
     {'error', Reason::'running'|'restarting'|'not_found'|term()}.
+%% @hidden
 %% @doc
 %%      Restarts a terminated or waited child using child id.<br/>
 %%      Reason of error may be for starting process or table.
@@ -620,6 +622,7 @@ restart_child(Director, Id, Timeout) when ?is_director(Director) andalso ?is_tim
 -spec
 terminate_child(director(), id() | pid(), timeout()) ->
     'ok' | {'error', Reason::'not_found'|'not_parent'|term()}.
+%% @hidden
 %% @doc
 %%      terminates a running child using child id or child pid.<br/>
 %%      If this supervisor is not owner of child and has access to children table, it cannot<br/>
@@ -633,6 +636,7 @@ terminate_child(Director, Id_or_Pid, Timeout) when ?is_director(Director) andals
 -spec
 delete_child(director(), id(), timeout()) ->
     'ok' | {'error', Reason::'not_found'|'running'|'not_parent'|term()}.
+%% @hidden
 %% @doc
 %%      Deletes a terminated or waited child using child id.<br/>
 %%      Error maybe occur for reading from or inserting to table.
@@ -648,6 +652,7 @@ count_children(director(), timeout()) ->
     |{'supervisors', non_neg_integer()}
     |{'workers', non_neg_integer()}]   |
     {'error', term()}.
+%% @hidden
 %% @doc
 %%      Returns count of children.<br/>
 %%      Error is for reading from table.
@@ -659,6 +664,7 @@ count_children(Director, Timeout) when ?is_director(Director) andalso ?is_timeou
 -spec
 which_children(director(), timeout()) ->
     [{id(), type(), pid()|'restarting'|'undefined', modules()}] | [] | {'error', term()}.
+%% @hidden
 %% @doc
 %%      Returns information about each child.<br/>
 %%      Error is for reading from table.
@@ -670,6 +676,7 @@ which_children(Director, Timeout) when ?is_director(Director) andalso ?is_timeou
 -spec
 get_childspec(director(), id() | pid(), timeout()) ->
     {'ok', childspec()} | {'error', 'not_found'|term()}.
+%% @hidden
 %% @doc
 %%      Returns childspec of child.<br/>
 %%      Error maybe occur for reading from table.
@@ -681,6 +688,7 @@ get_childspec(Director, Name, Timeout) when ?is_director(Director) andalso ?is_t
 -spec
 get_restart_count(director(), id(), timeout()) ->
     {'ok', non_neg_integer()} | {'error', 'not_found'|term()}.
+%% @hidden
 %% @doc
 %%      Returns restart count of child id.<br/>
 %%      Error maybe occur for reading from table.
@@ -692,6 +700,7 @@ get_restart_count(Director, Id, Timeout) when ?is_director(Director) andalso ?is
 -spec
 get_pid(director(), id(), timeout()) ->
     {'ok', pid()} | {'error', 'not_found'|'restarting'|'undefined'|term()}.
+%% @hidden
 %% @doc
 %%      Returns pid of a running child.<br/>
 %%      Error maybe occur for reading from table.
@@ -703,6 +712,7 @@ get_pid(Director, Id, Timeout) when ?is_director(Director) andalso ?is_timeout(T
 -spec
 get_pids(director(), timeout()) ->
     {'ok', [{id(), pid()}] | []} | {'error', term()}.
+%% @hidden
 %% @doc
 %%      Returns list of {id, pid}s for all running children.<br/>
 %%      Error maybe occur for reading from table.
@@ -714,6 +724,7 @@ get_pids(Director, Timeout) when ?is_director(Director) andalso ?is_timeout(Time
 -spec
 get_default_childspec(director(), timeout()) ->
     default_childspec().
+%% @hidden
 %% @doc
 %%      Returns director process's default childspec.
 %% @end
@@ -724,6 +735,7 @@ get_default_childspec(Director, Timeout) when ?is_director(Director) andalso ?is
 -spec
 change_default_childspec(director(), default_childspec(), timeout()) ->
     {'ok', default_childspec()} | {'error', Reason::term()}.
+%% @hidden
 %% @doc
 %%      Changes director's default childspec.<br/>
 %%      Be careful about using this. This may change all children behavior with append => true in<br/>
@@ -738,6 +750,7 @@ change_default_childspec(Director, ChildSpec, Timeout) when ?is_director(Directo
 -spec
 terminate_and_delete_child(director(), id()|pid(), timeout()) ->
     'ok' | {'error', 'not_found'|'not_parent'|term()}.
+%% @hidden
 %% @doc
 %%      Terminates running child and deletes it using child id or pid of child.<br/>
 %%      If this supervisor is not owner of child and has access to children table, it cannot<br/>
@@ -752,6 +765,7 @@ terminate_and_delete_child(Director, Id, Timeout) when ?is_director(Director) an
 -spec
 become_supervisor(director(), pid(), childspec(), timeout()) ->
     ok | {'error', 'no_proc' | 'no_response' | 'proc_exited' | term()}.
+%% @hidden
 %% @doc
 %%      Tells director process become supervisor of this Pid with this Childspec.<br/>
 %%      Pid should be alive Erlang process on same node.<br/>
@@ -769,6 +783,7 @@ become_supervisor(Director, Pid, ChildSpec, Timeout) when ?is_director(Director)
 -spec
 delete_running_child(director(), pid(), timeout()) ->
     'ok' | {'error', 'not_found' | term()}.
+%% @hidden
 %% @doc
 %%      Tells to director process delete running child with process id Pid and let it free!<br/>
 %%      Sometime it's useful to make a process unsupervised or you may want to change the parent.<br/>
