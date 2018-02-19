@@ -1787,17 +1787,17 @@ init(Name, Mod, InitArg, Opts) ->
                     (Val) when erlang:is_list(Val) ->
                         Val2 = director_utils:proper(Val, []),
                         Mode =
-                            case lists:keyfind(db, 1, Val2) of
+                            case lists:keyfind(table, 1, Val2) of
                                 {_, Mode2} when erlang:is_atom(Mode2) ->
                                     Mode2;
                                 {_, Mode2} ->
-                                    error_logger:format("~tp: ignoring erroneous table db: ~tp\n"
+                                    error_logger:format("~tp: ignoring erroneous db table: ~tp\n"
                                                        ,[Name, Mode2]),
                                     ?DEF_TABLE_MODE;
                                 false ->
                                     ?DEF_TABLE_MODE;
                                 Mode2 ->
-                                    error_logger:format("~tp: ignoring erroneous table mode: ~tp\n"
+                                    error_logger:format("~tp: ignoring erroneous db table: ~tp\n"
                                                        ,[Name, Mode2]),
                                     ?DEF_TABLE_MODE
                             end,
@@ -1832,7 +1832,7 @@ init(Name, Mod, InitArg, Opts) ->
                         {?DEF_TABLE_MODE, ?DEF_TABLE_INIT_ARG, ?DEF_DELETE_TABLE}
                 end,
             {TabMode, TabInitArg, DelTab} = director_utils:option(Opts4
-                                                                 ,table
+                                                                 ,db
                                                                  ,TabFilter
                                                                  ,{?DEF_TABLE_MODE
                                                                   ,?DEF_TABLE_INIT_ARG
