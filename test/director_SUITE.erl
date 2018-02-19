@@ -65,7 +65,7 @@
 -define(CHILD_MODULE, director_child_).
 -define(TAB_NAME, director_table).
 -define(TAB_MODE, list).
--define(TAB_OPTS, [{mode, ?TAB_MODE}, {init_arg, ?TAB_NAME}]).
+-define(TAB_OPTS, [{db, ?TAB_MODE}, {init_arg, ?TAB_NAME}]).
 -define(START_OPTIONS, [{debug, [trace]}
                        ,{table, ?TAB_OPTS}]).
 
@@ -513,7 +513,7 @@ end_per_testcase(_TestCase, _Config) ->
 '6'(_Config) ->
     InitArg = erlang:self(),
     TabMode = mnesia,
-    TabOpts = [{mode, TabMode}, {init_arg, ?TAB_NAME}],
+    TabOpts = [{db, TabMode}, {init_arg, ?TAB_NAME}],
     Id = foo,
     F = fun() -> {ok, undefined} end,
     ChildSpec = #{id => Id, start => {?CHILD_MODULE, start_link, [{local, ?CHILD}, F]}},
@@ -553,7 +553,7 @@ end_per_testcase(_TestCase, _Config) ->
 '7'(_Config) ->
     InitArg = erlang:self(),
     TabMode = mnesia,
-    TabOpts = [{mode, TabMode}, {init_arg, ?TAB_NAME}, {delete, false}],
+    TabOpts = [{db, TabMode}, {init_arg, ?TAB_NAME}, {delete, false}],
     Id = foo,
     F = fun() -> {ok, undefined} end,
     ChildSpec1 = #{id => Id
