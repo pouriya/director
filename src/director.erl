@@ -159,10 +159,11 @@
 -type   callback_return_option() :: {'log', boolean()}.
 
 -type handle_start_return() :: {'ok', child_state(), state(), callback_return_options()}
-                             | {'stop', child_state(), reason(), callback_return_options()}.
+                             | {'stop', reason(), child_state(), callback_return_options()}.
 
 -type handle_exit_return() :: {'ok', child_state(), state(), action(), callback_return_options()}
-                            | {'ok', child_state(), state(), callback_return_options()}.
+                            | {'ok', child_state(), state(), callback_return_options()}
+                            | {'stop', reason(), child_state(), callback_return_options()}.
 -type  action() :: 'restart'
                  | {'restart', pos_integer()}
                  | 'delete'
@@ -170,7 +171,8 @@
                  | 'stop'
                  | {'stop', Reason::any()}.
 
--type handle_terminate_return() :: {'ok', child_state(), state(), callback_return_options()}.
+-type handle_terminate_return() :: {'ok', child_state(), state(), callback_return_options()}
+                                 | {'stop', reason(), child_state(), callback_return_options()}.
 
 -type register_name() :: {'local', atom()}
                        | {'global', atom()}
