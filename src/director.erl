@@ -1787,11 +1787,11 @@ init(Name, Mod, InitArg, Opts) ->
                     (Val) when erlang:is_list(Val) ->
                         Val2 = director_utils:proper(Val, []),
                         Mode =
-                            case lists:keyfind(mode, 1, Val2) of
+                            case lists:keyfind(db, 1, Val2) of
                                 {_, Mode2} when erlang:is_atom(Mode2) ->
                                     Mode2;
                                 {_, Mode2} ->
-                                    error_logger:format("~tp: ignoring erroneous table mode: ~tp\n"
+                                    error_logger:format("~tp: ignoring erroneous table db: ~tp\n"
                                                        ,[Name, Mode2]),
                                     ?DEF_TABLE_MODE;
                                 false ->
