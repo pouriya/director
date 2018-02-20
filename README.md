@@ -254,13 +254,7 @@ Anything other than {`ok`, Opts}` and `{new_error, _, Opts}` causes **Director**
 # Build
 ## Compile
 ```sh
-~/director $ make compile
-===> Verifying dependencies...
-===> Compiling sample
-===> Verifying dependencies...
-===> Compiling sample_ets
-===> Verifying dependencies...
-===> Compiling sample_mnesia
+~/director $ make
 ===> Verifying dependencies...
 ===> Compiling director
 ```
