@@ -1,6 +1,9 @@
 ![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)
 
 # Welcome
+
+![directror](director.jpg)
+
 **Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes with focus on speed, performance and flexibility.
 
 ## What is a supervisor?
