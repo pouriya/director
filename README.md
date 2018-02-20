@@ -315,4 +315,4 @@ README.md
 
 
 ### Hex version
-[**`18.1.1`**](https://hex.pm/packages/director)
+[**`18.2.20`**](https://hex.pm/packages/director)
