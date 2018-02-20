@@ -12,7 +12,7 @@ According to the Erlang's manual:
 >In Erlang we tell supervisors to start other processes. Every child process has its own options called childspec. 
 
 ## Features
-* Don't worry about replacing **Director** with OTP/Supervisor Because a **Director** process is responsive for all API functions of OTP/Supervisor module. For example `supervisor:which_children(DirectorPid) =:= director:which_children(DirectorPid)`.  
+* Don't worry about replacing **Director** with OTP/Supervisor Because a **Director** process is responsive for all API functions of OTP/Supervisor module. For example `supervisor:which_children(DirectorPid)` works.   
 * **Director** has its own useful API functions too:  
 	* `director:get_pid(DirectorRef, ChildId)` gives pid of child if child is alive.  
 	* `director:get_pids(DirectorRef)` gives pids of alive children.  
@@ -20,7 +20,7 @@ According to the Erlang's manual:
 	* `director:become_supervisor(DirectorRef, Pid, ChildSpec)` makes **Director** supervisor of alive process.  
 	* `director:get_restart_count(DirectorRef, ChildId)` gives restart count of child (useful for debug). 
 	* All functions not listed here.  
-* **Director** is an Erlang behaviour and every callback-module of this behaviour should has following callback-functions (See Guide section for detailed explanation):  
+* **Director** is an Erlang behaviour and every callback-module of this behaviour should has following callback-functions (See "How to use?" section for detailed explanation):  
 	* `init/1`: For initialization. Here you can define children database type, debug mode and childspecs of some children that you want to start them in initialize state.  
 	* `handle_start/4`: Will be called after starting a child process.  
 	* `handle_exit/5`: Will be called after crashing a child process. This callback-function should tell **Director** how to deal with process crash. Restart child? Restart it after time interval? Delete child from children? Do nothing? Terminate yourself?  
@@ -34,10 +34,10 @@ According to the Erlang's manual:
 * You can define your own database for keeping children by implementing `director_table` behaviour. Also some test cases are ready for testing your module.  
 * Understandable debug output for every operation.  
 
-All features not listed here. For more info see Guide and examples. For contributing see `CONTRIBUTING.md` file.
+All features not listed here. For more info see Guide and examples. For contributing see [`CONTRIBUTING.md`](CONTRIBUTING.md) file.
 
 
-## Guide
+## How to use?
  Since **Director** is an Erlang behaviour; So before explaining its workflow, I'll explain that "What a behaviour is?" for newbies.  
 > In Erlang, a behaviour is a design pattern implemented in a module/library. It provides functionality in a fashion similar to inheritance in object-oriented programming. A number of functions called callback-functions must be defined for each behavior to work in a module called callback-module.  
 
@@ -70,12 +70,12 @@ After calling, **Director** process calls `Module:init(InitArg)`, possible retur
 ```
 #### Childspec
 A childspec is an Erlang map containing some mandatory and optional keys that belongs to one child process. I will explain these keys below.  
-* **id:** This key should be unique for child and can be any erlang term. We will explain usage of this key later. This key is mandatory.  
+* **id:** This key should be unique for child and can be any erlang term. We will understand usage of this key later. This key is mandatory.  
 * **start:** This key should be an `mfa()` (module, function and its arguments) and is mandatory. **Director** calls `erlang:apply(Mod, Func, Args)` using value of this key for starting child. Possible values of this key are:  
 	* `mfa()`.  
 	* `{module(), Func::atom()}`. Will be `{module(), Func::atom(), []}`.  
 	* `module()`. Will be `{module(), start_link, []}`.  
-* **state:** This key is optional and if not defined, its default value will be atom `undefined`. This is state data of child process inside **Director** process. I'll explain its usage later.  
+* **state:** This key is optional and if not defined, its default value will be atom `undefined`. This is state data of child process inside **Director** process. We will understand usage of this key later.  
 * **type:** A child process can be a worker or another supervisor. This key is optional and default value is atom `worker` and possible values are:  
 	* `supervisor`.  
 	* `sup` (Short for `supervisor`). 
