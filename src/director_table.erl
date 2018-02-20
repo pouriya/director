@@ -203,7 +203,7 @@ get_childspec(Mod, State, PidOrId) ->
         end,
     case ?MODULE:SearchFunc(Mod, State, PidOrId) of
         {ok, Child} ->
-            {ok, director_utils:c2cs(Child)};
+            {ok, director_child:child_to_childspec(Child)};
         {soft_error, _, Rsn} ->
             {error, Rsn};
         {hard_error, Rsn} ->
@@ -486,9 +486,9 @@ combine_children(Mod, State, DefChildSpec) ->
                 true ->
                     Combine =
                         fun(Child) ->
-                            ChildSpec = director_utils:c2cs(Child),
-                            Combined = director_utils:combine_child(ChildSpec, DefChildSpec),
-                            director_utils:cs2c(Combined)
+                            ChildSpec = director_child:child_to_childspec(Child),
+                            Combined = director_child:combine_child(ChildSpec, DefChildSpec),
+                            director_child:childspec_to_child(Combined)
                         end,
                     CombinedChildren = [Combine(Child) || Child <- Appended],
                     case insert_children(Mod, State, CombinedChildren) of
@@ -515,9 +515,9 @@ separate_children(Mod, State, DefChildSpec) ->
                 true ->
                     Separate =
                         fun(Child) ->
-                            ChildSpec = director_utils:c2cs(Child),
-                            Separated = director_utils:separate_child(ChildSpec, DefChildSpec),
-                            director_utils:cs2c(Separated)
+                            ChildSpec = director_child:child_to_childspec(Child),
+                            Separated = director_child:separate_child(ChildSpec, DefChildSpec),
+                            director_child:childspec_to_child(Separated)
                         end,
                     SeparatedChildren = [Separate(Child) || Child <- Appended],
                     case insert_children(Mod, State, SeparatedChildren) of
