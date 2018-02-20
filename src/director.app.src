@@ -1,7 +1,7 @@
 {application
 ,director
-,[{description, "It is a production-ready supervisor and manager for Erlang/Elixir processes with focus on speed, performance and flexibility."}
- ,{vsn, "18.1.1"}
+,[{description, "It is a production-ready supervisor and manager for Erlang/Elixir processes that focuses on speed, performance and flexibility."}
+ ,{vsn, "18.2.20"}
  ,{applications, [kernel, stdlib]}
  ,{maintainers, ["pouriya.jahanbakhsh@gmail.com"]}
  ,{licenses, ["BSD 3-Clause"]}
