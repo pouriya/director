@@ -142,7 +142,7 @@ end_per_testcase(_TestCase, _Config) ->
         end,
     spawn_link(Stop),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([normal, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
 
     spawn_link(Start),
@@ -151,7 +151,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(StartResult2, {ok, erlang:whereis(?DIRECTOR)}),
     spawn_link(Stop),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([normal, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
 
     spawn_link(Start),
@@ -160,7 +160,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(StartResult3, {ok, erlang:whereis(?DIRECTOR)}),
     spawn_link(Stop),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([normal, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
 
     spawn_link(Start),
@@ -169,7 +169,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(StartResult4, {ok, erlang:whereis(?DIRECTOR)}),
     spawn_link(Stop),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([normal, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
 
     spawn_link(Start),
@@ -178,7 +178,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(StartResult5, {ok, erlang:whereis(?DIRECTOR)}),
     spawn_link(Stop),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([normal, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)).
 
 
@@ -250,7 +250,7 @@ end_per_testcase(_TestCase, _Config) ->
             erlang:is_pid(Pid) ->
             {ok, ChState2, State2, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
 
     Exit(oops),
@@ -261,9 +261,9 @@ end_per_testcase(_TestCase, _Config) ->
             State2 =:= InitArg ->
             {ok, ChState2, State2, {restart, 500}, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual([{Id, restarting, worker, [?CHILD_MODULE]}], director:which_children(?DIRECTOR)),
-    timer:sleep(500),
+    timer:sleep(50),
     director_test_utils:handle_return(?CALLBACK
                                      ,handle_start
                                      ,fun([Id2, ChState2, State2, #{pid := Pid, restart_count := 2}]) when Id2 =:= Id andalso
@@ -272,7 +272,7 @@ end_per_testcase(_TestCase, _Config) ->
             erlang:is_pid(Pid) ->
             {ok, ChState2, State2, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
 
     Exit(aah),
@@ -283,7 +283,7 @@ end_per_testcase(_TestCase, _Config) ->
             State2 =:= InitArg ->
             {ok, ChState2, State2, wait, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual([{Id, undefined, worker, [?CHILD_MODULE]}], director:which_children(?DIRECTOR)),
     erlang:spawn_link(fun() -> ?assertMatch({ok, _}, director:restart_child(?DIRECTOR, Id)), receive after infinity -> ok end end),
     director_test_utils:handle_return(?CALLBACK
@@ -294,7 +294,7 @@ end_per_testcase(_TestCase, _Config) ->
             erlang:is_pid(Pid) ->
             {ok, ChState2, State2, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertMatch({ok, _Pid}, director:get_pid(?DIRECTOR, Id)),
 
     Exit(aah),
@@ -305,7 +305,7 @@ end_per_testcase(_TestCase, _Config) ->
             State2 =:= InitArg ->
             {ok, ChState2, State2, delete, [{log, true}]}
                                       end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual([], director:which_children(?DIRECTOR)),
     ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)),
 
@@ -328,7 +328,7 @@ end_per_testcase(_TestCase, _Config) ->
             {ok, ChState2, State2, stop, [{log, true}]}
                                       end),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([bye, Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(ok, receive {'EXIT', _, bye} -> ok after 500 -> error end),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)),
 
@@ -351,7 +351,7 @@ end_per_testcase(_TestCase, _Config) ->
             {ok, ChState2, State2, {stop, '_'}, [{log, true}]}
                 end),
     director_test_utils:handle_return(?CALLBACK, terminate, fun(['_', Arg]) when Arg =:= InitArg -> ok end),
-    timer:sleep(30),
+    timer:sleep(50),
     ?assertEqual(ok, receive {'EXIT', _, '_'} -> ok after 500 -> error end),
     ?assertEqual(undefined, erlang:whereis(?DIRECTOR)).
 
@@ -546,7 +546,7 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual({ok, Pid}, director:get_pid(director_name_2, Id)),
     erlang:spawn(fun() -> ?assertEqual(ok, director:terminate_and_delete_child(?DIRECTOR, Id)) end),
     director_test_utils:handle_return(?CALLBACK, handle_terminate, fun([foo, undefined, shutdown, _, _]) -> {ok, undefined, undefined, [{log, true}]} end),
-    timer:sleep(15),
+    timer:sleep(50),
     ?assertEqual({error, not_found}, director:get_pid(director_name_2, Id)).
 
 
@@ -687,7 +687,7 @@ end_per_testcase(_TestCase, _Config) ->
             erlang:is_pid(Pid) ->
             {ok, ChState2, State2, [{log, true}]}
                                       end),
-    timer:sleep(15),
+    timer:sleep(50),
     ?assertMatch({ok, _}, director:get_pid(?DIRECTOR, Id)),
 
     ?assertEqual({error, noproc}, director:become_supervisor(?DIRECTOR, ChPid, ChildSpec1)),
@@ -723,7 +723,7 @@ end_per_testcase(_TestCase, _Config) ->
                                       end),
     {ok, ChPid} = director:get_pid(?DIRECTOR, Id),
     ?assertEqual(ok, director:delete_running_child(?DIRECTOR, ChPid)),
-    timer:sleep(15),
+    timer:sleep(50),
     ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)).
 
 
