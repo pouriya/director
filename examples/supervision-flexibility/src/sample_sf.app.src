@@ -1,6 +1,0 @@
-{application
-,sample_sf
-,[{description, "An OTP application"}
- ,{vsn, "0.1.0"}
- ,{mod, {sample_sf_app, []}}
- ,{applications, [kernel, stdlib]}]}.

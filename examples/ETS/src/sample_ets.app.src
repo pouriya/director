@@ -1,6 +1,0 @@
-{application
-,sample_ets
-,[{description, "An OTP application"}
- ,{vsn, "0.1.0"}
- ,{mod, {sample_ets, []}}
- ,{applications, [kernel, stdlib]}]}.

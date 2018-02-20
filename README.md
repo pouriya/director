@@ -4,7 +4,7 @@
 
 ![directror](director.jpg)
 
-**Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes with focus on speed, performance and flexibility.
+**Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes that focuses on speed, performance and flexibility.
 
 ## What is a supervisor?
 According to the Erlang's manual:  
@@ -251,7 +251,57 @@ terminate(oops, State) ->
 ```
 Anything other than {`ok`, Opts}` and `{new_error, _, Opts}` causes **Director** to call `error_logger` and exit with its crash reason.  
 
+# Build
+## Compile
+```sh
+~/director $ make compile
+===> Verifying dependencies...
+===> Compiling sample
+===> Verifying dependencies...
+===> Compiling sample_ets
+===> Verifying dependencies...
+===> Compiling sample_mnesia
+===> Verifying dependencies...
+===> Compiling director
+```
 
+## Use as dependency
+##### Rebar3
+Put this in deps in rebar.config:
+```erlang
+{director, "18.1.1"}
+```
+
+##### Rebar
+Put this in deps in rebar.config:
+```erlang
+{director, ".*", {git, "https://github.com/Pouriya-Jahanbakhsh/director.git", {tag, "18.1.1"}}}
+```
+
+##### Mix
+Put this in deps in mix.exs:
+```elixir
+{:director, "~> 18.1.1"}
+```
+
+##### erlang.mk
+```make
+dep_director = hex 18.1.1
+```
+
+#### API documentation
+```sh
+
+ /projects/director $ make doc
+===> Verifying dependencies...
+===> Fetching edown ({pkg,"edown","0.8.1"})
+===> Compiling edown
+===> Compiling director
+===> Running edoc for director
+
+ /projects/director $ ls doc
+director_child.md  director.html  director.md  director_table_ets.md  director_table_mnesia.html  director_table_mnesia.md  edoc-info  erlang.png  README.md  stylesheet.css
+```
 ### License
 **`BSD 3-Clause`**
 
