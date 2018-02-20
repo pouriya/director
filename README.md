@@ -299,9 +299,19 @@ dep_director = hex 18.1.1
 ===> Compiling director
 ===> Running edoc for director
 
- /projects/director $ ls doc
-director_child.md  director.html  director.md  director_table_ets.md  director_table_mnesia.html  director_table_mnesia.md  edoc-info  erlang.png  README.md  stylesheet.css
+ /projects/director $ ls doc/ | grep .md
+director.md
+director_table_ets.md
+director_table_mnesia.md
+README.md
 ```
+
+### Todo
+* Add test for having something like OTP/Supervisor `simple_one_for_one` strategy.  
+* Add complete examples.  
+* Add documentation for writing new `director_table` behaviour based module.  
+
+
 ### License
 **`BSD 3-Clause`**
 
