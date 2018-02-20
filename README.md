@@ -4,20 +4,19 @@
 
 ![directror](director.jpg)
 
-**Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes that focuses on speed, performance and flexibility.
+**Director** is a production-ready **supervisor** and **manager** for Erlang/Elixir processes that focuses on speed, performance and flexibility. Don't worry about replacing **Director** with OTP/Supervisor Because a **Director** process is responsive for all API functions of OTP/Supervisor module and has its own useful API functions too. This is more flexible than OTP/supervisor. Since **Director** calls callback-function to dealing with process crash, By changing code you can change strategy! To seeing all advantages just read this readme file.
 
-## What is a supervisor?
-According to the Erlang's manual:  
->A supervisor is a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.  
+## What is a supervisor? (for newbies)
+According to the Erlang's manual:  
+>A supervisor is a process that supervises other processes called child processes. A child process can either be another supervisor or a worker process. Supervisors are used to build a hierarchical process structure called a supervision tree, a nice way to structure a fault-tolerant application.  
 >In Erlang we tell supervisors to start other processes. Every child process has its own options called childspec. 
 
-## Features
-* Don't worry about replacing **Director** with OTP/Supervisor Because a **Director** process is responsive for all API functions of OTP/Supervisor module. For example `supervisor:which_children(DirectorPid)` works.   
-* **Director** has its own useful API functions too:  
-	* `director:get_pid(DirectorRef, ChildId)` gives pid of child if child is alive.  
-	* `director:get_pids(DirectorRef)` gives pids of alive children.  
-	* `director:terminate_and_delete_child(DirectorRef, ChildId)` terminates and deletes a child in one request.  
-	* `director:become_supervisor(DirectorRef, Pid, ChildSpec)` makes **Director** supervisor of alive process.  
+## Features  
+* Useful API functions:  
+	* `director:get_pid(DirectorRef, ChildId)` gives pid of child if child is alive.  
+	* `director:get_pids(DirectorRef)` gives pids of alive children.  
+	* `director:terminate_and_delete_child(DirectorRef, ChildId)` terminates and deletes a child in one request.  
+	* `director:become_supervisor(DirectorRef, Pid, ChildSpec)` makes **Director** supervisor of alive process.  
 	* `director:get_restart_count(DirectorRef, ChildId)` gives restart count of child (useful for debug). 
 	* All functions not listed here.  
 * **Director** is an Erlang behaviour and every callback-module of this behaviour should has following callback-functions (See "How to use?" section for detailed explanation):  
