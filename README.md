@@ -181,7 +181,7 @@ director_test:handle_exit(child_1, #chstate{}, oops, #state{}, #{restart_count :
 ```
 This callback-function should yield:
 ```erlang
--type handle_exit_return() :: {'director:action(), director:child_state(), director:state(), director:callback_return_options()}.
+-type handle_exit_return() :: {director:action(), director:child_state(), director:state(), director:callback_return_options()}.
 -type  action() :: 'restart'
                  | {'restart', pos_integer()}
                  | 'delete'
