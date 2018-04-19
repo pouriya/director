@@ -181,8 +181,7 @@ director_test:handle_exit(child_1, #chstate{}, oops, #state{}, #{restart_count :
 ```
 This callback-function should yield:
 ```erlang
--type handle_exit_return() :: {'ok', director:child_state(), director:state(), director:action(), director:callback_return_options()}
-                            | {'ok', director:child_state(), director:state(), director:callback_return_options()}. %% will be {'ok', director:child_state(), director:state(), restart, director:callback_return_options()}
+-type handle_exit_return() :: {'director:action(), director:child_state(), director:state(), director:callback_return_options()}.
 -type  action() :: 'restart'
                  | {'restart', pos_integer()}
                  | 'delete'
@@ -193,17 +192,17 @@ This callback-function should yield:
 Example of `handle_exit/5` which tells **Director** to restart child after 1000 milli-seconds:
 ```erlang
 handle_exit(_, ChState, _, State, _) ->
-	{ok, ChState, State, {restart, 1000}, []}.
+	{{restart, 1000}, ChState, State, []}.
 ```
 If you define `delete` as action, Child will be removed from children table. If you define `wait` as action, **Director** does nothing and you have to call `director:restart_child(DirectorProc, ChildId)` for restarting child. If you define `stop`, **Director** will terminate itself with error reason of child crash.  
 What if you define `restart` or `{restart, Int}` and child does not restart?  **Director** will restart child again, So calls `handle_exit/5` again which its metadata argument has `restart_count` key plus one. For example in following code **Director** will restart child id `foo` for 5 times, then restarts it after 1000 milli-seconds for 6th time, and finally terminates itself with reason `{max_restart, foo}` for 7th time:  
 ```erlang
 handle_exit(foo, ChState, _Reason, State, #{restart_count := RC}) when RC < 6 ->
-	{ok, ChState, State, restart, []};
+	{restart, ChState, State, []};
 handle_exit(foo, ChState, _Reason, State, #{restart_count := 6}) ->
-	{ok, ChState, State, {restart, 1000}, []};
+	{{restart, 1000}, ChState, State, []};
 handle_exit(foo, ChState, _Reason, State, _) ->
-	{ok, ChState, State, {stop, {max_restart, foo}}, []}.
+	{{stop, {max_restart, foo}}, ChState, State, []}.
 ```
 
 ### `handle_terminate/5`
@@ -214,7 +213,7 @@ YourCallbackModule:handle_terminate(ChildId, ChildState, ReasonOfChildTerminatio
 Also it calls `handle_terminate/5` when it is in terminate state and is terminating its alive children.  
 For above example when you call `director:terminate_child(DirectorProc, child_2)`, It calls:  
 ```erlang
-director_test:handle_exit(child_2, shutdown, #chstate{}, #state{}, #{restart_count := 0})
+director_test:handle_exit(child_2, #chstate{}, shutdown, #state{}, #{restart_count := 0})
 ```
 This callback-function should yield:  
 ```erlang
