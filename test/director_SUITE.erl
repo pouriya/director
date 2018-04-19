@@ -240,7 +240,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, killed, State2, #{restart_count := 1}]) when Id2 =:= Id andalso
                                                                                                        ChState2 =:= ChState andalso
                                                                                                        State2 =:= InitArg ->
-                                          {ok, ChState2, State2, restart, [{log, true}]}
+                                          {restart, ChState2, State2, [{log, true}]}
                                       end),
     director_test_utils:handle_return(?CALLBACK
                                      ,handle_start
@@ -259,7 +259,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, oops, State2, #{restart_count := 2}]) when Id2 =:= Id andalso
             ChState2 =:= ChState andalso
             State2 =:= InitArg ->
-            {ok, ChState2, State2, {restart, 500}, [{log, true}]}
+            {{restart, 500}, ChState2, State2, [{log, true}]}
                                       end),
     timer:sleep(50),
     ?assertEqual([{Id, restarting, worker, [?CHILD_MODULE]}], director:which_children(?DIRECTOR)),
@@ -281,7 +281,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, aah, State2, #{restart_count := 3}]) when Id2 =:= Id andalso
             ChState2 =:= ChState andalso
             State2 =:= InitArg ->
-            {ok, ChState2, State2, wait, [{log, true}]}
+            {wait, ChState2, State2, [{log, true}]}
                                       end),
     timer:sleep(50),
     ?assertEqual([{Id, undefined, worker, [?CHILD_MODULE]}], director:which_children(?DIRECTOR)),
@@ -303,7 +303,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, aah, State2, #{restart_count := 4}]) when Id2 =:= Id andalso
             ChState2 =:= ChState andalso
             State2 =:= InitArg ->
-            {ok, ChState2, State2, delete, [{log, true}]}
+            {delete, ChState2, State2, [{log, true}]}
                                       end),
     timer:sleep(50),
     ?assertEqual([], director:which_children(?DIRECTOR)),
@@ -325,7 +325,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, bye, State2, #{restart_count := 1}]) when Id2 =:= Id andalso
             ChState2 =:= ChState andalso
             State2 =:= InitArg ->
-            {ok, ChState2, State2, stop, [{log, true}]}
+            {stop, ChState2, State2, [{log, true}]}
                                       end),
     director_test_utils:handle_return(?CALLBACK, terminate, fun([bye, Arg]) when Arg =:= InitArg -> ok end),
     timer:sleep(50),
@@ -348,7 +348,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, shutup, State2, #{restart_count := 1}]) when Id2 =:= Id andalso
                                                                                                     ChState2 =:= ChState andalso
                                                                                                     State2 =:= InitArg ->
-            {ok, ChState2, State2, {stop, '_'}, [{log, true}]}
+            {{stop, '_'}, ChState2, State2, [{log, true}]}
                 end),
     director_test_utils:handle_return(?CALLBACK, terminate, fun(['_', Arg]) when Arg =:= InitArg -> ok end),
     timer:sleep(50),
@@ -677,7 +677,7 @@ end_per_testcase(_TestCase, _Config) ->
                                      ,fun([Id2, ChState2, killed, State2, #{restart_count := 1}]) when Id2 =:= Id andalso
             ChState2 =:= undefined andalso
             State2 =:= InitArg ->
-            {ok, ChState2, State2, restart, [{log, true}]}
+            {restart, ChState2, State2, [{log, true}]}
                                       end),
     director_test_utils:handle_return(?CALLBACK
                                      ,handle_start
