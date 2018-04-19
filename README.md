@@ -261,24 +261,24 @@ Anything other than {`ok`, Opts}` and `{new_error, _, Opts}` causes **Director**
 ##### Rebar3
 Put this in deps in rebar.config:
 ```erlang
-{director, "18.2.20"}
+{director, "18.4.19"}
 ```
 
 ##### Rebar
 Put this in deps in rebar.config:
 ```erlang
-{director, ".*", {git, "https://github.com/Pouriya-Jahanbakhsh/director.git", {tag, "18.2.20"}}}
+{director, ".*", {git, "https://github.com/Pouriya-Jahanbakhsh/director.git", {tag, "18.4.19"}}}
 ```
 
 ##### Mix
 Put this in deps in mix.exs:
 ```elixir
-{:director, "~> 18.2.20"}
+{:director, "~> 18.4.19"}
 ```
 
 ##### erlang.mk
 ```make
-dep_director = hex 18.2.20
+dep_director = hex 18.4.19
 ```
 
 #### API documentation
@@ -313,4 +313,4 @@ README.md
 
 
 ### Hex version
-[**`18.2.20`**](https://hex.pm/packages/director)
+[**`18.4.19`**](https://hex.pm/packages/director)
