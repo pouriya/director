@@ -161,8 +161,7 @@
 -type handle_start_return() :: {'ok', child_state(), state(), callback_return_options()}
                              | {'stop', reason(), child_state(), callback_return_options()}.
 
--type handle_exit_return() :: {'ok', child_state(), state(), action(), callback_return_options()}
-                            | {'ok', child_state(), state(), callback_return_options()}.
+-type handle_exit_return() :: {action(), child_state(), state(), callback_return_options()}.
 -type  action() :: 'restart'
                  | {'restart', pos_integer()}
                  | 'delete'
@@ -1342,7 +1341,7 @@ handle_exit(Parent
     MetaData = #{restart_count => RestartCount2},
     {HandleExitResult, Log} =
         try Mod:handle_exit(Id, ChState, Rsn, Data, MetaData) of
-            {ok, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
+            {Action, ChState2, Data2, Opts} when erlang:is_list(Opts) ->
                 Log2 =
                     case director_utils:value(log, Opts, ?DEF_LOG) of
                         true ->
@@ -1350,16 +1349,7 @@ handle_exit(Parent
                         _ ->
                             false
                     end,
-                {{ok, ChState2, Data2, ?DEF_ACTION}, Log2};
-            {ok, ChState2, Data2, Action, Opts} when erlang:is_list(Opts) ->
-                Log2 =
-                    case director_utils:value(log, Opts, ?DEF_LOG) of
-                        true ->
-                            true;
-                        _ ->
-                            false
-                    end,
-                {{ok, ChState2, Data2, Action}, Log2};
+                {{Action, ChState2, Data2}, Log2};
             Other ->
                 {{error, {return, [{value, Other}
                                   ,{module, Mod}
@@ -1386,15 +1376,15 @@ handle_exit(Parent
             ok
     end,
     case HandleExitResult of
-        {ok, ChState3, Data3, Action2} ->
+        {Action2, ChState3, Data3} ->
             handle_exit_2(Parent
                          ,Dbg
                          ,State#?STATE{data = Data3}
                          ,Child#?CHILD{state = ChState3, restart_count = RestartCount2}
                          ,Rsn
                          ,Action2);
-        {error, _}=Err ->
-            Err
+        {error, Rsn3} ->
+            terminate(Dbg, State, Rsn3)
     end.
 
 
