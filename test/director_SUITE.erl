@@ -54,7 +54,8 @@
         ,'7'/1
         ,'8'/1
         ,'9'/1
-        ,'10'/1]).
+        ,'10'/1
+        ,'11'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -725,6 +726,23 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual(ok, director:delete_running_child(?DIRECTOR, ChPid)),
     timer:sleep(50),
     ?assertEqual({error, not_found}, director:get_pid(?DIRECTOR, Id)).
+
+
+'11'(_Cfg) ->
+    InitArg = erlang:self(),
+    Id = foo,
+    StartDir =
+        fun() ->
+            InitArg ! director:start_link({local, ?DIRECTOR}, ?CALLBACK, InitArg, ?START_OPTIONS),
+            receive after infinity -> ok end
+        end,
+    erlang:spawn_link(StartDir),
+    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg} end),
+
+    {ok, []} = director:get_pids(?DIRECTOR),
+    ?assertEqual({error, not_found}, director:terminate_child(?DIRECTOR, Id)),
+    ?assertEqual({error, not_found}, director:delete_running_child(?DIRECTOR, erlang:self())),
+    ?assertEqual({error, not_found}, director:restart_child(?DIRECTOR, Id)).
 
 
 %% -------------------------------------------------------------------------------------------------

@@ -1867,6 +1867,8 @@ do_terminate_child(Name, Mod, Data, TabMod, TabState, Id_or_Pid) ->
             do_terminate_child_2(Name, Mod, Data, TabMod, TabState, Child);
         {ok, _} ->
             {soft_error, TabState, not_parent};
+        {soft_error, _, _}=SErr ->
+            SErr;
         {hard_error, _}=HErr ->
             HErr
     end.
