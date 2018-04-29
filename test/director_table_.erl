@@ -101,7 +101,7 @@
 '4'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
     Count = 100,
-    Children = [#?CHILD{id = Int, pid = Int} || Int <- lists:seq(1, Count)],
+    Children = [#?CHILD{id = Int, pid = pid(Int)} || Int <- lists:seq(1, Count)],
     Fold =
         fun(Child, TabState2) ->
             insert(Mod, TabState2, Child)
@@ -141,7 +141,13 @@
 '6'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
     Count = 100,
-    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self()} | [#?CHILD{id = Int, append = true, modules = [], supervisor = erlang:self()} || Int <- lists:seq(1, Count)]],
+    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self()}
+               |[#?CHILD{id = Int
+                        ,append = true
+                        ,modules = []
+                        ,supervisor = erlang:self()
+                        ,pid = pid(Int)}
+               || Int <- lists:seq(1, Count)]],
     Fold =
         fun(Child, TabState2) ->
             insert(Mod, TabState2, Child)
@@ -219,3 +225,7 @@ separate(Mod, TabState, DefChildSpec) ->
     Res = ?M:separate_children(Mod, TabState, DefChildSpec),
     ?assertMatch({ok, _}, Res),
     erlang:element(2, Res).
+
+
+pid(Int) ->
+    erlang:list_to_pid("<0." ++ erlang:integer_to_list(Int) ++ ".0>").
