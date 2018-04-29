@@ -25,7 +25,7 @@ According to the Erlang's manual:  
 	* `handle_exit/5`: Will be called after crashing a child process. This callback-function should tell **Director** how to deal with process crash. Restart child? Restart it after time interval? Delete child from children? Do nothing? Terminate yourself?  
 	* `handle_terminate/5`: Will be called when **Director** terminates a child process.  
 	* `terminate/2`: Will be called for termination of **Director** itself.  
-* Use different databases for keeping children. By default **Director** uses an Erlang list. It has two other modes for keeping children In an ETS or Mnesia table.  
+* Use different databases for keeping children. By default **Director** uses an Erlang list. It has three other modes for keeping children In a map or ETS or Mnesia table.  
 * A number of **Director** processes can use one ETS table on same node (sharing ETS table).
 * A number of **Director** processes can use one Mnesia table on cluster of nodes (sharing Mnesia table).
 * By sharing table **Director**s can start, restart, terminate, etc a number of children simultaneously.  
