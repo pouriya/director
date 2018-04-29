@@ -31,7 +31,7 @@
 %%% POSSIBILITY OF SUCH DAMAGE.
 %%% ------------------------------------------------------------------------------------------------
 %% @author   Pouriya Jahanbakhsh <pouriya.jahanbakhsh@gmail.com>
-%% @version  18.4.19
+%% @version  18.4.29
 %% @doc
 %%           Director is a production-ready supervisor and manager for Erlang/Elixir processes that
 %%           focuses on speed and flexibility.
