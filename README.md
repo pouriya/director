@@ -16,12 +16,12 @@ According to the Erlang's manual:  
 	* `director:get_pid(DirectorRef, ChildId)` gives pid of child if child is alive.  
 	* `director:get_pids(DirectorRef)` gives pids of alive children.  
 	* `director:terminate_and_delete_child(DirectorRef, ChildId)` terminates and deletes a child in one request.  
-	* `director:become_supervisor(DirectorRef, Pid, ChildSpec)` makes **Director** supervisor of alive process.  
+	* `director:become_supervisor(DirectorRef, Pid, ChildSpec)` makes **Director** supervisor of an alive process.  
 	* `director:get_restart_count(DirectorRef, ChildId)` gives restart count of child (useful for debug). 
 	* All functions not listed here.  
 * **Director** is an Erlang behaviour and every callback-module of this behaviour should has following callback-functions (See "How to use?" section for detailed explanation):  
 	* `init/1`: For initialization. Here you can define children database type, debug mode and childspecs of some children that you want to start them in initialize state.  
-	* `handle_start/4`: Will be called after starting a child process.  
+	* `handle_start/4`: Will be called after starting each child process.  
 	* `handle_exit/5`: Will be called after crashing a child process. This callback-function should tell **Director** how to deal with process crash. Restart child? Restart it after time interval? Delete child from children? Do nothing? Terminate yourself?  
 	* `handle_terminate/5`: Will be called when **Director** terminates a child process.  
 	* `terminate/2`: Will be called for termination of **Director** itself.  
