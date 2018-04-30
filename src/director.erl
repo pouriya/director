@@ -959,7 +959,10 @@ process_message(Parent
                ,Dbg
                ,#?STATE{name = Name}=State
                ,{?GEN_CALL_TAG, From, Request}) ->
-    {Dbg2, State2} = process_request(debug(Dbg, Name, {request, From, Request}), State, From, Request),
+    {Dbg2, State2} = process_request(debug(Dbg, Name, {request, From, Request})
+                                    ,State
+                                    ,From
+                                    ,Request),
     loop(Parent, Dbg2, State2);
 process_message(Parent, Dbg, #?STATE{name= Name}=State, {'EXIT', Pid, Reason}=Msg) ->
     process_exit(Parent, debug(Dbg, Name, Msg), State, Pid, Reason);
@@ -1205,7 +1208,8 @@ process_request(Dbg
         {ok, Data2, TabState2, Child2} ->
             case director_table:delete(TabMod, TabState2, Child2) of
                 {ok, TabState3} ->
-                    {reply(Dbg, Name, From, ok), State#?STATE{data = Data2, table_state = TabState3}};
+                    {reply(Dbg, Name, From, ok)
+                    ,State#?STATE{data = Data2, table_state = TabState3}};
                 {hard_error, Rsn}=Err ->
                     Dbg2 = reply(Dbg, Name, From, Err),
                     terminate(Dbg2, State, Rsn)
@@ -1217,7 +1221,10 @@ process_request(Dbg
     end;
 
 process_request(Dbg
-               ,#?STATE{table_module = TabMod, table_state = TabState, name = Name, default_childspec = DefChildSpec}=State
+               ,#?STATE{table_module = TabMod
+                       ,table_state = TabState
+                       ,name = Name
+                       ,default_childspec = DefChildSpec}=State
                ,From
                ,{?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}) ->
     try erlang:is_process_alive(Pid) of % Proc should be on same node
@@ -1390,7 +1397,11 @@ handle_exit(Parent
 
 handle_exit_2(Parent
              ,Dbg
-             ,#?STATE{name = Name, module = Mod, data = Data, table_module = TabMod, table_state = TabState}=State
+             ,#?STATE{name = Name
+                     ,module = Mod
+                     ,data = Data
+                     ,table_module = TabMod
+                     ,table_state = TabState}=State
              ,#?CHILD{id =Id}=Child
              ,Rsn
              ,restart) ->
@@ -1506,7 +1517,11 @@ handle_exit_3(Parent
 
 process_timeout(Parent
                ,Dbg
-               ,#?STATE{name = Name, module = Mod, data = Data, table_module = TabMod, table_state = TabState}=State
+               ,#?STATE{name = Name
+                       ,module = Mod
+                       ,data = Data
+                       ,table_module = TabMod
+                       ,table_state = TabState}=State
                ,TimerPid
                ,Id) ->
     case director_table:lookup_id(TabMod, TabState, Id) of
@@ -1862,7 +1877,8 @@ do_terminate_child(Name, Mod, Data, TabMod, TabState, Id_or_Pid) ->
                 lookup_id
         end,
     case director_table:SearchFunc(TabMod, TabState, Id_or_Pid) of
-        {ok, #?CHILD{pid = Pid, supervisor = Sup}=Child} when Sup =:= self() andalso erlang:is_pid(Pid) ->
+        {ok, #?CHILD{pid = Pid, supervisor = Sup}=Child} when Sup =:= self() andalso
+                                                              erlang:is_pid(Pid) ->
 
             do_terminate_child_2(Name, Mod, Data, TabMod, TabState, Child);
         {ok, _} ->
@@ -1933,7 +1949,8 @@ do_terminate_child_3(Name
                                              ,[{supervisor, Name}
                                               ,{errorContext, shutdown_error}
                                               ,{reason, Rsn}
-                                              ,{offender, director_child:child_to_proplist(Child)}]);
+                                              ,{offender
+                                               ,director_child:child_to_proplist(Child)}]);
                 _ ->
                     ok
             end,
@@ -2207,61 +2224,106 @@ print(IODev, {'EXIT', Id}, Name) ->
     io:format(IODev, add_debug_header(<<"~tp exit signal is from child id ~tp\n">>), [Name, Id]);
 
 print(IODev, {request, From, {?GET_PID_TAG, Id}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting pid of child id ~tp\n">>), [Name, pid(From), Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting pid of child id ~tp\n">>)
+             ,[Name, pid(From), Id]);
 
 print(IODev, {request, From, ?GET_PIDS_TAG}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting pid of all children\n">>), [Name, pid(From)]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting pid of all children\n">>)
+             ,[Name, pid(From)]);
 
 print(IODev, {request, From, ?COUNT_CHILDREN_TAG}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting count of different types of its children\n">>), [Name, pid(From)]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting count of different types of "
+                                 "its children\n">>)
+             ,[Name, pid(From)]);
 
 print(IODev, {request, From, {?DELETE_CHILD_TAG, Id}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for deleting child id ~tp\n">>), [Name, pid(From), Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for deleting child id ~tp\n">>)
+             ,[Name, pid(From), Id]);
 
 print(IODev, {request, From, {?GET_CHILDSPEC_TAG, Id}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting childspec of child id ~tp\n">>), [Name, pid(From), Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting childspec of child id ~tp\n"
+                                 "">>)
+             ,[Name, pid(From), Id]);
 
 print(IODev, {request, From, {?RESTART_CHILD_TAG, Id}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for restarting child id ~tp\n">>), [Name, pid(From), Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for restarting child id ~tp\n">>)
+             ,[Name, pid(From), Id]);
 
 print(IODev, {request, From, {?START_CHILD_TAG, ChildSpec}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for starting childspec ~tp\n">>), [Name, pid(From), ChildSpec]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for starting childspec ~tp\n">>)
+             ,[Name, pid(From), ChildSpec]);
 
 print(IODev, {request, From, {?TERMINATE_CHILD_TAG, Term}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for terminating child ~tp\n">>), [Name, pid(From), Term]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for terminating child ~tp\n">>)
+             ,[Name, pid(From), Term]);
 
 print(IODev, {request, From, ?WHICH_CHILDREN_TAG}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting information about all children\n">>), [Name, pid(From)]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting information about all childr"
+                                 "en\n">>)
+             ,[Name, pid(From)]);
 
 print(IODev, {request, From, {?GET_RESTART_COUNT_TAG, Id}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting restart count of child id ~tp\n">>), [Name, pid(From), Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting restart count of child id ~t"
+                                 "p\n">>)
+             ,[Name, pid(From), Id]);
 
 print(IODev, {request, From, ?GET_DEF_CHILDSPEC}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for getting its default childspec\n">>), [Name, pid(From)]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for getting its default childspec\n">>)
+             ,[Name, pid(From)]);
 
 print(IODev, {request, From, {?CHANGE_DEF_CHILDSPEC, ChildSpec}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for changing its default childspec to ~tp\n">>), [Name, pid(From), ChildSpec]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for changing its default childspec to ~t"
+                                 "p\n">>)
+             ,[Name, pid(From), ChildSpec]);
 
 print(IODev, {request, From, {?TERMINATE_AND_DELETE_CHILD_TAG, Term}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for terminating and deleting child id/pid ~tp\n">>), [Name, pid(From), Term]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for terminating and deleting child id/pi"
+                                 "d ~tp\n">>)
+             ,[Name, pid(From), Term]);
 
 print(IODev, {request, From, {?BECOME_SUPERVISOR_TAG, Pid, ChildSpec}}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got request from ~tp for becoming supervisor of ~tp with childspec ~tp\n">>), [Name, pid(From), Pid, ChildSpec]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got request from ~tp for becoming supervisor of ~tp with chil"
+                                 "dspec ~tp\n">>)
+             ,[Name, pid(From), Pid, ChildSpec]);
 
 print(IODev, {request, From, Req}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got unknown request ~tp from ~tp\n">>), [Name, Req, pid(From)]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got unknown request ~tp from ~tp\n">>)
+             ,[Name, Req, pid(From)]);
 
 print(IODev, {timer, Id, Time}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp starts timer with ~tp milli-seconds timeout for restarting child id ~tp\n">>), [Name, Time, Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp starts timer with ~tp milli-seconds timeout for restarting ch"
+                                 "ild id ~tp\n">>)
+             ,[Name, Time, Id]);
 
 print(IODev, {'DOWN', Ref, Id}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got 'DOWN' signal from timer process ~tp for child id ~tp\n">>), [Name, Ref, Id]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got 'DOWN' signal from timer process ~tp for child id ~tp\n"
+                                 "">>)
+             ,[Name, Ref, Id]);
 
 print(IODev, {system, Msg}, Name) ->
     io:format(IODev, add_debug_header(<<"~tp got system message ~tp\n">>), [Name, Msg]);
 
 print(IODev, {parent, Parent, Rsn}, Name) ->
-    io:format(IODev, add_debug_header(<<"~tp got exit signal from its parent ~tp for reason ~tp\n">>), [Name, Parent, Rsn]);
+    io:format(IODev
+             ,add_debug_header(<<"~tp got exit signal from its parent ~tp for reason ~tp\n">>)
+             ,[Name, Parent, Rsn]);
 
 print(IODev, Other, Name) ->
     io:format(IODev, add_debug_header(<<"~tp got debug ~tp \n">>), [Name, Other]).
