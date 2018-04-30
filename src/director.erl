@@ -2079,12 +2079,26 @@ handle_start_2(Name, Mod, Data, TabMod, TabState, #?CHILD{start = {ChMod, Func, 
                           ,TabState
                           ,Child#?CHILD{pid = undefined, extra = undefined});
         {error, Rsn} ->
-            {soft_error, TabState, Rsn};
+            case director_table:insert(TabMod
+                                      ,TabState
+                                      ,Child#?CHILD{pid = undefined, extra = undefined}) of
+                {ok, TabState2} ->
+                    {soft_error, TabState2, Rsn};
+                {hard_error, _}=HErr ->
+                    HErr
+            end;
         Other ->
-            {soft_error, TabState, {return, [{value, Other}
-                                            ,{module, Mod}
-                                            ,{function, Func}
-                                            ,{arguments, Args}]}}
+            case director_table:insert(TabMod
+                                      ,TabState
+                                      ,Child#?CHILD{pid = undefined, extra = undefined}) of
+                {ok, TabState2} ->
+                    {soft_error, TabState2, {return, [{value, Other}
+                                                     ,{module, Mod}
+                                                     ,{function, Func}
+                                                     ,{arguments, Args}]}};
+                {hard_error, _}=HErr ->
+                    HErr
+            end
     catch
         _:Rsn ->
             {soft_error, TabState, {crash, [{reason, Rsn}

@@ -55,7 +55,8 @@
         ,'8'/1
         ,'9'/1
         ,'10'/1
-        ,'11'/1]).
+        ,'11'/1
+        ,'12'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -743,6 +744,56 @@ end_per_testcase(_TestCase, _Config) ->
     ?assertEqual({error, not_found}, director:terminate_child(?DIRECTOR, Id)),
     ?assertEqual({error, not_found}, director:delete_running_child(?DIRECTOR, erlang:self())),
     ?assertEqual({error, not_found}, director:restart_child(?DIRECTOR, Id)).
+
+
+'12'(_Cfg) ->
+    InitArg = erlang:self(),
+    F =
+        fun() ->
+            InitArg ! erlang:self(),
+            receive
+                M ->
+                    M
+            end
+        end,
+    Id = foo,
+    ChildSpec1 = #{id => Id, start => {?CHILD_MODULE, start_link, [F]}},
+    StartDir =
+        fun() ->
+            InitArg ! director:start_link({local, ?DIRECTOR}, ?CALLBACK, InitArg, ?START_OPTIONS),
+            receive after infinity -> ok end
+        end,
+    erlang:spawn_link(StartDir),
+    director_test_utils:handle_return(?CALLBACK, init, fun([Arg]) when Arg =:= InitArg -> {ok, InitArg, [ChildSpec1]} end),
+    receive
+        Pid ->
+            Pid ! {ok, undefined}
+    end,
+    director_test_utils:handle_return(?CALLBACK
+                                     ,handle_start
+                                     ,fun([Id2, ChState2, State2, #{pid := Pid2, restart_count := 0}]) when Id2 =:= Id andalso
+            ChState2 =:= undefined andalso
+            State2 =:= InitArg andalso
+            erlang:is_pid(Pid2) ->
+            {ok, ChState2, State2, [{log, true}]}
+                                      end),
+    erlang:spawn_link(fun() -> director:terminate_child(?DIRECTOR, Id) end),
+    director_test_utils:handle_return(?CALLBACK
+                                     ,handle_terminate
+                                     ,fun([Id2, ChState2, shutdown, State2, #{restart_count := 0}]) when Id2 =:= Id andalso
+            ChState2 =:= undefined andalso
+            State2 =:= InitArg ->
+            {ok, ChState2, State2, [{log, true}]}
+                                      end),
+    erlang:spawn_link(fun() -> director:restart_child(?DIRECTOR, Id) end),
+    receive
+        Pid2 when erlang:is_pid(Pid2) ->
+            io:format("Pid: ~p~n", [Pid2]),
+            Pid2 ! {stop, oops}
+    end,
+    timer:sleep(10),
+    ?assertEqual({error, undefined}, director:get_pid(?DIRECTOR, Id)),
+    ok.
 
 
 %% -------------------------------------------------------------------------------------------------
