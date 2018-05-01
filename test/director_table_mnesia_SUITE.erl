@@ -50,7 +50,8 @@
         ,'3'/1
         ,'4'/1
         ,'5'/1
-        ,'6'/1]).
+        ,'6'/1
+        ,'7'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -110,3 +111,7 @@ end_per_testcase(_TestCase, _Config) ->
 
 '6'(_Config) ->
     ?TESTER_MODULE:'6'(?TAB_MOD, ?TAB_INIT_ARG).
+
+
+'7'(_) ->
+    ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).

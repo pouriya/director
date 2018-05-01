@@ -50,7 +50,8 @@
         ,'3'/1
         ,'4'/1
         ,'5'/1
-        ,'6'/1]).
+        ,'6'/1
+        ,'7'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -88,25 +89,29 @@ end_per_testcase(_TestCase, _Config) ->
 
 %% -------------------------------------------------------------------------------------------------
 
-'1'(_Config) ->
+'1'(_) ->
     ?TESTER_MODULE:'1'(?TAB_MOD, ?TAB_INIT_ARG).
 
 
-'2'(_Config) ->
+'2'(_) ->
     ?TESTER_MODULE:'2'(?TAB_MOD, ?TAB_INIT_ARG).
 
 
-'3'(_Config) ->
+'3'(_) ->
     ?TESTER_MODULE:'3'(?TAB_MOD, ?TAB_INIT_ARG).
 
 
-'4'(_Config) ->
+'4'(_) ->
     ?TESTER_MODULE:'4'(?TAB_MOD, ?TAB_INIT_ARG).
 
 
-'5'(_Config) ->
+'5'(_) ->
     ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).
 
 
-'6'(_Config) ->
-    ?TESTER_MODULE:'6'(?TAB_MOD, ?TAB_INIT_ARG).
+'6'(_) ->
+    ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).
+
+
+'7'(_) ->
+    ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).

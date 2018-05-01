@@ -43,7 +43,8 @@
         ,'3'/2
         ,'4'/2
         ,'5'/2
-        ,'6'/2]).
+        ,'6'/2
+        ,'7'/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -57,28 +58,12 @@
 %% -------------------------------------------------------------------------------------------------
 
 '1'(Mod, InitArg) ->
-    Create_Delete =
-        fun(_) ->
-            TabState = create(Mod, InitArg),
-            count(Mod, TabState, 0),
-            delete_table(Mod, TabState)
-        end,
-    lists:foreach(Create_Delete, lists:seq(1, 10)).
+    TabState = create(Mod, InitArg),
+    count(Mod, TabState, 0),
+    delete_table(Mod, TabState).
 
 
 '2'(Mod, InitArg) ->
-    TabState = create(Mod, InitArg),
-    Id = id,
-    Child = #?CHILD{id = Id},
-    TabState2 = insert(Mod, TabState, Child),
-    lookup_id(Mod, TabState2, Id, Child),
-    count(Mod, TabState2, 1),
-
-    TabState3 = delete(Mod, TabState2, Child),
-    count(Mod, TabState3, 0).
-
-
-'3'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
     Count = 100,
     Children = [#?CHILD{id = Int, pid = Int} || Int <- lists:seq(1, Count)],
@@ -98,9 +83,9 @@
     count(Mod, TabState3, 0).
 
 
-'4'(Mod, InitArg) ->
+'3'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
-    Count = 100,
+    Count = 10,
     Children = [#?CHILD{id = Int, pid = pid(Int)} || Int <- lists:seq(1, Count)],
     Fold =
         fun(Child, TabState2) ->
@@ -119,7 +104,7 @@
 
 
 
-'5'(Mod, InitArg) ->
+'4'(Mod, InitArg) ->
     [Child1, Child2, Child3] = Children = [#?CHILD{id = 1}, #?CHILD{id = 2}, #?CHILD{id = 3}],
     TabState = create(Mod, InitArg),
     Fold =
@@ -138,10 +123,10 @@
     ?assertEqual(Child3, lists:keyfind(3, 2, List)).
 
 
-'6'(Mod, InitArg) ->
+'5'(Mod, InitArg) ->
     TabState = create(Mod, InitArg),
-    Count = 100,
-    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self()}
+    Count = 10,
+    Children = [#?CHILD{id = id, append = false, supervisor = erlang:self(), modules = []}
                |[#?CHILD{id = Int
                         ,append = true
                         ,modules = []
@@ -162,7 +147,7 @@
             lookup_id(Mod, TabState3, Id, #?CHILD{id = Id, modules = Val, append = true, restart_count = 0, supervisor = erlang:self()})
         end,
     lists:foreach(Foreach, lists:seq(1, Count)),
-    lookup_id(Mod, TabState3, id, #?CHILD{id = id, append = false, supervisor = erlang:self()}),
+    lookup_id(Mod, TabState3, id, #?CHILD{id = id, append = false, supervisor = erlang:self(), modules = []}),
 
     TabState4 = separate(Mod, TabState3, #{modules => Val}),
 
@@ -171,7 +156,43 @@
             lookup_id(Mod, TabState4, Id, #?CHILD{id = Id, append = true, modules = [], restart_count = 0, supervisor = erlang:self()})
         end,
     lists:foreach(Foreach2, lists:seq(1, Count)),
-    lookup_id(Mod, TabState4, id, #?CHILD{id = id, append = false, supervisor = erlang:self()}).
+    lookup_id(Mod, TabState4, id, #?CHILD{id = id, append = false, supervisor = erlang:self(), modules = []}).
+
+
+'6'(Mod, InitArg) ->
+    TabState = create(Mod, InitArg),
+    Count = 10,
+    Ids = lists:seq(1, Count),
+    Children = [#?CHILD{id = Int, pid = pid(Int)} || Int <- Ids],
+    Fold =
+        fun(Child, TabState2) ->
+            insert(Mod, TabState2, Child)
+        end,
+    TabState2 = lists:foldl(Fold, TabState, Children),
+    {ok, Pids} = director_table:get_pids(Mod, TabState2),
+    Fun =
+        fun(X) ->
+            ?assertEqual(true, lists:member({X, pid(X)}, Pids))
+        end,
+    lists:foreach(Fun, Ids).
+
+
+'7'(Mod, InitArg) ->
+    TabState = create(Mod, InitArg),
+    Count = 10,
+    Ids = lists:seq(1, Count),
+    Children = [#?CHILD{id = Int, pid = pid(Int)} || Int <- Ids],
+    Fold =
+        fun(Child, TabState2) ->
+            insert(Mod, TabState2, Child)
+        end,
+    TabState2 = lists:foldl(Fold, TabState, Children),
+    Fun =
+        fun(X) ->
+            Pid = pid(X),
+            ?assertEqual({ok, Pid}, director_table:get_pid(Mod, TabState2, X))
+        end,
+    lists:foreach(Fun, Ids).
 
 %% -------------------------------------------------------------------------------------------------
 
