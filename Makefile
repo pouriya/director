@@ -19,7 +19,10 @@ docs:
 	@ $(REBAR) as doc edoc
 
 test: compile-examples
-	$(REBAR) as test ct && $(REBAR) as test dialyzer && $(REBAR) as test cover
+	$(REBAR) ct && $(REBAR) dialyzer
+
+cover: test
+	$(REBAR) cover && $(REBAR) coveralls send
 
 clean:
 	@ $(REBAR) clean
