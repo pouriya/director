@@ -1652,7 +1652,7 @@ init(Name, Mod, InitArg, Opts) ->
                             ?DEF_DEBUG_OPTIONS
                     end
                 end,
-            Dbg = director_utils:option(Opts4, debug, DbgFilter, ?DEF_DEBUG_OPTIONS),
+            Dbg = director_utils:option(debug, Opts4, DbgFilter, ?DEF_DEBUG_OPTIONS),
             TabFilter =
                 fun
                     (Val) when erlang:is_list(Val) ->
@@ -1702,8 +1702,8 @@ init(Name, Mod, InitArg, Opts) ->
                                            ,[Name, Val]),
                         {?DEF_TABLE_MODE, ?DEF_TABLE_INIT_ARG, ?DEF_DELETE_TABLE}
                 end,
-            {TabMode, TabInitArg, DelTab} = director_utils:option(Opts4
-                                                                 ,db
+            {TabMode, TabInitArg, DelTab} = director_utils:option(db
+                                                                 ,Opts4
                                                                  ,TabFilter
                                                                  ,{?DEF_TABLE_MODE
                                                                   ,?DEF_TABLE_INIT_ARG

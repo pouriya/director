@@ -56,10 +56,10 @@
 %% Functions:
 
 concat(List1, List2) ->
-    lists:reverse(proper(lists:reverse(List1),  proper(List2, []))).
+    proper(proper(List1, []), lists:reverse(proper(List2, []))).
 
 
-option(Opts, Key, Filter, Def) ->
+option(Key, Opts, Filter, Def) ->
     case lists:keyfind(Key, 1, Opts) of
         {_, Val} ->
             Filter(Val);
@@ -96,4 +96,4 @@ proper([H|T], Ret) when erlang:is_list(T) ->
 proper([H|T], Ret) ->
     proper([], [T, H | Ret]);
 proper([], Ret) ->
-    lists:reverse(Ret).
+    Ret.
