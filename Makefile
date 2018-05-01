@@ -21,7 +21,7 @@ docs:
 test: compile-examples
 	$(REBAR) ct && $(REBAR) dialyzer
 
-cover: test
+cover:
 	$(REBAR) cover && $(REBAR) coveralls send
 
 clean:
