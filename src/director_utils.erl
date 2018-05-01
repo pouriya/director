@@ -80,16 +80,6 @@ value(Key, List, Def) ->
 has_duplicate(L) ->
     has_duplicate(L, []).
 
-has_duplicate([Id|Ids], Ids2) ->
-    case lists:member(Id, Ids2) of
-        true ->
-            {true, Id};
-        false ->
-            has_duplicate(Ids, [Id|Ids2])
-    end;
-has_duplicate([], _Ids2) ->
-    false.
-
 
 proper([H|T], Ret) when erlang:is_list(T) ->
     proper(T, [H | Ret]);
@@ -97,3 +87,16 @@ proper([H|T], Ret) ->
     proper([], [T, H | Ret]);
 proper([], Ret) ->
     Ret.
+
+%% -------------------------------------------------------------------------------------------------
+%% Internal functions:
+
+has_duplicate([Id|Ids], Ids2) ->
+    case lists:member(Id, Ids2) of
+        true ->
+            {true, Id};
+        false ->
+            has_duplicate(Ids, [Id|Ids2])
+    end;
+has_duplicate(_, _) -> % ([], Ids2)
+    false.
