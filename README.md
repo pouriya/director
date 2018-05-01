@@ -1,4 +1,4 @@
-![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master)
+![directror travis test status](https://travis-ci.org/Pouriya-Jahanbakhsh/director.png?branch=master) [![Coverage Status](https://coveralls.io/repos/github/Pouriya-Jahanbakhsh/director/badge.svg?branch=master)](https://coveralls.io/github/Pouriya-Jahanbakhsh/director?branch=master)
 
 # Welcome
 
