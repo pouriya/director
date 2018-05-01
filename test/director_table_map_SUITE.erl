@@ -113,4 +113,4 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '7'(_) ->
-    ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).
+    ?TESTER_MODULE:'7'(?TAB_MOD, ?TAB_INIT_ARG).

@@ -66,7 +66,7 @@
 -define(CALLBACK, director_callback).
 -define(CHILD_MODULE, director_child_).
 -define(TAB_NAME, director_table).
--define(TAB, list).
+-define(TAB, ets).
 -define(DB_OPTS, [{table, ?TAB}, {init_arg, ?TAB_NAME}]).
 -define(START_OPTIONS, [{debug, [trace]}
                        ,{db, ?DB_OPTS}]).

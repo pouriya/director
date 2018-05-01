@@ -44,7 +44,8 @@
         ,'4'/2
         ,'5'/2
         ,'6'/2
-        ,'7'/2]).
+        ,'7'/2
+        ,'8'/2]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -193,6 +194,77 @@
             ?assertEqual({ok, Pid}, director_table:get_pid(Mod, TabState2, X))
         end,
     lists:foreach(Fun, Ids).
+
+'8'(Mod, InitArg) ->
+    TabState = create(Mod, InitArg),
+    Count = 10,
+    Ids = lists:seq(1, Count),
+    Children = [#?CHILD{id = Int
+                       ,type = if
+                                   Int rem 2 == 0 ->
+                                       worker;
+                                   true ->
+                                       supervisor
+                               end
+                       ,append = true
+                       ,modules = []
+                       ,supervisor = erlang:self()
+                       ,pid = pid(Int)
+                       ,restart_count = Int}
+        || Int <- Ids],
+    Fold =
+        fun(Child, TabState2) ->
+            insert(Mod, TabState2, Child)
+        end,
+    TabState2 = lists:foldl(Fold, TabState, Children),
+    CountChildrenRes = Mod:count_children(TabState2),
+    ?assert(erlang:is_list(CountChildrenRes)),
+    ?assertEqual(Count div 2, proplists:get_value(workers, CountChildrenRes)),
+    ?assertEqual(Count div 2, proplists:get_value(supervisors, CountChildrenRes)),
+    ?assertEqual(Count, proplists:get_value(active, CountChildrenRes)),
+    ?assertEqual(Count, proplists:get_value(specs, CountChildrenRes)),
+
+    WhichChildren = Mod:which_children(TabState2),
+    ?assert(erlang:is_list(WhichChildren)),
+    WhichChildrenFun =
+        fun(X) ->
+            {_, Pid, Type, Mods} = lists:keyfind(X, 1, WhichChildren),
+            ?assertEqual(Pid, pid(X)),
+            ?assert(Type == worker orelse Type == supervisor),
+            ?assertEqual([], Mods)
+        end,
+    lists:foreach(WhichChildrenFun, Ids),
+
+    GetChildSpecFun =
+        fun(X) ->
+            ?assertMatch({ok, #{id := X}}, Mod:get_childspec(TabState2, X))
+        end,
+    lists:foreach(GetChildSpecFun, Ids),
+
+    GetRestartCountFun =
+        fun(X) ->
+            ?assertMatch({ok, X}, Mod:get_restart_count(TabState2, X))
+        end,
+    lists:foreach(GetRestartCountFun, Ids),
+
+    {ok, Pids} = Mod:get_pids(TabState2),
+    GetPidsFun =
+        fun(X) ->
+            ?assert(lists:member({X, pid(X)}, Pids))
+        end,
+    lists:foreach(GetPidsFun, Ids),
+
+    GetPidFun =
+        fun(X) ->
+            ?assertEqual({ok, pid(X)}, Mod:get_pid(TabState2, X))
+        end,
+    lists:foreach(GetPidFun, Ids),
+
+
+    ok.
+
+
+
 
 %% -------------------------------------------------------------------------------------------------
 

@@ -51,7 +51,9 @@
         ,'4'/1
         ,'5'/1
         ,'6'/1
-        ,'7'/1]).
+        ,'7'/1
+        ,'8'/1
+        ,'9'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -60,32 +62,35 @@
 -define(TAB_INIT_ARG, {value, 'director_table'}).
 -define(TESTER_MODULE, 'director_table_').
 
+-include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 %% -------------------------------------------------------------------------------------------------
 %% ct callbacks:
 
 all() ->
     [erlang:list_to_atom(erlang:integer_to_list(Int))
-    || Int <- lists:seq(1, erlang:length(?MODULE:module_info(exports))-7)].
+    || Int <- lists:seq(1, erlang:length(?MODULE:module_info(exports))-8)].
 
 
 init_per_suite(Config) ->
     application:start(sasl),
-    application:start(mnesia),
     Config.
 
 
 end_per_suite(Config) ->
     application:stop(sasl),
-    application:stop(mnesia),
     Config.
 
 
 init_per_testcase(_TestCase, Config) ->
     erlang:process_flag(trap_exit, true),
+    application:start(mnesia),
     Config.
 
 
 end_per_testcase(_TestCase, _Config) ->
+    application:stop(mnesia),
     ok.
 %% -------------------------------------------------------------------------------------------------
 
@@ -114,4 +119,12 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 '7'(_) ->
-    ?TESTER_MODULE:'5'(?TAB_MOD, ?TAB_INIT_ARG).
+    ?TESTER_MODULE:'7'(?TAB_MOD, ?TAB_INIT_ARG).
+
+
+'8'(_) ->
+    ?TESTER_MODULE:'8'(?TAB_MOD, ?TAB_INIT_ARG).
+
+
+'9'(_) ->
+    ?assert(erlang:is_list(?TAB_MOD:options())).
