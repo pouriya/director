@@ -16,10 +16,10 @@ shell: compile
 	@ erl -pa $(LIB_PATH)/director/ebin
 
 docs:
-	@ $(REBAR) as edown edoc
+	@ $(REBAR) as doc edoc
 
 test: compile-examples
-	$(REBAR) ct && $(REBAR) dialyzer
+	$(REBAR) as test ct && $(REBAR) as test dialyzer && $(REBAR) as test cover
 
 clean:
 	@ $(REBAR) clean
