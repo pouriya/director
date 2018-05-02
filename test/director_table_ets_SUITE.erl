@@ -53,7 +53,8 @@
         ,'6'/1
         ,'7'/1
         ,'8'/1
-        ,'9'/1]).
+        ,'9'/1
+        ,'10'/1]).
 
 %% -------------------------------------------------------------------------------------------------
 %% Records & Macros & Includes:
@@ -85,11 +86,11 @@ end_per_suite(Config) ->
 
 
 init_per_testcase(_TestCase, Config) ->
-    erlang:process_flag(trap_exit, true),
     Config.
 
 
 end_per_testcase(_TestCase, _Config) ->
+    catch ets:delete(?TAB_NAME),
     ok.
 
 %% -------------------------------------------------------------------------------------------------
@@ -128,3 +129,70 @@ end_per_testcase(_TestCase, _Config) ->
 
 '9'(_) ->
     ?assert(erlang:is_list(?TAB_MOD:options())).
+
+
+'10'(_) ->
+    ets:new(?TAB_NAME, ?TAB_MOD:options()),
+    ?assertMatch({ok, _}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    ets:delete(?TAB_NAME),
+
+    ets:new(?TAB_NAME, [public, named_table, {keypos, 2}]),
+    ?assertMatch({ok, _}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    ets:delete(?TAB_NAME),
+
+    ets:new(?TAB_NAME, [protected, named_table, {keypos, 2}]),
+    ?assertMatch({ok, _}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    ets:delete(?TAB_NAME),
+
+    timer:sleep(30),
+    Creator = erlang:spawn_link(fun() -> ets:new(?TAB_NAME, [protected, named_table]), receive _ -> ets:delete(?TAB_NAME) end end),
+    timer:sleep(30),
+    ?assertMatch({hard_error, {table_info, [{protection, _}|_]}}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    Creator ! done,
+
+    timer:sleep(30),
+    Creator2 = erlang:spawn_link(fun() -> ets:new(?TAB_NAME, [public, named_table]), receive _ -> ets:delete(?TAB_NAME) end end),
+    timer:sleep(30),
+    ?assertMatch({hard_error, {table_info, [{keypos, _}|_]}}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    Creator2 ! done,
+
+    timer:sleep(30),
+    Creator3 = erlang:spawn_link(fun() -> ets:new(?TAB_NAME, [public, named_table, bag, {keypos,2}]), receive _ -> ets:delete(?TAB_NAME) end end),
+    timer:sleep(30),
+    ?assertMatch({hard_error, {table_info, [{type, _}|_]}}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    Creator3 ! done,
+    timer:sleep(30),
+
+    ets:new(?TAB_NAME, [protected, named_table]),
+    ?assertMatch({hard_error, {table_info, [{keypos, _}|_]}}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    ets:delete(?TAB_NAME),
+
+    ets:new(?TAB_NAME, [protected, named_table, {keypos, 2}, bag]),
+    ?assertMatch({hard_error, {table_info, [{type, _}|_]}}, ?TAB_MOD:create({value, ?TAB_NAME})),
+    ets:delete(?TAB_NAME),
+
+    ?assertMatch({hard_error, {table_existence, _}}, ?TAB_MOD:delete_table(?TAB_NAME)),
+    ets:new(?TAB_NAME, [public, named_table, {keypos, 2}]),
+    timer:sleep(30),
+    ?assertMatch(ok, ?TAB_MOD:delete_table(?TAB_NAME)),
+
+    ?assertMatch({hard_error, {table_existence, _}}, ?TAB_MOD:lookup_id(?TAB_NAME, foo)),
+    ?assertMatch({hard_error, {table_existence, _}}, ?TAB_MOD:lookup_pid(?TAB_NAME, foo)),
+
+    Creator4 = erlang:spawn_link(fun() -> ets:new(?TAB_NAME, [private, named_table]), receive _ -> ets:delete(?TAB_NAME) end end),
+    timer:sleep(30),
+    ?assertMatch({hard_error, {table_info, [{protection, _}|_]}}, ?TAB_MOD:lookup_id(?TAB_NAME, foo)),
+    Creator4 ! done,
+    timer:sleep(30),
+
+
+
+%%    ets:new(?TAB_NAME, [?TAB_MOD:options()]),
+%%    ?assertMatch({ok, _}, ?TAB_MOD:create({value, ?TAB_NAME})),
+%%    ets:delete(?TAB_NAME),
+%%
+%%    ets:new(?TAB_NAME, [?TAB_MOD:options()]),
+%%    ?assertMatch({ok, _}, ?TAB_MOD:create({value, ?TAB_NAME})),
+%%    ets:delete(?TAB_NAME),
+ok.
+
