@@ -1364,9 +1364,9 @@ handle_exit(Parent
                                   ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
                 ,?DEF_LOG}
         catch
-            _:Rsn2 ->
+            _:Rsn2:Stacktrace ->
                 {{error, {crash, [{reason, Rsn2}
-                                 ,{stacktrace, erlang:get_stacktrace()}
+                                 ,{stacktrace, Stacktrace}
                                  ,{module, Mod}
                                  ,{function, handle_exit}
                                  ,{arguments, [Data, Id, State, Rsn, MetaData]}]}}
@@ -1631,9 +1631,9 @@ init(Name, Mod, InitArg, Opts) ->
                                  ,{function, init}
                                  ,{arguments, [InitArg]}]}}
         catch
-            _:Rsn ->
+            _:Rsn:Stacktrace ->
                 {error, {crash, [{reason, Rsn}
-                                ,{stacktrace, erlang:get_stacktrace()}
+                                ,{stacktrace, Stacktrace}
                                 ,{module, Mod}
                                 ,{function, init}
                                 ,{arguments, [InitArg]}]}}
@@ -1805,9 +1805,9 @@ call_terminate(Name, Mod, Data, Rsn, Msg) ->
             _ ->
                 {Rsn, ?DEF_LOG}
         catch
-            _:Rsn3 ->
+            _:Rsn3:Stacktrace ->
                 {[Rsn, {crash, [{reason, Rsn3}
-                               ,{stacktrace, erlang:get_stacktrace()}
+                               ,{stacktrace, Stacktrace}
                                ,{module, Mod}
                                ,{arguments, [Rsn, Data]}]}]
                 ,?DEF_LOG}
@@ -1987,9 +1987,9 @@ do_terminate_child_3(Name
                              ,{function, handle_terminate}
                              ,{arguments, [Id, State, Rsn,  Data, MetaData]}]}}
     catch
-        _:Rsn2 ->
+        _:Rsn2:Stacktrace ->
             {hard_error, {crash, [{reason, Rsn2}
-                                 ,{stacktrace, erlang:get_stacktrace()}
+                                 ,{stacktrace, Stacktrace}
                                  ,{module, Mod}
                                  ,{function, handle_terminate}
                                  ,{arguments, [Id, State, Rsn,  Data, MetaData]}]}}
@@ -2117,9 +2117,9 @@ handle_start_2(Name, Mod, Data, TabMod, TabState, #?CHILD{start = {ChMod, Func, 
                     HErr
             end
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {soft_error, TabState, {crash, [{reason, Rsn}
-                                           ,{stacktrace, erlang:get_stacktrace()}
+                                           ,{stacktrace, Stacktrace}
                                            ,{module, Mod}
                                            ,{function, Func}
                                            ,{arguments, Args}]}}
@@ -2193,9 +2193,9 @@ handle_start_4(Name
                                   ,{function, handle_start}
                                   ,{arguments, [Id, ChState, Data, MetaData]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {crash, [{reason, Rsn}
-                            ,{stacktrace, erlang:get_stacktrace()}
+                            ,{stacktrace, Stacktrace}
                             ,{module, Mod}
                             ,{function, handle_start}
                             ,{arguments, [Id, ChState, Data, MetaData]}]}}

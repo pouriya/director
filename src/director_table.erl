@@ -258,9 +258,9 @@ create(Mod, InitArg) ->
                                         ,{function, create}
                                         ,{arguments, [InitArg]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, create}
                                        ,{arguments, [InitArg]}]}}
@@ -281,9 +281,9 @@ delete_table(Mod, State) ->
                                         ,{function, delete_table}
                                         ,{arguments, [State]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, delete_table}
                                        ,{arguments, [State]}]}}
@@ -308,9 +308,9 @@ lookup_id(Mod, State, Id) ->
                                         ,{function, lookup_id}
                                         ,{arguments, [State, Id]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, lookup_id}
                                        ,{arguments, [State, Id]}]}}
@@ -331,9 +331,9 @@ count(Mod, State) ->
                                         ,{function, count}
                                         ,{arguments, [State]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, count}
                                        ,{arguments, [State]}]}}
@@ -358,9 +358,9 @@ lookup_pid(Mod, State, Pid) ->
                                         ,{function, lookup_pid}
                                         ,{arguments, [State, Pid]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, lookup_pid}
                                        ,{arguments, [State, Pid]}]}}
@@ -389,9 +389,9 @@ lookup_appended(Mod, State) ->
                                         ,{function, lookup_appended}
                                         ,{arguments, [State]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, lookup_appended}
                                        ,{arguments, [State]}]}}
@@ -412,9 +412,9 @@ insert(Mod, State, Child) ->
                                         ,{function, insert}
                                         ,{arguments, [State, Child]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, insert}
                                        ,{arguments, [State, Child]}]}}
@@ -439,9 +439,9 @@ delete(Mod, State, Child) ->
                                         ,{function, delete}
                                         ,{arguments, [State, Child]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, delete}
                                        ,{arguments, [State, Child]}]}}
@@ -470,9 +470,9 @@ tab2list(Mod, State) ->
                                         ,{function, tab2list}
                                         ,{arguments, [State]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, tab2list}
                                        ,{arguments, [State]}]}}
@@ -555,9 +555,9 @@ handle_message(Mod, State, Msg) ->
                                         ,{function, handle_message}
                                         ,{arguments, [State, Msg]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, handle_message}
                                        ,{arguments, [State, Msg]}]}}
@@ -582,9 +582,9 @@ change_parent(Mod, State, Child) ->
                                         ,{function, change_parent}
                                         ,{arguments, [State, Child]}]}}
     catch
-        _:Rsn ->
+        _:Rsn:Stacktrace ->
             {hard_error, {table_crash, [{reason, Rsn}
-                                       ,{stacktrace, erlang:get_stacktrace()}
+                                       ,{stacktrace, Stacktrace}
                                        ,{module, Mod}
                                        ,{function, change_parent}
                                        ,{arguments, [State, Child]}]}}
